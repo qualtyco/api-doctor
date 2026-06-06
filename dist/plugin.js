@@ -1,0 +1,920 @@
+// src/constants.ts
+var PLUGIN_NAME = "api-doctor";
+
+// src/plugin/rules/resend/webhook-signature.ts
+var rule = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Resend webhook handlers must verify signatures before processing payloads",
+      recommended: true
+    },
+    messages: {
+      missingVerification: "This webhook handler processes Resend events without verifying the signature first."
+    }
+  },
+  // eslint-style rule API: `create(context)` returns visitor map.
+  create(context) {
+    let importsResend = false;
+    const svixImports = /* @__PURE__ */ new Set();
+    const postHandlers = [];
+    function nodeStartPos(n) {
+      const rangeStart = typeof n?.range?.[0] === "number" ? n.range[0] : null;
+      const line = n?.loc?.start?.line ?? 1;
+      const column = n?.loc?.start?.column ?? 0;
+      const offset = rangeStart ?? line * 1e6 + column;
+      return { offset, line, column };
+    }
+    function nodeEndPos(n) {
+      const rangeEnd = typeof n?.range?.[1] === "number" ? n.range[1] : null;
+      const line = n?.loc?.end?.line ?? n?.loc?.start?.line ?? 1;
+      const column = n?.loc?.end?.column ?? n?.loc?.start?.column ?? 0;
+      const offset = rangeEnd ?? line * 1e6 + column;
+      return { offset, line, column };
+    }
+    function within(handler, n) {
+      const p = nodeStartPos(n);
+      return p.offset >= handler.start.offset && p.offset <= handler.end.offset;
+    }
+    function isExportedPostHandler(fnNode) {
+      if (fnNode?.type === "FunctionDeclaration") return fnNode?.id?.name === "POST";
+      return fnNode?.type === "ArrowFunctionExpression" || fnNode?.type === "FunctionExpression";
+    }
+    function getHandlerFromExportNamedDeclaration(node) {
+      const handlers = [];
+      const decl = node?.declaration;
+      if (!decl) return handlers;
+      if (decl.type === "FunctionDeclaration") {
+        if (decl.id?.name === "POST") {
+          handlers.push({
+            node: decl,
+            start: nodeStartPos(decl),
+            end: nodeEndPos(decl),
+            firstBodyPos: void 0,
+            firstVerifyPos: void 0
+          });
+        }
+        return handlers;
+      }
+      if (decl.type === "VariableDeclaration") {
+        for (const d of decl.declarations ?? []) {
+          const idName = d?.id?.type === "Identifier" ? d.id.name : null;
+          if (idName !== "POST") continue;
+          const init = d?.init;
+          if (!init) continue;
+          if (!isExportedPostHandler(init)) continue;
+          handlers.push({
+            node: init,
+            start: nodeStartPos(init),
+            end: nodeEndPos(init),
+            firstBodyPos: void 0,
+            firstVerifyPos: void 0
+          });
+        }
+      }
+      return handlers;
+    }
+    function isReqJsonCall(n) {
+      if (n?.type !== "CallExpression") return false;
+      const callee = n.callee;
+      if (callee?.type !== "MemberExpression") return false;
+      const prop = callee.property;
+      if (prop?.type !== "Identifier" || prop.name !== "json") return false;
+      const obj = callee.object;
+      return obj?.type === "Identifier" && (obj.name === "req" || obj.name === "request");
+    }
+    function isBodyMember(n) {
+      if (n?.type !== "MemberExpression") return false;
+      const prop = n.property;
+      if (prop?.type !== "Identifier" || prop.name !== "body") return false;
+      const obj = n.object;
+      return obj?.type === "Identifier" && (obj.name === "req" || obj.name === "request");
+    }
+    function isCryptoCreateHmacCall(n) {
+      if (n?.type !== "CallExpression") return false;
+      const callee = n.callee;
+      if (callee?.type !== "MemberExpression") return false;
+      const prop = callee.property;
+      if (prop?.type !== "Identifier" || prop.name !== "createHmac") return false;
+      return callee.object?.type === "Identifier" || callee.object?.type === "MemberExpression";
+    }
+    function isSvixVerifyCall(n) {
+      if (n?.type !== "CallExpression") return false;
+      const callee = n.callee;
+      if (callee?.type !== "MemberExpression") return false;
+      const prop = callee.property;
+      if (prop?.type !== "Identifier" || prop.name !== "verify") return false;
+      const obj = callee.object;
+      return obj?.type === "Identifier" && svixImports.has(obj.name);
+    }
+    function recordFirst(posKey, handler, pos) {
+      const existing = handler[posKey];
+      if (!existing) {
+        handler[posKey] = pos;
+        return;
+      }
+      if (pos.offset < existing.offset) {
+        handler[posKey] = pos;
+      }
+    }
+    return {
+      ImportDeclaration(node) {
+        const importSource = node?.source?.value;
+        if (importSource === "resend") importsResend = true;
+        if (importSource === "svix") {
+          for (const s of node.specifiers ?? []) {
+            if (s?.type === "ImportSpecifier" && s.local?.type === "Identifier") {
+              svixImports.add(s.local.name);
+            }
+            if ((s?.type === "ImportDefaultSpecifier" || s?.type === "ImportNamespaceSpecifier") && s.local?.type === "Identifier") {
+              svixImports.add(s.local.name);
+            }
+          }
+        }
+      },
+      ExportNamedDeclaration(node) {
+        const handlers = getHandlerFromExportNamedDeclaration(node);
+        for (const h of handlers) postHandlers.push(h);
+      },
+      CallExpression(node) {
+        if (postHandlers.length === 0) return;
+        const pos = nodeStartPos(node);
+        for (const handler of postHandlers) {
+          if (!within(handler, node)) continue;
+          if (isReqJsonCall(node)) recordFirst("firstBodyPos", handler, pos);
+          if (isSvixVerifyCall(node)) recordFirst("firstVerifyPos", handler, pos);
+          if (isCryptoCreateHmacCall(node)) recordFirst("firstVerifyPos", handler, pos);
+        }
+      },
+      MemberExpression(node) {
+        if (postHandlers.length === 0) return;
+        if (!isBodyMember(node)) return;
+        const pos = nodeStartPos(node);
+        for (const handler of postHandlers) {
+          if (!within(handler, node)) continue;
+          recordFirst("firstBodyPos", handler, pos);
+        }
+      },
+      "Program:exit"() {
+        if (!importsResend) return;
+        for (const handler of postHandlers) {
+          if (!handler.firstVerifyPos) {
+            context.report({ node: handler.node, messageId: "missingVerification" });
+            continue;
+          }
+          if (handler.firstBodyPos && handler.firstVerifyPos.offset > handler.firstBodyPos.offset) {
+            context.report({ node: handler.node, messageId: "missingVerification" });
+          }
+        }
+      }
+    };
+  }
+};
+var resendWebhookSignatureRule = rule;
+
+// src/plugin/rules/resend/api-key-hardcoded.ts
+var RESEND_KEY_PATTERN = /\bre_[A-Za-z0-9_]+/;
+var rule2 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Resend API keys must not be hardcoded; load them from environment variables",
+      category: "security",
+      cwe: "CWE-798",
+      owasp: "API8:2023 Security Misconfiguration",
+      docsUrl: "https://resend.com/docs/send-with-nextjs#prerequisites",
+      recommended: true
+    },
+    messages: {
+      hardcodedApiKey: "Hardcoded Resend API key detected. Load the key from process.env.RESEND_API_KEY instead."
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      Literal(node) {
+        if (typeof node.value !== "string") return;
+        if (RESEND_KEY_PATTERN.test(node.value)) {
+          context.report({ node, messageId: "hardcodedApiKey" });
+        }
+      },
+      TemplateElement(node) {
+        const cooked = node?.value?.cooked ?? node?.value?.raw;
+        if (typeof cooked !== "string") return;
+        if (RESEND_KEY_PATTERN.test(cooked)) {
+          context.report({ node, messageId: "hardcodedApiKey" });
+        }
+      }
+    };
+  }
+};
+var resendApiKeyHardcodedRule = rule2;
+
+// src/plugin/rules/resend/api-key-in-client-bundle.ts
+function isComponentsPath(filename) {
+  return /[\\/]components[\\/]/.test(filename);
+}
+var rule3 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "The Resend SDK must not be imported into client-bundled code",
+      category: "security",
+      cwe: "CWE-200",
+      owasp: "API8:2023 Security Misconfiguration",
+      docsUrl: "https://resend.com/docs/send-with-nextjs",
+      recommended: true
+    },
+    messages: {
+      clientBundleImport: "Resend is imported into client-bundled code. Keep Resend (and its API key) on the server."
+    },
+    schema: []
+  },
+  create(context) {
+    let resendImportNode = null;
+    let hasUseClient = false;
+    let hasJsx = false;
+    return {
+      Program(node) {
+        for (const stmt of node.body ?? []) {
+          if (stmt?.type !== "ExpressionStatement") continue;
+          const directive = stmt.directive ?? (stmt.expression?.type === "Literal" ? stmt.expression.value : void 0);
+          if (directive === "use client") {
+            hasUseClient = true;
+            break;
+          }
+        }
+      },
+      ImportDeclaration(node) {
+        if (node?.source?.value !== "resend") return;
+        if (node.importKind === "type") return;
+        const allSpecifiersAreType = Array.isArray(node.specifiers) && node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type");
+        if (allSpecifiersAreType) return;
+        resendImportNode = node;
+      },
+      JSXElement() {
+        hasJsx = true;
+      },
+      JSXFragment() {
+        hasJsx = true;
+      },
+      "Program:exit"() {
+        if (!resendImportNode) return;
+        const inClientBundle = hasUseClient || isComponentsPath(String(context.filename ?? "")) && hasJsx;
+        if (inClientBundle) {
+          context.report({ node: resendImportNode, messageId: "clientBundleImport" });
+        }
+      }
+    };
+  }
+};
+var resendApiKeyInClientBundleRule = rule3;
+
+// src/plugin/utils/resend.ts
+function isResendEmailsSendCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return false;
+  if (callee.property?.type !== "Identifier" || callee.property.name !== "send") return false;
+  const obj = callee.object;
+  return obj?.type === "MemberExpression" && obj.property?.type === "Identifier" && obj.property.name === "emails";
+}
+function isResendBatchSendCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return false;
+  if (callee.property?.type !== "Identifier" || callee.property.name !== "send") return false;
+  const obj = callee.object;
+  return obj?.type === "MemberExpression" && obj.property?.type === "Identifier" && obj.property.name === "batch";
+}
+function isResendSendCall(node) {
+  return isResendEmailsSendCall(node) || isResendBatchSendCall(node);
+}
+function getObjectArg(node, index) {
+  const arg = node?.arguments?.[index];
+  return arg?.type === "ObjectExpression" ? arg : null;
+}
+function getSendOptionObjects(node) {
+  if (isResendEmailsSendCall(node)) {
+    const opts = getObjectArg(node, 0);
+    return opts ? [opts] : [];
+  }
+  if (isResendBatchSendCall(node)) {
+    const arr = node?.arguments?.[0];
+    if (arr?.type !== "ArrayExpression") return [];
+    return (arr.elements ?? []).filter((el) => el?.type === "ObjectExpression");
+  }
+  return [];
+}
+function findProperty(objectExpression, name) {
+  if (objectExpression?.type !== "ObjectExpression") return void 0;
+  return objectExpression.properties?.find(
+    (p) => p?.type === "Property" && (p.key?.type === "Identifier" && p.key.name === name || p.key?.type === "Literal" && p.key.value === name)
+  );
+}
+function isInsideTestFile(filename) {
+  return /(^|[\\/])__tests__[\\/]|\.(test|spec)\.[cm]?[jt]sx?$/.test(filename);
+}
+function startOffset(n) {
+  if (typeof n?.range?.[0] === "number") return n.range[0];
+  if (typeof n?.start === "number") return n.start;
+  return (n?.loc?.start?.line ?? 0) * 1e6 + (n?.loc?.start?.column ?? 0);
+}
+function endOffset(n) {
+  if (typeof n?.range?.[1] === "number") return n.range[1];
+  if (typeof n?.end === "number") return n.end;
+  return (n?.loc?.end?.line ?? n?.loc?.start?.line ?? 0) * 1e6 + (n?.loc?.end?.column ?? 0);
+}
+function contains(outer, inner) {
+  const s = startOffset(inner);
+  return s >= startOffset(outer) && s <= endOffset(outer);
+}
+
+// src/plugin/rules/resend/marketing-via-batch-send.ts
+var MARKETING_PATH = /marketing|campaign|newsletter|promotion|broadcast/i;
+var rule4 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Marketing emails should use the Broadcasts API, not resend.batch.send",
+      category: "correctness",
+      docsUrl: "https://resend.com/docs/dashboard/emails/batch-sending",
+      recommended: true
+    },
+    messages: {
+      marketingViaBatch: "Marketing/campaign email sent via resend.batch.send. Use the Broadcasts API for marketing sends."
+    },
+    schema: []
+  },
+  create(context) {
+    const isMarketingFile = MARKETING_PATH.test(String(context.filename ?? ""));
+    return {
+      CallExpression(node) {
+        if (!isMarketingFile) return;
+        if (isResendBatchSendCall(node)) {
+          context.report({ node, messageId: "marketingViaBatch" });
+        }
+      }
+    };
+  }
+};
+var resendMarketingViaBatchSendRule = rule4;
+
+// src/plugin/rules/resend/marketing-missing-unsubscribe.ts
+var MARKETING_TAG = /marketing|campaign|newsletter|promotion/i;
+var UNSUBSCRIBE_PLACEHOLDER = "{{{RESEND_UNSUBSCRIBE_URL}}}";
+function literalString(node) {
+  if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+  if (node?.type === "TemplateLiteral") {
+    return (node.quasis ?? []).map((q) => q?.value?.cooked ?? q?.value?.raw ?? "").join(" ");
+  }
+  return void 0;
+}
+function hasMarketingTag(opts) {
+  const tagsProp = findProperty(opts, "tags");
+  const arr = tagsProp?.value;
+  if (arr?.type !== "ArrayExpression") return false;
+  for (const el of arr.elements ?? []) {
+    if (el?.type !== "ObjectExpression") continue;
+    const valueProp = findProperty(el, "value");
+    const v = literalString(valueProp?.value);
+    if (typeof v === "string" && MARKETING_TAG.test(v)) return true;
+  }
+  return false;
+}
+function hasListUnsubscribeHeader(opts) {
+  const headersProp = findProperty(opts, "headers");
+  const obj = headersProp?.value;
+  if (obj?.type !== "ObjectExpression") return false;
+  return (obj.properties ?? []).some((p) => {
+    if (p?.type !== "Property") return false;
+    const key = p.key?.type === "Literal" ? String(p.key.value) : p.key?.type === "Identifier" ? p.key.name : "";
+    return key.toLowerCase() === "list-unsubscribe";
+  });
+}
+function htmlHasUnsubscribePlaceholder(opts) {
+  const htmlProp = findProperty(opts, "html");
+  const text = literalString(htmlProp?.value);
+  return typeof text === "string" && text.includes(UNSUBSCRIBE_PLACEHOLDER);
+}
+function hasUnsubscribeMechanism(opts) {
+  return hasListUnsubscribeHeader(opts) || htmlHasUnsubscribePlaceholder(opts);
+}
+var rule5 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Marketing emails must include an unsubscribe mechanism",
+      category: "correctness",
+      docsUrl: "https://resend.com/docs/dashboard/broadcasts/introduction",
+      recommended: true
+    },
+    messages: {
+      missingUnsubscribe: "Marketing email has no unsubscribe mechanism (List-Unsubscribe header or {{{RESEND_UNSUBSCRIBE_URL}}})."
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        for (const opts of getSendOptionObjects(node)) {
+          if (hasMarketingTag(opts) && !hasUnsubscribeMechanism(opts)) {
+            context.report({ node, messageId: "missingUnsubscribe" });
+            return;
+          }
+        }
+      }
+    };
+  }
+};
+var resendMarketingMissingUnsubscribeRule = rule5;
+
+// src/plugin/rules/resend/test-domain-in-production-path.ts
+var TEST_DOMAIN = "onboarding@resend.dev";
+var rule6 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Do not use the onboarding@resend.dev test domain in production code",
+      category: "correctness",
+      docsUrl: "https://resend.com/docs/send-with-nextjs",
+      recommended: true
+    },
+    messages: {
+      testDomain: "onboarding@resend.dev is a test-only sender. Use a verified domain (via process.env) in production."
+    },
+    schema: []
+  },
+  create(context) {
+    if (isInsideTestFile(String(context.filename ?? ""))) return {};
+    return {
+      Literal(node) {
+        if (typeof node.value === "string" && node.value.includes(TEST_DOMAIN)) {
+          context.report({ node, messageId: "testDomain" });
+        }
+      },
+      TemplateElement(node) {
+        const cooked = node?.value?.cooked ?? node?.value?.raw;
+        if (typeof cooked === "string" && cooked.includes(TEST_DOMAIN)) {
+          context.report({ node, messageId: "testDomain" });
+        }
+      }
+    };
+  }
+};
+var resendTestDomainInProductionPathRule = rule6;
+
+// src/plugin/rules/resend/from-address-not-friendly-format.ts
+var BARE_EMAIL = /^[^<>]+@[^<>]+$/;
+var rule7 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: 'Resend from addresses should use the friendly-name format "Name <email>"',
+      category: "integration",
+      docsUrl: "https://resend.com/docs/api-reference/emails/send-email",
+      recommended: true
+    },
+    messages: {
+      bareFromAddress: 'From address is a bare email. Use the friendly format "Name <email@domain>" as shown in the docs.'
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        for (const opts of getSendOptionObjects(node)) {
+          const fromProp = findProperty(opts, "from");
+          const value = fromProp?.value;
+          if (value?.type === "Literal" && typeof value.value === "string" && BARE_EMAIL.test(value.value.trim())) {
+            context.report({ node: value, messageId: "bareFromAddress" });
+          }
+        }
+      }
+    };
+  }
+};
+var resendFromAddressNotFriendlyFormatRule = rule7;
+
+// src/plugin/rules/resend/batch-size-not-enforced.ts
+var COMPARISON_OPERATORS = /* @__PURE__ */ new Set([">", ">=", "<", "<=", "===", "!==", "==", "!="]);
+var rule8 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Enforce the 100-email batch limit before calling resend.batch.send",
+      category: "reliability",
+      docsUrl: "https://resend.com/docs/api-reference/emails/send-batch-emails",
+      recommended: true
+    },
+    messages: {
+      batchSizeNotEnforced: "resend.batch.send has a 100-email limit. Guard the array length (e.g. if (items.length > 100)) before sending."
+    },
+    schema: []
+  },
+  create(context) {
+    const functions = [];
+    const loops = [];
+    const lengthChecks = /* @__PURE__ */ new Map();
+    const batchCalls = [];
+    function isLengthOfName(member) {
+      if (member?.type !== "MemberExpression") return null;
+      if (member.property?.type !== "Identifier" || member.property.name !== "length") return null;
+      if (member.object?.type !== "Identifier") return null;
+      return member.object.name;
+    }
+    return {
+      FunctionDeclaration(node) {
+        functions.push(node);
+      },
+      FunctionExpression(node) {
+        functions.push(node);
+      },
+      ArrowFunctionExpression(node) {
+        functions.push(node);
+      },
+      ForStatement(node) {
+        loops.push(node);
+      },
+      ForOfStatement(node) {
+        loops.push(node);
+      },
+      ForInStatement(node) {
+        loops.push(node);
+      },
+      WhileStatement(node) {
+        loops.push(node);
+      },
+      DoWhileStatement(node) {
+        loops.push(node);
+      },
+      BinaryExpression(node) {
+        if (!COMPARISON_OPERATORS.has(node.operator)) return;
+        for (const side of [node.left, node.right]) {
+          const name = isLengthOfName(side);
+          if (name) {
+            const list = lengthChecks.get(name) ?? [];
+            list.push(node);
+            lengthChecks.set(name, list);
+          }
+        }
+      },
+      CallExpression(node) {
+        if (!isResendBatchSendCall(node)) return;
+        const arg = node.arguments?.[0];
+        if (arg?.type !== "Identifier") return;
+        batchCalls.push({ node, argName: arg.name });
+      },
+      "Program:exit"() {
+        for (const { node, argName } of batchCalls) {
+          if (loops.some((loop) => contains(loop, node))) continue;
+          const enclosing = functions.filter((fn) => contains(fn, node)).sort((a, b) => startOffset(b) - startOffset(a))[0];
+          const checks = lengthChecks.get(argName) ?? [];
+          const guarded = enclosing ? checks.some((chk) => contains(enclosing, chk)) : checks.length > 0;
+          if (!guarded) {
+            context.report({ node, messageId: "batchSizeNotEnforced" });
+          }
+        }
+      }
+    };
+  }
+};
+var resendBatchSizeNotEnforcedRule = rule8;
+
+// src/plugin/rules/resend/missing-idempotency-key.ts
+var rule9 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Resend send/batch calls should include an idempotencyKey",
+      category: "reliability",
+      docsUrl: "https://resend.com/docs/send-with-nextjs",
+      recommended: true
+    },
+    messages: {
+      missingIdempotencyKey: "Resend send call has no idempotencyKey. Add one to prevent duplicate sends on retry."
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        if (!isResendSendCall(node)) return;
+        const hasKey = (node.arguments ?? []).some(
+          (arg) => arg?.type === "ObjectExpression" && findProperty(arg, "idempotencyKey")
+        );
+        if (!hasKey) {
+          context.report({ node, messageId: "missingIdempotencyKey" });
+        }
+      }
+    };
+  }
+};
+var resendMissingIdempotencyKeyRule = rule9;
+
+// src/plugin/rules/resend/no-error-code-mapping.ts
+var rule10 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Resend errors should map to appropriate HTTP status codes, not a blanket 500",
+      category: "reliability",
+      docsUrl: "https://resend.com/docs/ai-onboarding",
+      recommended: true
+    },
+    messages: {
+      noErrorCodeMapping: "Resend errors are returned as a blanket HTTP 500. Map 400/401/403/422 to non-500 statuses."
+    },
+    schema: []
+  },
+  create(context) {
+    const functions = [];
+    const resendErrorBindings = [];
+    const ifErrorStatements = [];
+    const fiveHundredNodes = [];
+    function initIsResendSend(init) {
+      if (!init) return false;
+      const expr = init.type === "AwaitExpression" ? init.argument : init;
+      return isResendSendCall(expr);
+    }
+    function isNextResponse500(node) {
+      const callee = node.callee;
+      if (callee?.type !== "MemberExpression") return false;
+      if (callee.property?.type !== "Identifier" || callee.property.name !== "json") return false;
+      const opts = node.arguments?.[1];
+      const statusProp = findProperty(opts, "status");
+      return statusProp?.value?.type === "Literal" && statusProp.value.value === 500;
+    }
+    function isResStatus500(node) {
+      const callee = node.callee;
+      if (callee?.type !== "MemberExpression") return false;
+      if (callee.property?.type !== "Identifier" || callee.property.name !== "status") return false;
+      const arg = node.arguments?.[0];
+      return arg?.type === "Literal" && arg.value === 500;
+    }
+    return {
+      FunctionDeclaration(node) {
+        functions.push(node);
+      },
+      FunctionExpression(node) {
+        functions.push(node);
+      },
+      ArrowFunctionExpression(node) {
+        functions.push(node);
+      },
+      VariableDeclarator(node) {
+        if (!initIsResendSend(node.init)) return;
+        if (node.id?.type !== "ObjectPattern") return;
+        const errorProp = (node.id.properties ?? []).find(
+          (p) => p?.type === "Property" && p.key?.type === "Identifier" && p.key.name === "error"
+        );
+        if (!errorProp) return;
+        const localName = errorProp.value?.type === "Identifier" ? errorProp.value.name : "error";
+        resendErrorBindings.push({ name: localName, pos: startOffset(node) });
+      },
+      IfStatement(node) {
+        if (node.test?.type === "Identifier") {
+          ifErrorStatements.push({ node, name: node.test.name, consequent: node.consequent });
+        }
+      },
+      CallExpression(node) {
+        if (isNextResponse500(node) || isResStatus500(node)) {
+          fiveHundredNodes.push(node);
+        }
+      },
+      "Program:exit"() {
+        for (const { node, name, consequent } of ifErrorStatements) {
+          const has500 = fiveHundredNodes.some((five) => contains(consequent, five));
+          if (!has500) continue;
+          const enclosing = functions.filter((fn) => contains(fn, node)).sort((a, b) => startOffset(b) - startOffset(a))[0];
+          const boundFromResend = resendErrorBindings.some(
+            (b) => b.name === name && (enclosing ? contains(enclosing, { range: [b.pos, b.pos] }) : true)
+          );
+          if (boundFromResend) {
+            context.report({ node, messageId: "noErrorCodeMapping" });
+          }
+        }
+      }
+    };
+  }
+};
+var resendNoErrorCodeMappingRule = rule10;
+
+// src/plugin/rules/resend/webhook-no-idempotency.ts
+var DEDUP_OBJECTS = /* @__PURE__ */ new Set(["redis", "kv", "db", "prisma", "supabase", "cache", "store"]);
+var DEDUP_METHODS = /* @__PURE__ */ new Set([
+  "has",
+  "add",
+  "sadd",
+  "sismember",
+  "exists",
+  "findUnique",
+  "findFirst",
+  "upsert"
+]);
+var EVENT_ID_PROPS = /* @__PURE__ */ new Set(["email_id", "eventId", "event_id"]);
+var rule11 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Resend webhook handlers should deduplicate retried events",
+      category: "reliability",
+      docsUrl: "https://resend.com/docs/dashboard/webhooks/introduction",
+      recommended: true
+    },
+    messages: {
+      noIdempotency: "Resend webhook handler has no deduplication. Resend retries for 24h; track processed event ids."
+    },
+    schema: []
+  },
+  create(context) {
+    let importsSvix = false;
+    const postHandlers = [];
+    const dedupSignals = [];
+    function collectPostHandler(decl) {
+      if (!decl) return;
+      if (decl.type === "FunctionDeclaration" && decl.id?.name === "POST") {
+        postHandlers.push(decl);
+        return;
+      }
+      if (decl.type === "VariableDeclaration") {
+        for (const d of decl.declarations ?? []) {
+          if (d?.id?.type === "Identifier" && d.id.name === "POST" && (d.init?.type === "ArrowFunctionExpression" || d.init?.type === "FunctionExpression")) {
+            postHandlers.push(d.init);
+          }
+        }
+      }
+    }
+    return {
+      ImportDeclaration(node) {
+        if (node?.source?.value === "svix") importsSvix = true;
+      },
+      ExportNamedDeclaration(node) {
+        collectPostHandler(node.declaration);
+      },
+      NewExpression(node) {
+        if (node.callee?.type === "Identifier" && (node.callee.name === "Map" || node.callee.name === "Set")) {
+          dedupSignals.push(node);
+        }
+      },
+      CallExpression(node) {
+        const callee = node.callee;
+        if (callee?.type !== "MemberExpression") return;
+        const objName = callee.object?.type === "Identifier" ? callee.object.name : void 0;
+        const methodName = callee.property?.type === "Identifier" ? callee.property.name : void 0;
+        if (objName && DEDUP_OBJECTS.has(objName) || methodName && DEDUP_METHODS.has(methodName)) {
+          dedupSignals.push(node);
+        }
+      },
+      MemberExpression(node) {
+        if (node.property?.type === "Identifier" && EVENT_ID_PROPS.has(node.property.name)) {
+          dedupSignals.push(node);
+        }
+      },
+      "Program:exit"() {
+        if (!importsSvix) return;
+        for (const handler of postHandlers) {
+          const hasDedup = dedupSignals.some(
+            (sig) => startOffset(sig) >= startOffset(handler) && endOffset(sig) <= endOffset(handler)
+          );
+          if (!hasDedup) {
+            context.report({ node: handler, messageId: "noIdempotency" });
+          }
+        }
+      }
+    };
+  }
+};
+var resendWebhookNoIdempotencyRule = rule11;
+
+// src/plugin/rules/resend/missing-tags.ts
+var rule12 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Resend sends should include tags for deliverability segmentation",
+      category: "integration",
+      docsUrl: "https://resend.com/docs/dashboard/emails/tags",
+      recommended: true
+    },
+    messages: {
+      missingTags: 'Resend send has no tags. Add tags (e.g. [{ name: "category", value: "welcome" }]) for segmentation.'
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        if (!isResendSendCall(node)) return;
+        const optionObjects = getSendOptionObjects(node);
+        if (optionObjects.length === 0) return;
+        const someMissingTags = optionObjects.some((opts) => !findProperty(opts, "tags"));
+        if (someMissingTags) {
+          context.report({ node, messageId: "missingTags" });
+        }
+      }
+    };
+  }
+};
+var resendMissingTagsRule = rule12;
+
+// src/plugin/rules/resend/request-id-not-logged.ts
+var REQUEST_ID_HEADERS = /* @__PURE__ */ new Set(["x-request-id", "x-resend-request-id"]);
+var rule13 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Log the Resend request id when handling errors",
+      category: "integration",
+      docsUrl: "https://resend.com/docs/api-reference/errors",
+      recommended: true
+    },
+    messages: {
+      requestIdNotLogged: "Error handler logs error.message but not the Resend request id (x-request-id / x-resend-request-id)."
+    },
+    schema: []
+  },
+  create(context) {
+    let importsResend = false;
+    const scopes = [];
+    const messageAccesses = [];
+    const requestIdPositions = [];
+    function within(range, pos) {
+      return pos >= range[0] && pos <= range[1];
+    }
+    return {
+      ImportDeclaration(node) {
+        if (node?.source?.value === "resend") importsResend = true;
+      },
+      CatchClause(node) {
+        const param = node.param;
+        if (param?.type === "Identifier" && node.body) {
+          scopes.push({
+            node,
+            name: param.name,
+            range: [startOffset(node.body), endOffset(node.body)]
+          });
+        }
+      },
+      IfStatement(node) {
+        if (node.test?.type === "Identifier" && node.consequent) {
+          scopes.push({
+            node,
+            name: node.test.name,
+            range: [startOffset(node.consequent), endOffset(node.consequent)]
+          });
+        }
+      },
+      MemberExpression(node) {
+        if (node.property?.type === "Identifier" && node.property.name === "message" && node.object?.type === "Identifier") {
+          messageAccesses.push({ name: node.object.name, pos: startOffset(node) });
+        }
+      },
+      Literal(node) {
+        if (typeof node.value === "string" && REQUEST_ID_HEADERS.has(node.value.toLowerCase())) {
+          requestIdPositions.push(startOffset(node));
+        }
+      },
+      "Program:exit"() {
+        if (!importsResend) return;
+        for (const scope of scopes) {
+          const logsMessage = messageAccesses.some(
+            (m) => m.name === scope.name && within(scope.range, m.pos)
+          );
+          if (!logsMessage) continue;
+          const logsRequestId = requestIdPositions.some((pos) => within(scope.range, pos));
+          if (!logsRequestId) {
+            context.report({ node: scope.node, messageId: "requestIdNotLogged" });
+          }
+        }
+      }
+    };
+  }
+};
+var resendRequestIdNotLoggedRule = rule13;
+
+// src/plugin/index.ts
+var plugin = {
+  meta: { name: PLUGIN_NAME, version: "0.0.1" },
+  rules: {
+    "resend-webhook-signature": resendWebhookSignatureRule,
+    "resend-api-key-hardcoded": resendApiKeyHardcodedRule,
+    "resend-api-key-in-client-bundle": resendApiKeyInClientBundleRule,
+    "resend-marketing-via-batch-send": resendMarketingViaBatchSendRule,
+    "resend-marketing-missing-unsubscribe": resendMarketingMissingUnsubscribeRule,
+    "resend-test-domain-in-production-path": resendTestDomainInProductionPathRule,
+    "resend-from-address-not-friendly-format": resendFromAddressNotFriendlyFormatRule,
+    "resend-batch-size-not-enforced": resendBatchSizeNotEnforcedRule,
+    "resend-missing-idempotency-key": resendMissingIdempotencyKeyRule,
+    "resend-no-error-code-mapping": resendNoErrorCodeMappingRule,
+    "resend-webhook-no-idempotency": resendWebhookNoIdempotencyRule,
+    "resend-missing-tags": resendMissingTagsRule,
+    "resend-request-id-not-logged": resendRequestIdNotLoggedRule
+  }
+};
+var plugin_default = plugin;
+export {
+  plugin_default as default,
+  plugin
+};
+//# sourceMappingURL=plugin.js.map
