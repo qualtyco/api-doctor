@@ -6,7 +6,7 @@
  * property. Dynamic argument shapes (e.g. batch built via `.map()`) are skipped
  * to avoid false positives. Advisory only (info).
  */
-import { findProperty, getSendOptionObjects, isResendSendCall } from '../../utils/resend.js';
+import { findProperty, getSendOptionObjects, isResendSendCall } from '../utils.js';
 
 const rule = {
   meta: {

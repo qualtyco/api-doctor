@@ -5,7 +5,7 @@
  * `Acme <onboarding@acme.com>`. Flags a `from` value that is a bare email
  * literal with no display name. Advisory only (info).
  */
-import { findProperty, getSendOptionObjects } from '../../utils/resend.js';
+import { findProperty, getSendOptionObjects } from '../utils.js';
 
 // Bare email: has an `@`, and no angle brackets (no "Name <...>" wrapper).
 const BARE_EMAIL = /^[^<>]+@[^<>]+$/;

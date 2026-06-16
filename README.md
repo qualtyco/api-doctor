@@ -1,82 +1,103 @@
-# api-doctor README
+# api-doctor
 
-This directory is the entire runtime of api-doctor: CLI, scanner, provider detection, oxlint plugin, and reporting.
+Oxlint-powered checks for AI-generated API integrations — catch silent bugs before they ship.
 
-## Architecture
+## Usage
 
-```
-src/
-├── cli.ts              Entry point — parses flags, runs scan, emits output, exits
-├── scanner.ts          Walks files, detects providers, shells out to oxlint
-├── detector.ts         package.json / import / URL-pattern heuristics
-├── reporter/           Terminal, JSON, markdown, and file output
-├── types.ts            Shared contracts (ScanResult, Report, Finding, manifests)
-├── providers/          Per-SDK manifests (detection + rule metadata)     → see providers/README.md
-└── plugin/             Oxlint JS plugin (AST rules)                     → see plugin/README.md
+```bash
+npx api-doctor .
 ```
 
-## Data flow
+By default this prints the grouped terminal report and writes a structured
+report to `.api-doctor/report.json` in the scanned directory.
 
-```
-cli.ts
-  └─ scan()                    scanner.ts
-       ├─ detectProviders()     detector.ts + providers/*/manifest.ts
-       ├─ buildOxlintConfig()   enable api-doctor/<key> rules per detected SDK
-       ├─ oxlint --format json  plugin/rules/<provider>/*.ts
-       └─ ScanResult[]
-  └─ buildReport()             reporter/report-builder.ts
-  └─ emitReport()              reporter/index.ts → terminal | json | markdown | file
-```
+### Options
 
-**Detection** reads manifests only. **Linting** runs the plugin. **Reporting** merges oxlint diagnostics with manifest metadata (`message`, `fix`, `docsUrl`, `severity`) and rule docs (`category`, `rationale`, `cwe`, `owasp`) from `plugin/rule-registry.ts`.
+| Flag | Description |
+|------|-------------|
+| `--quiet` | Print only the score and the report file path; suppress everything else. |
+| `--verbose` | Print every finding inline with a code snippet (no aggregation). |
+| `--format <json\|markdown\|sarif>` | Emit structured output to stdout instead of the human report. Suitable for piping. (`sarif` is not implemented yet.) |
+| `--output <path>` | Write the report file to a custom path instead of `.api-doctor/report.json`. |
+| `--no-report` | Do not write the report file. |
+| `--max-warnings <n>` | Exit with code 1 if the warning count exceeds `n`. |
+| `--provider <names>` | Comma-separated providers to scan (e.g. `resend`). |
+| `--list-providers` | List supported providers and exit. |
 
-## Layers
+### Exit codes
 
+These follow the ESLint convention, so the tool drops into CI without extra wiring:
 
-| Layer     | Path                | README                                                                |
-| --------- | ------------------- | --------------------------------------------------------------------- |
-| Providers | `src/providers/`    | [providers/README.md](providers/README.md) — how to add a new SDK     |
-| Plugin    | `src/plugin/`       | [plugin/README.md](plugin/README.md) — oxlint rule architecture       |
-| Rules     | `src/plugin/rules/` | [plugin/rules/README.md](plugin/rules/README.md) — one file per check |
+| Code | Meaning |
+|------|---------|
+| `0` | No errors, and warnings within the `--max-warnings` threshold. |
+| `1` | Errors found, or warnings exceeded `--max-warnings`. |
+| `2` | Tool-level failure (unreadable directory, oxlint crash, invalid flag). |
 
+### Example workflows
 
-### Supported providers
+Fail a CI build on any error or warning:
 
-
-| Provider                             | Checks                                                     | Status                     |
-| ------------------------------------ | ---------------------------------------------------------- | -------------------------- |
-| [Resend](providers/resend/README.md) | 13 rules (security, correctness, reliability, integration) | Active                     |
-| Stripe                               | —                                                          | Detect-only (no rules yet) |
-| Supabase                             | —                                                          | Detect-only (no rules yet) |
-
-
-## Tests
-
-Tests live in `tests/` at the repo root (gitignored locally by default). Layout:
-
-```
-tests/
-├── fixtures/<provider>/     broken + fixed source files per rule
-├── rules/<rule>.test.ts     one vitest file per Resend rule
-├── resend-webhook-signature.test.ts
-├── scanner.test.ts          end-to-end scan()
-├── reporter/                snippet, report-builder, cli-output
-└── helpers/lint-rule.ts     shared oxlint harness for rule tests
+```bash
+npx api-doctor . --max-warnings 0
 ```
 
-See [providers/resend/README.md](providers/resend/README.md) for every Resend rule, fixture, and test grouped by category.
+Hand the findings to a coding agent:
+
+```bash
+npx api-doctor . --format markdown > issues.md
+```
+
+Pipe the report straight into an agent:
+
+```bash
+npx api-doctor . --format markdown | claude
+```
+
+Consume the structured findings programmatically (the JSON schema is versioned via `schemaVersion`):
+
+```bash
+npx api-doctor . --format json > issues.json
+```
+
+The `.api-doctor/` directory is gitignored automatically (a `.gitignore` with `*` is seeded on first write).
+
+## How it works
+
+1. **Detect** — scans the project for known API SDKs (package.json deps, imports, URL patterns)
+2. **Enable rules** — turns on the matching oxlint rules from the bundled plugin
+3. **Lint** — runs oxlint with AST-based rules (no string matching)
+4. **Report** — prints a 0–100 score and grouped issues, and writes `.api-doctor/report.json`
+
+You can also use the oxlint plugin directly:
+
+```json
+{
+  "jsPlugins": ["api-doctor/plugin"],
+  "rules": {
+    "api-doctor/resend-webhook-signature": "error"
+  }
+}
+```
+
+## Supported providers
+
+| Provider | Rules | Docs |
+|----------|-------|------|
+| [Resend](https://resend.com) | 13 rules — security, correctness, reliability, integration | [src/providers/resend/README.md](src/providers/resend/README.md) |
+| Stripe | — | detect-only |
+| Supabase | — | detect-only |
 
 ## Development
 
 ```bash
 pnpm install
-pnpm build    # dist/cli.mjs + dist/plugin.js
-pnpm test     # vitest; globalSetup builds once before workers
+pnpm build
+pnpm test
 ```
 
-Run against a fixture directory:
+See [CONTRIBUTING.md](CONTRIBUTING.md) to add rules or new providers.
 
-```bash
-node dist/cli.mjs tests/fixtures/resend/resend-api-key-hardcoded-broken
-```
+## License
 
+MIT

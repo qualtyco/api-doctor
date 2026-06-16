@@ -9,7 +9,7 @@
  *
  * Test files are skipped — using the test domain in tests is expected.
  */
-import { isInsideTestFile } from '../../utils/resend.js';
+import { isInsideTestFile } from '../utils.js';
 
 const TEST_DOMAIN = 'onboarding@resend.dev';
 

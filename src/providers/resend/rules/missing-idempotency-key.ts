@@ -6,7 +6,7 @@
  * argument carries an `idempotencyKey` property. Checking every object argument
  * accepts the key whether it sits in the payload or a separate options arg.
  */
-import { findProperty, isResendSendCall } from '../../utils/resend.js';
+import { findProperty, isResendSendCall } from '../utils.js';
 
 const rule = {
   meta: {

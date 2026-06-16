@@ -9,7 +9,7 @@
  * loop typically slices the array into <=100-sized chunks). Calls with a
  * literal array argument are also skipped (size is statically known).
  */
-import { contains, isResendBatchSendCall, startOffset } from '../../utils/resend.js';
+import { contains, isResendBatchSendCall, startOffset } from '../utils.js';
 
 const FUNCTION_TYPES = new Set([
   'FunctionDeclaration',

@@ -198,7 +198,7 @@ function writeReport(report, outputPath) {
 // src/constants.ts
 var PLUGIN_NAME = "api-doctor";
 
-// src/plugin/rules/resend/webhook-signature.ts
+// src/providers/resend/rules/webhook-signature.ts
 var rule = {
   meta: {
     type: "problem",
@@ -374,7 +374,7 @@ var rule = {
 };
 var resendWebhookSignatureRule = rule;
 
-// src/plugin/rules/resend/api-key-hardcoded.ts
+// src/providers/resend/rules/api-key-hardcoded.ts
 var RESEND_KEY_PATTERN = /\bre_[A-Za-z0-9_]+/;
 var rule2 = {
   meta: {
@@ -413,7 +413,7 @@ var rule2 = {
 };
 var resendApiKeyHardcodedRule = rule2;
 
-// src/plugin/rules/resend/api-key-in-client-bundle.ts
+// src/providers/resend/rules/api-key-in-client-bundle.ts
 function isComponentsPath(filename) {
   return /[\\/]components[\\/]/.test(filename);
 }
@@ -474,7 +474,7 @@ var rule3 = {
 };
 var resendApiKeyInClientBundleRule = rule3;
 
-// src/plugin/utils/resend.ts
+// src/providers/resend/utils.ts
 function isResendEmailsSendCall(node) {
   if (node?.type !== "CallExpression") return false;
   const callee = node.callee;
@@ -534,7 +534,7 @@ function contains(outer, inner) {
   return s >= startOffset(outer) && s <= endOffset(outer);
 }
 
-// src/plugin/rules/resend/marketing-via-batch-send.ts
+// src/providers/resend/rules/marketing-via-batch-send.ts
 var MARKETING_PATH = /marketing|campaign|newsletter|promotion|broadcast/i;
 var rule4 = {
   meta: {
@@ -565,7 +565,7 @@ var rule4 = {
 };
 var resendMarketingViaBatchSendRule = rule4;
 
-// src/plugin/rules/resend/marketing-missing-unsubscribe.ts
+// src/providers/resend/rules/marketing-missing-unsubscribe.ts
 var MARKETING_TAG = /marketing|campaign|newsletter|promotion/i;
 var UNSUBSCRIBE_PLACEHOLDER = "{{{RESEND_UNSUBSCRIBE_URL}}}";
 function literalString(node) {
@@ -635,7 +635,7 @@ var rule5 = {
 };
 var resendMarketingMissingUnsubscribeRule = rule5;
 
-// src/plugin/rules/resend/test-domain-in-production-path.ts
+// src/providers/resend/rules/test-domain-in-production-path.ts
 var TEST_DOMAIN = "onboarding@resend.dev";
 var rule6 = {
   meta: {
@@ -671,7 +671,7 @@ var rule6 = {
 };
 var resendTestDomainInProductionPathRule = rule6;
 
-// src/plugin/rules/resend/from-address-not-friendly-format.ts
+// src/providers/resend/rules/from-address-not-friendly-format.ts
 var BARE_EMAIL = /^[^<>]+@[^<>]+$/;
 var rule7 = {
   meta: {
@@ -704,7 +704,7 @@ var rule7 = {
 };
 var resendFromAddressNotFriendlyFormatRule = rule7;
 
-// src/plugin/rules/resend/batch-size-not-enforced.ts
+// src/providers/resend/rules/batch-size-not-enforced.ts
 var COMPARISON_OPERATORS = /* @__PURE__ */ new Set([">", ">=", "<", "<=", "===", "!==", "==", "!="]);
 var rule8 = {
   meta: {
@@ -790,7 +790,7 @@ var rule8 = {
 };
 var resendBatchSizeNotEnforcedRule = rule8;
 
-// src/plugin/rules/resend/missing-idempotency-key.ts
+// src/providers/resend/rules/missing-idempotency-key.ts
 var rule9 = {
   meta: {
     type: "suggestion",
@@ -822,7 +822,7 @@ var rule9 = {
 };
 var resendMissingIdempotencyKeyRule = rule9;
 
-// src/plugin/rules/resend/no-error-code-mapping.ts
+// src/providers/resend/rules/no-error-code-mapping.ts
 var rule10 = {
   meta: {
     type: "suggestion",
@@ -911,7 +911,7 @@ var rule10 = {
 };
 var resendNoErrorCodeMappingRule = rule10;
 
-// src/plugin/rules/resend/webhook-no-idempotency.ts
+// src/providers/resend/rules/webhook-no-idempotency.ts
 var DEDUP_OBJECTS = /* @__PURE__ */ new Set(["redis", "kv", "db", "prisma", "supabase", "cache", "store"]);
 var DEDUP_METHODS = /* @__PURE__ */ new Set([
   "has",
@@ -999,7 +999,7 @@ var rule11 = {
 };
 var resendWebhookNoIdempotencyRule = rule11;
 
-// src/plugin/rules/resend/missing-tags.ts
+// src/providers/resend/rules/missing-tags.ts
 var rule12 = {
   meta: {
     type: "suggestion",
@@ -1031,7 +1031,7 @@ var rule12 = {
 };
 var resendMissingTagsRule = rule12;
 
-// src/plugin/rules/resend/request-id-not-logged.ts
+// src/providers/resend/rules/request-id-not-logged.ts
 var REQUEST_ID_HEADERS = /* @__PURE__ */ new Set(["x-request-id", "x-resend-request-id"]);
 var rule13 = {
   meta: {

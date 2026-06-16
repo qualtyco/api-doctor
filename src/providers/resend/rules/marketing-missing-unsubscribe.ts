@@ -6,7 +6,7 @@
  * marketing while the same call provides neither a `List-Unsubscribe` header
  * nor the `{{{RESEND_UNSUBSCRIBE_URL}}}` placeholder in its HTML.
  */
-import { findProperty, getSendOptionObjects } from '../../utils/resend.js';
+import { findProperty, getSendOptionObjects } from '../utils.js';
 
 const MARKETING_TAG = /marketing|campaign|newsletter|promotion/i;
 const UNSUBSCRIBE_PLACEHOLDER = '{{{RESEND_UNSUBSCRIBE_URL}}}';

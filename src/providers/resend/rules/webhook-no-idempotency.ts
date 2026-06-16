@@ -11,7 +11,7 @@
  *   - a dedup method (has/add/sadd/sismember/exists/findUnique/findFirst/upsert)
  *   - a reference to an event id (e.g. event.data.email_id)
  */
-import { endOffset, startOffset } from '../../utils/resend.js';
+import { endOffset, startOffset } from '../utils.js';
 
 const DEDUP_OBJECTS = new Set(['redis', 'kv', 'db', 'prisma', 'supabase', 'cache', 'store']);
 const DEDUP_METHODS = new Set([

@@ -13,7 +13,7 @@ import {
   findProperty,
   isResendSendCall,
   startOffset,
-} from '../../utils/resend.js';
+} from '../utils.js';
 
 const FUNCTION_TYPES = new Set([
   'FunctionDeclaration',

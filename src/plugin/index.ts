@@ -2,19 +2,19 @@
  * Oxlint JS plugin entrypoint. Rules are AST-based; no string matching.
  */
 import { PLUGIN_NAME } from '../constants.js';
-import { resendWebhookSignatureRule } from './rules/resend/webhook-signature.js';
-import { resendApiKeyHardcodedRule } from './rules/resend/api-key-hardcoded.js';
-import { resendApiKeyInClientBundleRule } from './rules/resend/api-key-in-client-bundle.js';
-import { resendMarketingViaBatchSendRule } from './rules/resend/marketing-via-batch-send.js';
-import { resendMarketingMissingUnsubscribeRule } from './rules/resend/marketing-missing-unsubscribe.js';
-import { resendTestDomainInProductionPathRule } from './rules/resend/test-domain-in-production-path.js';
-import { resendFromAddressNotFriendlyFormatRule } from './rules/resend/from-address-not-friendly-format.js';
-import { resendBatchSizeNotEnforcedRule } from './rules/resend/batch-size-not-enforced.js';
-import { resendMissingIdempotencyKeyRule } from './rules/resend/missing-idempotency-key.js';
-import { resendNoErrorCodeMappingRule } from './rules/resend/no-error-code-mapping.js';
-import { resendWebhookNoIdempotencyRule } from './rules/resend/webhook-no-idempotency.js';
-import { resendMissingTagsRule } from './rules/resend/missing-tags.js';
-import { resendRequestIdNotLoggedRule } from './rules/resend/request-id-not-logged.js';
+import { resendWebhookSignatureRule } from '../providers/resend/rules/webhook-signature.js';
+import { resendApiKeyHardcodedRule } from '../providers/resend/rules/api-key-hardcoded.js';
+import { resendApiKeyInClientBundleRule } from '../providers/resend/rules/api-key-in-client-bundle.js';
+import { resendMarketingViaBatchSendRule } from '../providers/resend/rules/marketing-via-batch-send.js';
+import { resendMarketingMissingUnsubscribeRule } from '../providers/resend/rules/marketing-missing-unsubscribe.js';
+import { resendTestDomainInProductionPathRule } from '../providers/resend/rules/test-domain-in-production-path.js';
+import { resendFromAddressNotFriendlyFormatRule } from '../providers/resend/rules/from-address-not-friendly-format.js';
+import { resendBatchSizeNotEnforcedRule } from '../providers/resend/rules/batch-size-not-enforced.js';
+import { resendMissingIdempotencyKeyRule } from '../providers/resend/rules/missing-idempotency-key.js';
+import { resendNoErrorCodeMappingRule } from '../providers/resend/rules/no-error-code-mapping.js';
+import { resendWebhookNoIdempotencyRule } from '../providers/resend/rules/webhook-no-idempotency.js';
+import { resendMissingTagsRule } from '../providers/resend/rules/missing-tags.js';
+import { resendRequestIdNotLoggedRule } from '../providers/resend/rules/request-id-not-logged.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },

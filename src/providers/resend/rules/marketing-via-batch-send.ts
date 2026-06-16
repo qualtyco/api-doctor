@@ -9,7 +9,7 @@
  * (campaign/marketing/newsletter/promotion/broadcast). The audit's signal is
  * the route path `app/api/emails/campaign/route.ts`.
  */
-import { isResendBatchSendCall } from '../../utils/resend.js';
+import { isResendBatchSendCall } from '../utils.js';
 
 const MARKETING_PATH = /marketing|campaign|newsletter|promotion|broadcast/i;
 

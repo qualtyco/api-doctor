@@ -7,7 +7,7 @@
  * which references `<error>.message` but never references a request-id header
  * (`x-request-id` or `x-resend-request-id`). Advisory only (info).
  */
-import { endOffset, startOffset } from '../../utils/resend.js';
+import { endOffset, startOffset } from '../utils.js';
 
 const REQUEST_ID_HEADERS = new Set(['x-request-id', 'x-resend-request-id']);
 
