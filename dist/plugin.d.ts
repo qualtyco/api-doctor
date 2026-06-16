@@ -9,6 +9,11 @@ declare const plugin: {
                 type: string;
                 docs: {
                     description: string;
+                    category: string;
+                    cwe: string;
+                    owasp: string;
+                    rationale: string;
+                    docsUrl: string;
                     recommended: boolean;
                 };
                 messages: {
@@ -31,6 +36,7 @@ declare const plugin: {
                     category: string;
                     cwe: string;
                     owasp: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -52,6 +58,7 @@ declare const plugin: {
                     category: string;
                     cwe: string;
                     owasp: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -74,6 +81,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -92,6 +100,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -110,6 +119,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -132,6 +142,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -150,6 +161,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -178,6 +190,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -196,6 +209,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -220,6 +234,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -243,6 +258,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };
@@ -261,6 +277,7 @@ declare const plugin: {
                 docs: {
                     description: string;
                     category: string;
+                    rationale: string;
                     docsUrl: string;
                     recommended: boolean;
                 };

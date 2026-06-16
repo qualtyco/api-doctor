@@ -1,118 +1,80 @@
-# Contributing a provider
+# Providers
 
-Every supported API/SDK is contributed as **two pieces in two folders**:
+A **provider** is one API or SDK that api-doctor can detect in a target project. Each provider ships as two linked pieces:
 
 | Piece | Location | Purpose |
 |-------|----------|---------|
-| **Manifest** | `src/providers/<name>/manifest.ts` | How to detect the SDK + rule metadata for the CLI |
+| **Manifest** | `src/providers/<name>/manifest.ts` | Detection signals + rule metadata for the CLI |
 | **Rules** | `src/plugin/rules/<name>/*.ts` | Oxlint AST checks (one file per rule) |
 
-A PR that adds a provider **must include both** — at least one rule with fixtures and tests. Detection-only manifests (no rules) are maintainer placeholders until checks land; they are not a contribution template.
+A contribution **must include both** — at least one rule with fixtures and tests. Manifests without rules (Stripe, Supabase today) are detect-only placeholders until checks land.
 
-## Folder layout
+## Registered providers
 
-```
-src/providers/
-  resend/
-    manifest.ts              ← detection + oxlintRules metadata
-  stripe/
-    manifest.ts              ← placeholder until rules exist
-  index.ts                   ← register all manifests
+| Provider | Manifest | Rules README |
+|----------|----------|--------------|
+| Resend | [resend/manifest.ts](resend/manifest.ts) | [resend/README.md](resend/README.md) |
+| Stripe | [stripe/manifest.ts](stripe/manifest.ts) | — |
+| Supabase | [supabase/manifest.ts](supabase/manifest.ts) | — |
 
-src/plugin/
-  index.ts                     ← register all rules (flat map for oxlint)
-  rules/
-    resend/
-      webhook-signature.ts     ← AST rule implementation
-    stripe/                    ← your rules go here when contributing Stripe
-      webhook-signature.ts
-      idempotency-key.ts
-    acme/
-      ...
+Register new manifests in [index.ts](index.ts).
 
-tests/
-  fixtures/
-    resend/                    ← broken + ok fixtures per provider
-      broken-no-verify.ts
-      ok-verify-first.ts
-  resend/
-    webhook-signature.test.ts
-```
+## How detection works
 
-**Why rules live under `src/plugin/rules/<provider>/`**
+`detector.ts` checks each manifest's `detect` block in order:
 
-Oxlint requires a single plugin object with a flat `rules` map (`src/plugin/index.ts`). Rules are grouped by provider in subfolders so that as we add the top APIs — each with many checks — the tree stays navigable:
+1. **package.json** — `dependencies` / `devDependencies` match `detect.packages`
+2. **imports** — source files import `detect.imports`
+3. **url-patterns** — source contains `detect.urlPatterns`
 
-```
-plugin/rules/resend/webhook-signature.ts
-plugin/rules/resend/api-key-in-client.ts
-plugin/rules/stripe/webhook-signature.ts
-```
-
-Manifests stay in `src/providers/<name>/` because the CLI reads them for **detection and reporting** without loading oxlint. The `key` in each manifest entry links to the rule registered in `plugin/index.ts`.
-
----
-
-## How it runs
-
-```
-manifest (detect + oxlintRules)  →  scanner enables api-doctor/<key> rules
-plugin/rules/<name>/*.ts         →  oxlint runs AST visitors
-reporter                         →  uses manifest message/fix/docs for output
-```
-
-**Rule id format:** `api-doctor/<rule-key>` (`PLUGIN_NAME` in `src/constants.ts` + manifest `key`).
-
----
+First match wins. The scanner then enables every `oxlintRules[].key` from matching manifests as `api-doctor/<key>` in a temporary oxlint config.
 
 ## Rule categories
 
-Every rule should fit one of these categories. Tag rules in the manifest `resultRule` prefix (e.g. `resend/security/webhook-signature`) and in file comments.
+Every rule fits one category. Use it in `resultRule` (`resend/security/...`) and in `meta.docs.category` inside the rule file.
 
 ### Security
 
-API keys in client code, missing webhook signature verification, log injection on webhook payloads, secrets in env misuse, etc.
+API keys in client code, missing webhook signature verification, secrets in source, etc.
 
 | Source | Use for |
 |--------|---------|
-| [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x11-t10/) | Foundation — map each security rule to one of the 10 categories |
-| [CWE Top 25](https://cwe.mitre.org/top25/) | Cross-reference specific CWE numbers (e.g. CWE-798 hard-coded credentials) |
-| [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org) | REST Security, Authentication, Logging cheat sheets |
-
-**Resend example:** `webhook-signature.ts` — webhook payload processed before Svix/crypto verify (OWASP API4/API8, CWE-345).
+| [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x11-t10/) | Map each rule to one of the 10 categories |
+| [CWE Top 25](https://cwe.mitre.org/top25/) | Specific CWE numbers (e.g. CWE-798) |
+| [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org) | REST Security, Authentication, Logging |
 
 ### Correctness
 
-Webhook idempotency, deprecated API usage, async handling mistakes, missing retry logic, wrong SDK method signatures.
+Wrong API for the use case, deprecated usage, missing compliance mechanisms, test domains in production.
 
 | Source | Use for |
 |--------|---------|
 | Provider official docs | Expected usage patterns |
-| Changelog / migration guides | Deprecated endpoints and breaking changes |
-| Official SDK source code | How the SDK expects calls to be structured |
+| Changelog / migration guides | Breaking changes |
+| Official SDK source | How calls should be structured |
 
 ### Reliability
 
-Rate-limit handling, bounce/suppression flows, dead-letter handling, timeout/retry on failed sends.
+Idempotency, rate limits, batch limits, error-code mapping, webhook deduplication.
 
 | Source | Use for |
 |--------|---------|
-| Rate-limit docs (e.g. [Resend rate limits](https://resend.com/docs/api-reference/introduction#rate-limit)) | What happens at 429, headers to respect |
-| Webhook retry policy docs | Retry count, backoff, idempotency expectations |
-| Provider status page (e.g. resend-status.com) | Failure modes users should plan for |
+| Rate-limit docs | 429 handling, headers |
+| Webhook retry policy | Retry count, backoff, idempotency |
+| Provider status page | Failure modes to plan for |
 
 ### Integration
 
-Structured logging, error handling, observability hooks, ecosystem integrations (Sentry, Datadog, etc.).
+Logging, observability, friendly conventions, ecosystem wiring.
 
 | Source | Use for |
 |--------|---------|
-| Provider observability docs | Request ID logging, event tagging, error context |
-| Ecosystem / integration docs | Recommended third-party wiring |
+| Observability docs | Request IDs, event tagging |
+| Ecosystem docs | Sentry, Datadog, etc. |
 
 ---
 
-## Step-by-step: add a new provider
+## Add a new provider
 
 ### 1. Create the manifest
 
@@ -131,100 +93,56 @@ export const acmeManifest: ProviderManifest = {
   },
   oxlintRules: [
     {
-      key: 'acme-webhook-signature',              // → api-doctor/acme-webhook-signature
-      resultRule: 'acme/security/webhook-signature', // category/provider/check
+      key: 'acme-webhook-signature',
+      resultRule: 'acme/security/webhook-signature',
       message: 'Short description of the problem.',
       fix: 'What the developer should do.',
       docsUrl: 'https://docs.acme.com/webhooks',
       severity: 'error',
     },
-    // add more entries as you add rule files
   ],
 };
 ```
 
-Register in `src/providers/index.ts`.
+Register in [index.ts](index.ts). Add `src/providers/<name>/README.md` documenting every rule and test.
 
-Detection order: **package.json → imports → URL patterns** (first match wins).
+### 2. Implement rules
 
-### 2. Implement rules (one file per check)
+One file per check under `src/plugin/rules/<name>/`. See [plugin/rules/README.md](../plugin/rules/README.md).
 
-`src/plugin/rules/acme/webhook-signature.ts`:
+Each rule's `meta.docs` should include:
 
-```ts
-/** Category: Security — OWASP API8, CWE-345 */
-const rule = {
-  meta: {
-    type: 'problem',
-    docs: { description: '...', recommended: true },
-    messages: { missingVerification: '...' },
-  },
-  create(context) {
-    return {
-      ImportDeclaration(node) { /* AST */ },
-      'Program:exit'() {
-        context.report({ node, messageId: 'missingVerification' });
-      },
-    };
-  },
-};
+- `category` — security | correctness | reliability | integration
+- `description` — one sentence
+- `rationale` — 2–3 sentences for markdown export / agent handoff
+- `docsUrl` — provider doc link
+- `cwe` / `owasp` — for security rules
 
-export const acmeWebhookSignatureRule = rule;
-```
+### 3. Register in the plugin
 
-Guidelines:
-
-- **AST visitors only** — no string matching on raw source
-- **One concern per file** — easier to test and enable individually
-- Track state in closures; use `'Program:exit'` for whole-file checks
-- Reference: `src/plugin/rules/resend/webhook-signature.ts`
-
-Add more files under `src/plugin/rules/acme/` for each check listed in `oxlintRules`.
-
-### 3. Register rules in the plugin
-
-`src/plugin/index.ts`:
-
-```ts
-import { acmeWebhookSignatureRule } from './rules/acme/webhook-signature.js';
-
-const plugin = {
-  meta: { name: PLUGIN_NAME, version: '0.0.1' },
-  rules: {
-    'resend-webhook-signature': resendWebhookSignatureRule,
-    'acme-webhook-signature': acmeWebhookSignatureRule, // key === manifest `key`
-  },
-} as const;
-```
-
-Three names must match:
+`src/plugin/index.ts` — the object key must equal manifest `oxlintRules[].key`:
 
 ```
-manifest oxlintRules[].key  →  acme-webhook-signature
-plugin rules object key     →  acme-webhook-signature
-oxlint config rule id       →  api-doctor/acme-webhook-signature
+manifest key  →  acme-webhook-signature
+plugin key    →  acme-webhook-signature
+oxlint id     →  api-doctor/acme-webhook-signature
 ```
 
 Do **not** edit `scanner.ts` — it reads manifests automatically.
 
 ### 4. Add tests
 
-**Fixtures** — `tests/fixtures/<name>/`:
+```
+tests/fixtures/<name>/<rule-key>-broken/   2+ files that should flag
+tests/fixtures/<name>/<rule-key>-fixed/    2+ files that should not flag
+tests/rules/<rule-key>.test.ts             vitest via tests/helpers/lint-rule.ts
+```
 
-- `broken-*.ts` — should flag (2–3 per rule)
-- `ok-*.ts` — should not flag (include out-of-scope cases)
-
-**Rule tests** — `tests/<name>/<rule>.test.ts` (copy `tests/resend-webhook-signature.test.ts`):
-
-1. Point `jsPlugins` at `dist/plugin.js`
-2. Enable `api-doctor/<rule-key>`
-3. Filter diagnostics by rule key (ignore built-in oxlint rules like `no-unused-vars`)
-
-**Scanner test** (optional) — extend `tests/scanner.test.ts` for end-to-end `scan()`.
+Copy an existing Resend test from `tests/rules/resend-*.test.ts`.
 
 ```bash
 pnpm build && pnpm test
-node dist/cli.mjs tests/fixtures/<name>
+node dist/cli.mjs tests/fixtures/<name>/<rule-key>-broken
 ```
 
 ---
@@ -235,43 +153,26 @@ node dist/cli.mjs tests/fixtures/<name>
 |-------|---------|
 | `name` | Internal id; `--provider acme` |
 | `displayName` | Shown in CLI |
-| `detect.packages` | npm names in dependencies / devDependencies |
-| `detect.imports` | `from 'pkg'` / `require('pkg')` in source |
+| `detect.packages` | npm names in package.json |
+| `detect.imports` | import/require strings in source |
 | `detect.urlPatterns` | API URL substrings in source |
 | `oxlintRules[].key` | Plugin rule key → `api-doctor/<key>` |
-| `oxlintRules[].resultRule` | Report id — use `<provider>/<category>/<check>` |
-| `oxlintRules[].message` | Issue title in CLI |
+| `oxlintRules[].resultRule` | Report id — `<provider>/<category>/<check>` |
+| `oxlintRules[].message` | Issue title in CLI and reports |
 | `oxlintRules[].fix` | Suggested fix |
-| `oxlintRules[].docsUrl` | Link (shown with `--verbose`) |
-| `oxlintRules[].severity` | `'error'` (default) or `'warning'` |
+| `oxlintRules[].docsUrl` | Link in reports |
+| `oxlintRules[].severity` | `error` (default), `warning`, or `info` |
 
 ---
 
 ## Contribution checklist
 
-- [ ] `src/providers/<name>/manifest.ts` with `detect` + one or more `oxlintRules` entries
+- [ ] `src/providers/<name>/manifest.ts` with `detect` + `oxlintRules`
+- [ ] `src/providers/<name>/README.md` — rules and tests by category
 - [ ] Registered in `src/providers/index.ts`
-- [ ] One rule file per check in `src/plugin/rules/<name>/`
-- [ ] Each rule registered in `src/plugin/index.ts`
-- [ ] Rule mapped to a category (Security / Correctness / Reliability / Integration)
-- [ ] Sources cited in rule file comment (OWASP category, CWE, doc link)
+- [ ] Rule files in `src/plugin/rules/<name>/`
+- [ ] Rules registered in `src/plugin/index.ts`
+- [ ] `meta.docs.category` + `rationale` on every rule
 - [ ] Fixtures under `tests/fixtures/<name>/`
-- [ ] Test file(s) under `tests/<name>/`
+- [ ] Tests under `tests/rules/`
 - [ ] `pnpm build && pnpm test` pass
-
----
-
-## Using rules outside the CLI
-
-```json
-{
-  "jsPlugins": ["api-doctor/plugin"],
-  "rules": {
-    "api-doctor/resend-webhook-signature": "error"
-  }
-}
-```
-
-```bash
-npx oxlint -c .oxlintrc.json .
-```

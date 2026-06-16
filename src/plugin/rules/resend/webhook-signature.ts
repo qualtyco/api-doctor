@@ -8,6 +8,12 @@ const rule = {
     type: 'problem',
     docs: {
       description: 'Resend webhook handlers must verify signatures before processing payloads',
+      category: 'security',
+      cwe: 'CWE-345',
+      owasp: 'API2:2023 Broken Authentication',
+      rationale:
+        'Webhook endpoints are public URLs, so anyone who learns the path can POST a forged payload. Without verifying the Svix signature first, an attacker can fake delivery, bounce, or complaint events and drive your application into the wrong state. Validating the signature against your webhook secret before reading the body ensures the event genuinely came from Resend.',
+      docsUrl: 'https://resend.com/docs/dashboard/webhooks/introduction#verify-webhook-signatures',
       recommended: true,
     },
     messages: {

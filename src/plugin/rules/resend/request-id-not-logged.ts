@@ -17,6 +17,8 @@ const rule = {
     docs: {
       description: 'Log the Resend request id when handling errors',
       category: 'integration',
+      rationale:
+        'Every Resend API response carries a request id (x-request-id / x-resend-request-id) that uniquely identifies the call on their side. When something goes wrong, logging only error.message leaves you and Resend support with no way to find the exact failed request. Logging the request id alongside the message turns a vague "send failed" into a traceable incident that support can look up directly.',
       docsUrl: 'https://resend.com/docs/api-reference/errors',
       recommended: true,
     },

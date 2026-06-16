@@ -1,10 +1,12 @@
 /**
  * Formats and prints scan results: detected providers, 0–100 score,
  * react-doctor-style header (icon, progress bar), and grouped issue list.
+ *
+ * This is the default human terminal output and is intentionally kept stable.
  */
 import pc from 'picocolors';
-import { providers } from './providers/index.js';
-import type { DetectedProvider, ScanResult } from './types.js';
+import { providers } from '../providers/index.js';
+import type { DetectedProvider, ScanResult } from '../types.js';
 
 const ISSUES_URL = 'https://github.com/YOUR_ORG/api-doctor/issues';
 const BAR_WIDTH = 24;
@@ -178,7 +180,7 @@ function printIssueGroups(groups: IssueGroup[], verbose: boolean): void {
   }
 }
 
-export function report(
+export function renderTerminalReport(
   results: ScanResult[],
   detected: DetectedProvider[],
   options: ReportOptions = {},

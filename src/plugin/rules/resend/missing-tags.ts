@@ -14,6 +14,8 @@ const rule = {
     docs: {
       description: 'Resend sends should include tags for deliverability segmentation',
       category: 'integration',
+      rationale:
+        'Tags are how Resend segments and filters email in the dashboard and analytics, so sends without them collapse into one undifferentiated stream. When deliverability dips or you need to trace a specific campaign, untagged mail gives you nothing to slice on. Adding tags such as [{ name: "category", value: "welcome" }] makes monitoring and debugging across email types possible.',
       docsUrl: 'https://resend.com/docs/dashboard/emails/tags',
       recommended: true,
     },

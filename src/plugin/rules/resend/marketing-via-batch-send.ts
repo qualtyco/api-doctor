@@ -19,6 +19,8 @@ const rule = {
     docs: {
       description: 'Marketing emails should use the Broadcasts API, not resend.batch.send',
       category: 'correctness',
+      rationale:
+        'resend.batch.send is the transactional batch API; Resend documents Broadcasts as the correct feature for marketing and campaign sends. Using batch send for promotional mail skips audience management, consent tracking, and the automatic unsubscribe handling that Broadcasts provide, which puts you out of step with CAN-SPAM/CASL. Sending campaigns through Broadcasts (or the Dashboard) keeps deliverability and compliance intact.',
       docsUrl: 'https://resend.com/docs/dashboard/emails/batch-sending',
       recommended: true,
     },

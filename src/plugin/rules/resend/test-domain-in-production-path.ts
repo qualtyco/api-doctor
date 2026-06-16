@@ -19,6 +19,8 @@ const rule = {
     docs: {
       description: 'Do not use the onboarding@resend.dev test domain in production code',
       category: 'correctness',
+      rationale:
+        'onboarding@resend.dev is a shared test sender that only delivers to the account owner; sending from it to any other recipient returns a 403 error. Shipping it to production — including as a `?? "onboarding@resend.dev"` fallback — means real users silently never receive their email. Sending from a verified domain configured via process.env.RESEND_FROM_EMAIL is the documented production requirement.',
       docsUrl: 'https://resend.com/docs/send-with-nextjs',
       recommended: true,
     },

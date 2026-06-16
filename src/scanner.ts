@@ -48,6 +48,20 @@ export interface ScanOptions {
 export interface ScanOutput {
   results: ScanResult[];
   detected: DetectedProvider[];
+  /** Absolute path that was scanned. */
+  directory: string;
+  /** Number of source files walked. */
+  filesScanned: number;
+  /** Relative file path -> file contents, for snippet extraction downstream. */
+  filesContent: Map<string, string>;
+}
+
+/** Thrown on tool-level failures (unreadable directory, oxlint crash). Maps to exit 2. */
+export class ScanError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = 'ScanError';
+  }
 }
 
 /**
@@ -83,7 +97,11 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   // Collect every .ts/.tsx/.js/.jsx file under absRoot (skipping node_modules, etc.).
   const paths: string[] = [];
-  await walk(absRoot, absRoot, paths);
+  try {
+    await walk(absRoot, absRoot, paths);
+  } catch (err) {
+    throw new ScanError(`Could not read directory: ${absRoot}`, err);
+  }
 
   // Read each file's contents into memory — used for provider detection and line snippets.
   const filesContent = new Map<string, string>();
@@ -107,7 +125,13 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   // Nothing to lint — e.g. no supported SDK found, or provider has no rules yet.
   if (Object.keys(oxlintRules).length === 0) {
-    return { results: [], detected };
+    return {
+      results: [],
+      detected,
+      directory: absRoot,
+      filesScanned: paths.length,
+      filesContent,
+    };
   }
 
   // Resolve the bundled oxlint plugin on disk (dist/plugin.js).
@@ -138,7 +162,20 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   );
 
   try {
-    const parsed = JSON.parse(res.stdout);
+    // spawnSync sets `error` when the process couldn't start at all.
+    if (res.error) {
+      throw new ScanError('Failed to run oxlint', res.error);
+    }
+    let parsed: any;
+    try {
+      parsed = JSON.parse(res.stdout);
+    } catch (err) {
+      const stderr = (res.stderr ?? '').toString().trim();
+      throw new ScanError(
+        `oxlint produced no parseable output${stderr ? `: ${stderr}` : ''}`,
+        err,
+      );
+    }
     const diagnostics: any[] = parsed.diagnostics ?? [];
 
     // Convert oxlint diagnostics into ScanResult objects for the reporter.
@@ -146,8 +183,9 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     for (const d of diagnostics) {
       const code = String(d.code ?? '');
       // Skip built-in oxlint rules (e.g. no-unused-vars) — only keep our plugin rules.
-      const meta = [...ruleMetaByKey.entries()].find(([key]) => code.includes(key))?.[1];
-      if (!meta) continue;
+      const matched = [...ruleMetaByKey.entries()].find(([key]) => code.includes(key));
+      if (!matched) continue;
+      const [ruleKey, meta] = matched;
 
       // Normalize the file path to be relative to the scanned directory.
       const relFile = (() => {
@@ -159,6 +197,9 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
       const span = d.labels?.[0]?.span;
       const line = typeof span?.line === 'number' ? span.line : 1;
+      const column = typeof span?.column === 'number' ? span.column : 1;
+      const endLine = typeof span?.endLine === 'number' ? span.endLine : undefined;
+      const endColumn = typeof span?.endColumn === 'number' ? span.endColumn : undefined;
 
       // Pull the offending source line for --verbose output.
       const content = filesContent.get(relFile) ?? '';
@@ -167,7 +208,11 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
       results.push({
         file: relFile,
         line,
+        column,
+        endLine,
+        endColumn,
         snippet,
+        ruleKey,
         rule: meta.resultRule,
         // The manifest declares the intended severity (including `info`, which
         // oxlint reports as a warning). Fall back to oxlint's severity.
@@ -178,7 +223,13 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
       });
     }
 
-    return { results, detected };
+    return {
+      results,
+      detected,
+      directory: absRoot,
+      filesScanned: paths.length,
+      filesContent,
+    };
   } finally {
     // Clean up the temp config directory regardless of success or failure.
     rmSync(tmpDir, { recursive: true, force: true });

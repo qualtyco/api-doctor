@@ -31,6 +31,8 @@ const rule = {
     docs: {
       description: 'Enforce the 100-email batch limit before calling resend.batch.send',
       category: 'reliability',
+      rationale:
+        'resend.batch.send accepts at most 100 emails per call. Passing a user- or data-driven array without a length guard means the request fails outright once the list grows past 100, so an entire batch of notifications silently never sends. Guarding the array length (or chunking it into <=100-sized slices) keeps the send reliable as volume scales.',
       docsUrl: 'https://resend.com/docs/api-reference/emails/send-batch-emails',
       recommended: true,
     },

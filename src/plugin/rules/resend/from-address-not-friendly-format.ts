@@ -16,6 +16,8 @@ const rule = {
     docs: {
       description: 'Resend from addresses should use the friendly-name format "Name <email>"',
       category: 'integration',
+      rationale:
+        'Every Resend doc example uses the friendly-name form "Acme <onboarding@acme.com>" rather than a bare email. A bare from address shows up in inboxes as a raw email string, which looks less trustworthy and can hurt open rates and brand recognition. Wrapping the address with a display name is a one-line change that matches the documented convention.',
       docsUrl: 'https://resend.com/docs/api-reference/emails/send-email',
       recommended: true,
     },

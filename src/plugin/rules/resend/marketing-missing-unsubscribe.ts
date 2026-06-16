@@ -66,6 +66,8 @@ const rule = {
     docs: {
       description: 'Marketing emails must include an unsubscribe mechanism',
       category: 'correctness',
+      rationale:
+        'Marketing email is regulated by laws like CAN-SPAM (US) and CASL (Canada), which require recipients to be able to opt out. A campaign with only static "you opted in" text and no working unsubscribe path exposes you to legal penalties and gets flagged as spam, hurting deliverability for all your mail. Adding a List-Unsubscribe header (RFC 8058) or the {{{RESEND_UNSUBSCRIBE_URL}}} placeholder gives recipients a real way to opt out.',
       docsUrl: 'https://resend.com/docs/dashboard/broadcasts/introduction',
       recommended: true,
     },

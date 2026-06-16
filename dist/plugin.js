@@ -7,6 +7,11 @@ var rule = {
     type: "problem",
     docs: {
       description: "Resend webhook handlers must verify signatures before processing payloads",
+      category: "security",
+      cwe: "CWE-345",
+      owasp: "API2:2023 Broken Authentication",
+      rationale: "Webhook endpoints are public URLs, so anyone who learns the path can POST a forged payload. Without verifying the Svix signature first, an attacker can fake delivery, bounce, or complaint events and drive your application into the wrong state. Validating the signature against your webhook secret before reading the body ensures the event genuinely came from Resend.",
+      docsUrl: "https://resend.com/docs/dashboard/webhooks/introduction#verify-webhook-signatures",
       recommended: true
     },
     messages: {
@@ -182,6 +187,7 @@ var rule2 = {
       category: "security",
       cwe: "CWE-798",
       owasp: "API8:2023 Security Misconfiguration",
+      rationale: "A hardcoded API key gets committed to version control, where it lives in git history forever and is exposed to anyone with repository access. Leaked Resend keys let attackers send mail from your domain, damaging sender reputation and deliverability. Reading the key from process.env.RESEND_API_KEY keeps the secret out of source code and lets you rotate it without a redeploy.",
       docsUrl: "https://resend.com/docs/send-with-nextjs#prerequisites",
       recommended: true
     },
@@ -222,6 +228,7 @@ var rule3 = {
       category: "security",
       cwe: "CWE-200",
       owasp: "API8:2023 Security Misconfiguration",
+      rationale: 'The Resend SDK is server-only and is initialized with your secret API key. Importing it into a "use client" component or other browser-bundled code ships that key to every visitor, where it can be read straight from the page source. Keeping Resend imports in server code (route handlers, server actions, server components) ensures the key never reaches the client.',
       docsUrl: "https://resend.com/docs/send-with-nextjs",
       recommended: true
     },
@@ -338,6 +345,7 @@ var rule4 = {
     docs: {
       description: "Marketing emails should use the Broadcasts API, not resend.batch.send",
       category: "correctness",
+      rationale: "resend.batch.send is the transactional batch API; Resend documents Broadcasts as the correct feature for marketing and campaign sends. Using batch send for promotional mail skips audience management, consent tracking, and the automatic unsubscribe handling that Broadcasts provide, which puts you out of step with CAN-SPAM/CASL. Sending campaigns through Broadcasts (or the Dashboard) keeps deliverability and compliance intact.",
       docsUrl: "https://resend.com/docs/dashboard/emails/batch-sending",
       recommended: true
     },
@@ -406,6 +414,7 @@ var rule5 = {
     docs: {
       description: "Marketing emails must include an unsubscribe mechanism",
       category: "correctness",
+      rationale: 'Marketing email is regulated by laws like CAN-SPAM (US) and CASL (Canada), which require recipients to be able to opt out. A campaign with only static "you opted in" text and no working unsubscribe path exposes you to legal penalties and gets flagged as spam, hurting deliverability for all your mail. Adding a List-Unsubscribe header (RFC 8058) or the {{{RESEND_UNSUBSCRIBE_URL}}} placeholder gives recipients a real way to opt out.',
       docsUrl: "https://resend.com/docs/dashboard/broadcasts/introduction",
       recommended: true
     },
@@ -437,6 +446,7 @@ var rule6 = {
     docs: {
       description: "Do not use the onboarding@resend.dev test domain in production code",
       category: "correctness",
+      rationale: 'onboarding@resend.dev is a shared test sender that only delivers to the account owner; sending from it to any other recipient returns a 403 error. Shipping it to production \u2014 including as a `?? "onboarding@resend.dev"` fallback \u2014 means real users silently never receive their email. Sending from a verified domain configured via process.env.RESEND_FROM_EMAIL is the documented production requirement.',
       docsUrl: "https://resend.com/docs/send-with-nextjs",
       recommended: true
     },
@@ -472,6 +482,7 @@ var rule7 = {
     docs: {
       description: 'Resend from addresses should use the friendly-name format "Name <email>"',
       category: "integration",
+      rationale: 'Every Resend doc example uses the friendly-name form "Acme <onboarding@acme.com>" rather than a bare email. A bare from address shows up in inboxes as a raw email string, which looks less trustworthy and can hurt open rates and brand recognition. Wrapping the address with a display name is a one-line change that matches the documented convention.',
       docsUrl: "https://resend.com/docs/api-reference/emails/send-email",
       recommended: true
     },
@@ -504,6 +515,7 @@ var rule8 = {
     docs: {
       description: "Enforce the 100-email batch limit before calling resend.batch.send",
       category: "reliability",
+      rationale: "resend.batch.send accepts at most 100 emails per call. Passing a user- or data-driven array without a length guard means the request fails outright once the list grows past 100, so an entire batch of notifications silently never sends. Guarding the array length (or chunking it into <=100-sized slices) keeps the send reliable as volume scales.",
       docsUrl: "https://resend.com/docs/api-reference/emails/send-batch-emails",
       recommended: true
     },
@@ -588,6 +600,7 @@ var rule9 = {
     docs: {
       description: "Resend send/batch calls should include an idempotencyKey",
       category: "reliability",
+      rationale: "Without an idempotency key, if a network retry or webhook redelivery occurs, Resend will send the email multiple times. This causes duplicate charges, duplicate user notifications, and damaged sender reputation. Adding an idempotency key (a unique string per logical operation, like `welcome/${userId}`) makes the send safely retryable.",
       docsUrl: "https://resend.com/docs/send-with-nextjs",
       recommended: true
     },
@@ -619,6 +632,7 @@ var rule10 = {
     docs: {
       description: "Resend errors should map to appropriate HTTP status codes, not a blanket 500",
       category: "reliability",
+      rationale: "Resend returns different error classes that callers must treat differently: 400/422 mean fix the params and do not retry, 401/403 mean fix the key or domain, and 429/500 mean retry with backoff. Collapsing all of them into a blanket HTTP 500 tells the client to retry errors that will never succeed and hides the real cause from logs and monitoring. Mapping the SDK error code to the right status makes the API honest and lets clients react correctly.",
       docsUrl: "https://resend.com/docs/ai-onboarding",
       recommended: true
     },
@@ -719,6 +733,7 @@ var rule11 = {
     docs: {
       description: "Resend webhook handlers should deduplicate retried events",
       category: "reliability",
+      rationale: "Resend retries failed webhook deliveries for up to 24 hours, so the same event can legitimately arrive more than once. A handler that acts on every delivery without deduplication will double-process events \u2014 sending duplicate downstream notifications, double-counting metrics, or corrupting state. Tracking processed event ids (e.g. event.data.email_id) in a store or set and skipping ones already seen makes the handler safely idempotent.",
       docsUrl: "https://resend.com/docs/dashboard/webhooks/introduction",
       recommended: true
     },
@@ -794,6 +809,7 @@ var rule12 = {
     docs: {
       description: "Resend sends should include tags for deliverability segmentation",
       category: "integration",
+      rationale: 'Tags are how Resend segments and filters email in the dashboard and analytics, so sends without them collapse into one undifferentiated stream. When deliverability dips or you need to trace a specific campaign, untagged mail gives you nothing to slice on. Adding tags such as [{ name: "category", value: "welcome" }] makes monitoring and debugging across email types possible.',
       docsUrl: "https://resend.com/docs/dashboard/emails/tags",
       recommended: true
     },
@@ -826,6 +842,7 @@ var rule13 = {
     docs: {
       description: "Log the Resend request id when handling errors",
       category: "integration",
+      rationale: 'Every Resend API response carries a request id (x-request-id / x-resend-request-id) that uniquely identifies the call on their side. When something goes wrong, logging only error.message leaves you and Resend support with no way to find the exact failed request. Logging the request id alongside the message turns a vague "send failed" into a traceable incident that support can look up directly.',
       docsUrl: "https://resend.com/docs/api-reference/errors",
       recommended: true
     },

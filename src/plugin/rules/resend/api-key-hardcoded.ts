@@ -21,6 +21,8 @@ const rule = {
       category: 'security',
       cwe: 'CWE-798',
       owasp: 'API8:2023 Security Misconfiguration',
+      rationale:
+        'A hardcoded API key gets committed to version control, where it lives in git history forever and is exposed to anyone with repository access. Leaked Resend keys let attackers send mail from your domain, damaging sender reputation and deliverability. Reading the key from process.env.RESEND_API_KEY keeps the secret out of source code and lets you rotate it without a redeploy.',
       docsUrl: 'https://resend.com/docs/send-with-nextjs#prerequisites',
       recommended: true,
     },

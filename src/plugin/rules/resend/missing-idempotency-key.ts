@@ -14,6 +14,8 @@ const rule = {
     docs: {
       description: 'Resend send/batch calls should include an idempotencyKey',
       category: 'reliability',
+      rationale:
+        'Without an idempotency key, if a network retry or webhook redelivery occurs, Resend will send the email multiple times. This causes duplicate charges, duplicate user notifications, and damaged sender reputation. Adding an idempotency key (a unique string per logical operation, like `welcome/${userId}`) makes the send safely retryable.',
       docsUrl: 'https://resend.com/docs/send-with-nextjs',
       recommended: true,
     },

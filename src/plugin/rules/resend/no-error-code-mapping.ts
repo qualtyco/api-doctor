@@ -27,6 +27,8 @@ const rule = {
     docs: {
       description: 'Resend errors should map to appropriate HTTP status codes, not a blanket 500',
       category: 'reliability',
+      rationale:
+        'Resend returns different error classes that callers must treat differently: 400/422 mean fix the params and do not retry, 401/403 mean fix the key or domain, and 429/500 mean retry with backoff. Collapsing all of them into a blanket HTTP 500 tells the client to retry errors that will never succeed and hides the real cause from logs and monitoring. Mapping the SDK error code to the right status makes the API honest and lets clients react correctly.',
       docsUrl: 'https://resend.com/docs/ai-onboarding',
       recommended: true,
     },

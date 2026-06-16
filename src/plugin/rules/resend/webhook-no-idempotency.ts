@@ -32,6 +32,8 @@ const rule = {
     docs: {
       description: 'Resend webhook handlers should deduplicate retried events',
       category: 'reliability',
+      rationale:
+        'Resend retries failed webhook deliveries for up to 24 hours, so the same event can legitimately arrive more than once. A handler that acts on every delivery without deduplication will double-process events — sending duplicate downstream notifications, double-counting metrics, or corrupting state. Tracking processed event ids (e.g. event.data.email_id) in a store or set and skipping ones already seen makes the handler safely idempotent.',
       docsUrl: 'https://resend.com/docs/dashboard/webhooks/introduction',
       recommended: true,
     },

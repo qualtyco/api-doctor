@@ -24,6 +24,8 @@ const rule = {
       category: 'security',
       cwe: 'CWE-200',
       owasp: 'API8:2023 Security Misconfiguration',
+      rationale:
+        'The Resend SDK is server-only and is initialized with your secret API key. Importing it into a "use client" component or other browser-bundled code ships that key to every visitor, where it can be read straight from the page source. Keeping Resend imports in server code (route handlers, server actions, server components) ensures the key never reaches the client.',
       docsUrl: 'https://resend.com/docs/send-with-nextjs',
       recommended: true,
     },
