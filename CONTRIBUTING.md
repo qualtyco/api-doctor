@@ -26,7 +26,7 @@ src/
 cli.ts
   └─ scan()                    scanner.ts
        ├─ detectProviders()     detector.ts + providers/*/manifest.ts
-       ├─ buildOxlintConfig()   enables api-doctor/<key> rules per detected SDK
+       ├─ buildOxlintConfig()   enables @api-doctor/cli/<key> rules per detected SDK
        ├─ oxlint --format json  runs providers/<name>/rules/*.ts (AST-based)
        └─ ScanResult[]
   └─ buildReport()             reporter/report-builder.ts
@@ -42,7 +42,7 @@ Every rule key appears in three places and must match exactly:
 ```
 manifest oxlintRules[].key  →  resend-missing-idempotency-key
 plugin/index.ts object key  →  resend-missing-idempotency-key
-oxlint rule id              →  api-doctor/resend-missing-idempotency-key
+oxlint rule id              →  @api-doctor/cli/resend-missing-idempotency-key
 ```
 
 ---
@@ -106,7 +106,7 @@ export default rule;
 | `detect.packages` | npm names matched in package.json |
 | `detect.imports` | import/require strings in source |
 | `detect.urlPatterns` | API URL substrings in source |
-| `oxlintRules[].key` | Plugin rule key → `api-doctor/<key>` |
+| `oxlintRules[].key` | Plugin rule key → `@api-doctor/cli/<key>` |
 | `oxlintRules[].resultRule` | Report id — `<provider>/<category>/<check>` |
 | `oxlintRules[].message` | Issue title in CLI and reports |
 | `oxlintRules[].fix` | Suggested fix text |
@@ -225,10 +225,10 @@ node dist/cli.mjs tests/fixtures/resend/resend-api-key-hardcoded-broken  # end-t
 
 ```json
 {
-  "jsPlugins": ["api-doctor/plugin"],
+  "jsPlugins": ["@api-doctor/cli/plugin"],
   "rules": {
-    "api-doctor/resend-webhook-signature": "error",
-    "api-doctor/resend-api-key-hardcoded": "warn"
+    "@api-doctor/cli/resend-webhook-signature": "error",
+    "@api-doctor/cli/resend-api-key-hardcoded": "warn"
   }
 }
 ```

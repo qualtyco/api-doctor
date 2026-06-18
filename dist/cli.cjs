@@ -216,8 +216,8 @@ var stripeManifest = {
   name: "stripe",
   displayName: "Stripe",
   detect: {
-    packages: ["stripe", "@stripe/stripe-js"],
-    imports: ["stripe", "@stripe/stripe-js"],
+    packages: ["stripe"],
+    imports: ["stripe"],
     urlPatterns: ["api.stripe.com"]
   },
   oxlintRules: []
@@ -228,8 +228,8 @@ var supabaseManifest = {
   name: "supabase",
   displayName: "Supabase",
   detect: {
-    packages: ["@supabase/supabase-js", "@supabase/ssr"],
-    imports: ["@supabase/supabase-js", "@supabase/ssr"],
+    packages: ["@supabase/supabase-js"],
+    imports: ["@supabase/supabase-js"],
     urlPatterns: ["supabase.co"]
   },
   oxlintRules: []
@@ -262,7 +262,7 @@ function writeReport(report, outputPath) {
 }
 
 // src/constants.ts
-var PLUGIN_NAME = "api-doctor";
+var PLUGIN_NAME = "@api-doctor/cli";
 
 // src/providers/resend/rules/webhook-signature.ts
 var rule = {
@@ -1931,7 +1931,7 @@ async function scan(directory, options = {}) {
     };
   }
   const require2 = (0, import_node_module.createRequire)(importMetaUrl);
-  const pluginEntry = require2.resolve("api-doctor/plugin");
+  const pluginEntry = require2.resolve("@api-doctor/cli/plugin");
   const tmpDir = (0, import_node_fs2.mkdtempSync)((0, import_node_path3.join)(import_node_os.default.tmpdir(), "api-doctor-oxlint-"));
   const configPath = (0, import_node_path3.join)(tmpDir, "oxlintrc.json");
   const config = {
@@ -2101,7 +2101,7 @@ function renderMarkdown(report) {
 
 // src/reporter/terminal.ts
 var import_picocolors = __toESM(require("picocolors"), 1);
-var ISSUES_URL = "https://github.com/YOUR_ORG/api-doctor/issues";
+var ISSUES_URL = "https://github.com/qualtyco/api-doctor/issues";
 var BAR_WIDTH = 24;
 function displayNames(detected) {
   return detected.map((d) => providers.find((p) => p.name === d.name)?.displayName ?? d.name).join(", ");

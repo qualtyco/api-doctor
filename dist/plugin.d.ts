@@ -1,6 +1,6 @@
 declare const plugin: {
     readonly meta: {
-        readonly name: "api-doctor";
+        readonly name: "@api-doctor/cli";
         readonly version: "0.0.1";
     };
     readonly rules: {

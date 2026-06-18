@@ -1,5 +1,5 @@
 // src/constants.ts
-var PLUGIN_NAME = "api-doctor";
+var PLUGIN_NAME = "@api-doctor/cli";
 
 // src/providers/resend/rules/webhook-signature.ts
 var rule = {

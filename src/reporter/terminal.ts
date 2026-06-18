@@ -8,7 +8,7 @@ import pc from 'picocolors';
 import { providers } from '../providers/index.js';
 import type { DetectedProvider, ScanResult } from '../types.js';
 
-const ISSUES_URL = 'https://github.com/YOUR_ORG/api-doctor/issues';
+const ISSUES_URL = 'https://github.com/qualtyco/api-doctor/issues';
 const BAR_WIDTH = 24;
 
 export interface ReportOptions {

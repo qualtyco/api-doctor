@@ -1,3 +1,6 @@
+[![npm version](https://img.shields.io/npm/v/@api-doctor/cli)](https://www.npmjs.com/package/@api-doctor/cli)
+[![license](https://img.shields.io/npm/l/@api-doctor/cli)](https://github.com/qualtyco/api-doctor/blob/main/LICENSE)
+
 # api-doctor
 
 Oxlint-powered checks for AI-generated API integrations — catch silent bugs before they ship.
@@ -5,7 +8,7 @@ Oxlint-powered checks for AI-generated API integrations — catch silent bugs be
 ## Usage
 
 ```bash
-npx api-doctor .
+npx @api-doctor/cli .
 ```
 
 By default this prints the grouped terminal report and writes a structured
@@ -39,25 +42,25 @@ These follow the ESLint convention, so the tool drops into CI without extra wiri
 Fail a CI build on any error or warning:
 
 ```bash
-npx api-doctor . --max-warnings 0
+npx @api-doctor/cli . --max-warnings 0
 ```
 
 Hand the findings to a coding agent:
 
 ```bash
-npx api-doctor . --format markdown > issues.md
+npx @api-doctor/cli . --format markdown > issues.md
 ```
 
 Pipe the report straight into an agent:
 
 ```bash
-npx api-doctor . --format markdown | claude
+npx @api-doctor/cli . --format markdown | claude
 ```
 
 Consume the structured findings programmatically (the JSON schema is versioned via `schemaVersion`):
 
 ```bash
-npx api-doctor . --format json > issues.json
+npx @api-doctor/cli . --format json > issues.json
 ```
 
 The `.api-doctor/` directory is gitignored automatically (a `.gitignore` with `*` is seeded on first write).
@@ -73,9 +76,9 @@ You can also use the oxlint plugin directly:
 
 ```json
 {
-  "jsPlugins": ["api-doctor/plugin"],
+  "jsPlugins": ["@api-doctor/cli/plugin"],
   "rules": {
-    "api-doctor/resend-webhook-signature": "error"
+    "@api-doctor/cli/resend-webhook-signature": "error"
   }
 }
 ```
@@ -85,8 +88,13 @@ You can also use the oxlint plugin directly:
 | Provider | Rules | Docs |
 |----------|-------|------|
 | [Resend](https://resend.com) | 13 rules — security, correctness, reliability, integration | [src/providers/resend/README.md](src/providers/resend/README.md) |
-| Stripe | — | detect-only |
-| Supabase | — | detect-only |
+
+### Coming soon
+
+| Provider | Status |
+|----------|--------|
+| Stripe | detect-only — rules in progress |
+| Supabase | detect-only — rules in progress |
 
 ## Development
 

@@ -1,6 +1,6 @@
 {
-  "name": "api-doctor",
-  "version": "0.0.1",
+  "name": "@api-doctor/cli",
+  "version": "0.0.2",
   "description": "Verification rules for AI-generated API integrations via oxlint",
   "type": "module",
   "private": false,
@@ -25,6 +25,14 @@
     "dist",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qualtyco/api-doctor.git"
+  },
+  "homepage": "https://github.com/qualtyco/api-doctor",
+  "bugs": {
+    "url": "https://github.com/qualtyco/api-doctor/issues"
+  },
   "engines": {
     "node": ">=18"
   },

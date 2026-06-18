@@ -136,7 +136,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   // Resolve the bundled oxlint plugin on disk (dist/plugin.js).
   const require = createRequire(import.meta.url);
-  const pluginEntry = require.resolve('api-doctor/plugin');
+  const pluginEntry = require.resolve('@api-doctor/cli/plugin');
 
   // Write a temporary oxlint config — we don't require users to have one in their project.
   const tmpDir = mkdtempSync(join(os.tmpdir(), 'api-doctor-oxlint-'));
