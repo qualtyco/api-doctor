@@ -1,8 +1,8 @@
 /**
  * resend-no-error-code-mapping (reliability)
  *
- * Audit finding G [MEDIUM]: returning HTTP 500 for every Resend error is wrong
- * — 400/401/403/422 are client errors that should not be retried as 500s.
+ * Returning HTTP 500 for every Resend error is wrong — 400/401/403/422 are
+ * client errors that should not be retried as 500s.
  *
  * Flags `if (error) { return ...500... }` where `error` is destructured from a
  * Resend send call in the same function, and the branch returns a hardcoded

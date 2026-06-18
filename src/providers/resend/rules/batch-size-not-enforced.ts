@@ -1,8 +1,8 @@
 /**
  * resend-batch-size-not-enforced (reliability)
  *
- * Audit finding F [MEDIUM]: resend.batch.send accepts at most 100 emails per
- * call. Flags `batch.send(<variable>)` when the enclosing function has no
+ * resend.batch.send accepts at most 100 emails per call. Flags
+ * `batch.send(<variable>)` when the enclosing function has no
  * `<variable>.length` guard.
  *
  * To avoid false positives on chunking, calls inside a loop are skipped (the

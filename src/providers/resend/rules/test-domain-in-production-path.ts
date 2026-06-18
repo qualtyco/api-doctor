@@ -1,8 +1,8 @@
 /**
  * resend-test-domain-in-production-path (correctness)
  *
- * Audit finding C [HIGH]: `onboarding@resend.dev` is for testing only and must
- * not be used as a production from address (it 403s to non-owner recipients).
+ * `onboarding@resend.dev` is for testing only and must not be used as a
+ * production from address (it 403s to non-owner recipients).
  * Flags the literal anywhere in non-test source, which also covers the
  * `process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"` fallback (the
  * fallback's right-hand side is the same string literal).

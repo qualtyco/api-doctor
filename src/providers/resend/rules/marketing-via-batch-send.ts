@@ -1,13 +1,13 @@
 /**
  * resend-marketing-via-batch-send (correctness)
  *
- * Audit finding A [CRITICAL]: the campaign route sends promotional content with
- * `resend.batch.send` (the transactional batch API). Docs direct marketing
- * sends to Broadcasts, not batch send.
+ * Promotional content sent with `resend.batch.send` (the transactional batch
+ * API) is the wrong tool — Resend's docs direct marketing sends to Broadcasts,
+ * not batch send.
  *
  * Detection: a `.batch.send(...)` call in a file whose path indicates marketing
- * (campaign/marketing/newsletter/promotion/broadcast). The audit's signal is
- * the route path `app/api/emails/campaign/route.ts`.
+ * (campaign/marketing/newsletter/promotion/broadcast), e.g.
+ * `app/api/emails/campaign/route.ts`.
  */
 import { isResendBatchSendCall } from '../utils.js';
 

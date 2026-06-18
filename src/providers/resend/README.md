@@ -58,8 +58,6 @@ Wrong API choice for marketing, compliance gaps, and test-only sender domains in
 | Test domain in production path | warning  | [Send with Next.js](https://resend.com/docs/send-with-nextjs)                         | [test-domain-in-production-path.ts](rules/test-domain-in-production-path.ts) | [resend-test-domain-in-production-path.test.ts](../../../tests/rules/resend-test-domain-in-production-path.test.ts) |
 
 
-**Audit findings:** A (marketing via batch — CRITICAL), B (missing unsubscribe — CRITICAL), C ([onboarding@resend.dev](mailto:onboarding@resend.dev) — HIGH).
-
 #### Fixtures
 
 
@@ -84,8 +82,6 @@ Idempotency, batch limits, error mapping, and webhook retry safety.
 | No error code mapping   | warning  | [AI onboarding — errors](https://resend.com/docs/ai-onboarding)                        | [no-error-code-mapping.ts](rules/no-error-code-mapping.ts)     | [resend-no-error-code-mapping.test.ts](../../../tests/rules/resend-no-error-code-mapping.test.ts)     |
 | Webhook no idempotency  | warning  | [Webhooks](https://resend.com/docs/dashboard/webhooks/introduction)                    | [webhook-no-idempotency.ts](rules/webhook-no-idempotency.ts)   | [resend-webhook-no-idempotency.test.ts](../../../tests/rules/resend-webhook-no-idempotency.test.ts)   |
 
-
-**Audit findings:** D (idempotency — MEDIUM), F (batch 100 limit — MEDIUM), G (blanket 500 — MEDIUM).
 
 #### Fixtures
 

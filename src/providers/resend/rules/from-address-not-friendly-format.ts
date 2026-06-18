@@ -1,7 +1,7 @@
 /**
  * resend-from-address-not-friendly-format (integration)
  *
- * Audit finding C (secondary): Resend doc examples use the friendly-name form
+ * Resend doc examples use the friendly-name form
  * `Acme <onboarding@acme.com>`. Flags a `from` value that is a bare email
  * literal with no display name. Advisory only (info).
  */

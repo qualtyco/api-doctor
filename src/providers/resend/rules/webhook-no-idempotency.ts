@@ -1,8 +1,8 @@
 /**
  * resend-webhook-no-idempotency (reliability)
  *
- * Not from the audit — from the v1 plan. Resend retries failed webhooks for up
- * to 24 hours, so handlers must deduplicate events. A file is treated as a
+ * Resend retries failed webhooks for up to 24 hours, so handlers must
+ * deduplicate events. A file is treated as a
  * Resend webhook handler only when it imports `svix` (Resend's webhook
  * verification library) and exports a POST handler. The handler is flagged when
  * it contains no deduplication signal:

@@ -150,6 +150,67 @@ var resendManifest = {
   ]
 };
 
+// src/providers/railway/manifest.ts
+var railwayManifest = {
+  name: "railway",
+  displayName: "Railway",
+  detect: {
+    packages: ["pg"],
+    imports: ["pg"],
+    urlPatterns: ["railway.app", "railway.com", "rlwy.net"]
+  },
+  oxlintRules: [
+    {
+      key: "railway-cron-service-must-share-schema-bootstrap",
+      resultRule: "railway/correctness/cron-service-must-share-schema-bootstrap",
+      message: "This script queries a table directly but never bootstraps the schema (e.g. ensureSchema()).",
+      fix: "Import and call the shared schema bootstrap (e.g. await ensureSchema()) before querying, so a cron service running before the web app has created the table does not crash on a missing relation.",
+      docsUrl: "https://docs.railway.com/guides/cron-jobs",
+      severity: "error"
+    },
+    {
+      key: "railway-no-unauthenticated-public-write-endpoint",
+      resultRule: "railway/security/no-unauthenticated-public-write-endpoint",
+      message: "This write route handler persists request data without any authentication check.",
+      fix: "Gate the handler behind an auth check (token header, session, or origin) before persisting \u2014 a Railway public domain turns this into an open write API.",
+      docsUrl: "https://docs.railway.com/guides/public-networking",
+      severity: "error"
+    },
+    {
+      key: "railway-pg-pool-requires-error-handler",
+      resultRule: "railway/reliability/pg-pool-requires-error-handler",
+      message: 'pg Pool created without a pool.on("error", ...) handler.',
+      fix: 'Attach pool.on("error", (err) => ...) \u2014 an idle client backend error with no listener throws and crashes the Node process when Railway drops connections.',
+      docsUrl: "https://node-postgres.com/apis/pool#events",
+      severity: "error"
+    },
+    {
+      key: "railway-validate-request-payload-bounds",
+      resultRule: "railway/security/validate-request-payload-bounds",
+      message: "Persisted request payload is type-checked but has no length/size bound.",
+      fix: "Add an explicit length cap (e.g. expression.length > 200) before persisting, to prevent unbounded growth of Railway-metered Postgres storage.",
+      docsUrl: "https://docs.railway.com/guides/postgresql",
+      severity: "warning"
+    },
+    {
+      key: "railway-no-raw-error-logging-near-db-connection",
+      resultRule: "railway/security/no-raw-error-logging-near-db-connection",
+      message: "Raw error object logged in a database-connection context.",
+      fix: "Log err.message instead of the whole error \u2014 pg connection errors can carry the DATABASE_URL (with password) into Railway logs.",
+      docsUrl: "https://docs.railway.com/guides/logs",
+      severity: "warning"
+    },
+    {
+      key: "railway-no-ddl-in-request-handler",
+      resultRule: "railway/correctness/no-ddl-in-request-handler",
+      message: "Schema DDL (CREATE TABLE / ensureSchema) runs inside a request handler.",
+      fix: "Run schema creation once at deploy time (e.g. a preDeployCommand migration) rather than on the hot request path, where CREATE TABLE IF NOT EXISTS can race across replicas.",
+      docsUrl: "https://docs.railway.com/reference/config-as-code",
+      severity: "warning"
+    }
+  ]
+};
+
 // src/providers/stripe/manifest.ts
 var stripeManifest = {
   name: "stripe",
@@ -175,7 +236,12 @@ var supabaseManifest = {
 };
 
 // src/providers/index.ts
-var providers = [resendManifest, stripeManifest, supabaseManifest];
+var providers = [
+  resendManifest,
+  railwayManifest,
+  stripeManifest,
+  supabaseManifest
+];
 
 // src/reporter/json-writer.ts
 var import_node_fs = require("fs");
@@ -1107,6 +1173,487 @@ var rule13 = {
 };
 var resendRequestIdNotLoggedRule = rule13;
 
+// src/providers/railway/utils.ts
+var HTTP_METHODS = /* @__PURE__ */ new Set([
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "HEAD",
+  "OPTIONS"
+]);
+var MUTATING_METHODS = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+function startOffset2(n) {
+  if (typeof n?.range?.[0] === "number") return n.range[0];
+  if (typeof n?.start === "number") return n.start;
+  return (n?.loc?.start?.line ?? 0) * 1e6 + (n?.loc?.start?.column ?? 0);
+}
+function endOffset2(n) {
+  if (typeof n?.range?.[1] === "number") return n.range[1];
+  if (typeof n?.end === "number") return n.end;
+  return (n?.loc?.end?.line ?? n?.loc?.start?.line ?? 0) * 1e6 + (n?.loc?.end?.column ?? 0);
+}
+function contains2(outer, inner) {
+  const s = startOffset2(inner);
+  return s >= startOffset2(outer) && s <= endOffset2(outer);
+}
+function importSourceOf(node) {
+  if (node?.type !== "ImportDeclaration") return null;
+  return typeof node.source?.value === "string" ? node.source.value : null;
+}
+function requireSourceOf(node) {
+  if (node?.type !== "CallExpression") return null;
+  if (node.callee?.type !== "Identifier" || node.callee.name !== "require") return null;
+  const arg = node.arguments?.[0];
+  return arg?.type === "Literal" && typeof arg.value === "string" ? arg.value : null;
+}
+function isPgModule(source) {
+  return source === "pg" || source === "pg-pool";
+}
+function getExportedHandlers(node) {
+  const handlers = [];
+  if (node?.type !== "ExportNamedDeclaration") return handlers;
+  const decl = node.declaration;
+  if (!decl) return handlers;
+  if (decl.type === "FunctionDeclaration" && decl.id?.type === "Identifier") {
+    if (HTTP_METHODS.has(decl.id.name)) handlers.push({ name: decl.id.name, node: decl });
+    return handlers;
+  }
+  if (decl.type === "VariableDeclaration") {
+    for (const d of decl.declarations ?? []) {
+      if (d?.id?.type !== "Identifier" || !HTTP_METHODS.has(d.id.name)) continue;
+      const init = d.init;
+      if (init?.type === "ArrowFunctionExpression" || init?.type === "FunctionExpression") {
+        handlers.push({ name: d.id.name, node: init });
+      }
+    }
+  }
+  return handlers;
+}
+function isQueryCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return false;
+  const prop = callee.property;
+  return prop?.type === "Identifier" && prop.name === "query" || prop?.type === "Literal" && prop.value === "query";
+}
+function getQuerySql(node) {
+  const arg = node?.arguments?.[0];
+  if (!arg) return null;
+  if (arg.type === "Literal" && typeof arg.value === "string") return arg.value;
+  if (arg.type === "TemplateLiteral") {
+    const parts = (arg.quasis ?? []).map(
+      (q) => q?.value?.cooked ?? q?.value?.raw ?? ""
+    );
+    return parts.join(" ");
+  }
+  return null;
+}
+var WRITE_SQL = /\b(insert\s+into|update|delete\s+from)\b/i;
+var DDL_SQL = /\b(create|alter|drop)\s+(table|index|schema|materialized\s+view|view)\b/i;
+var SELECT_FROM_SQL = /\bselect\b[\s\S]*\bfrom\s+\S/i;
+var TABLE_DML = new RegExp(`${WRITE_SQL.source}|${SELECT_FROM_SQL.source}`, "i");
+function sqlIsWrite(sql) {
+  return WRITE_SQL.test(sql);
+}
+function sqlIsDDL(sql) {
+  return DDL_SQL.test(sql);
+}
+function sqlTouchesTable(sql) {
+  return TABLE_DML.test(sql);
+}
+var SCHEMA_BOOTSTRAP_NAMES = /^(ensureSchema|migrate|runMigrations?|createTables?|initSchema|bootstrapSchema|setupSchema)$/;
+function isSchemaBootstrapCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type === "Identifier") return SCHEMA_BOOTSTRAP_NAMES.test(callee.name);
+  if (callee?.type === "MemberExpression" && callee.property?.type === "Identifier") {
+    return SCHEMA_BOOTSTRAP_NAMES.test(callee.property.name);
+  }
+  return false;
+}
+function isConsoleCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return false;
+  return callee.object?.type === "Identifier" && callee.object.name === "console";
+}
+function isBareErrorIdentifier(node) {
+  return node?.type === "Identifier" && /^(err|error|e|ex|exception)$/.test(node.name);
+}
+function isNewPoolExpression(node) {
+  if (node?.type !== "NewExpression") return false;
+  const callee = node.callee;
+  if (callee?.type === "Identifier") return callee.name === "Pool";
+  if (callee?.type === "MemberExpression" && callee.property?.type === "Identifier") {
+    return callee.property.name === "Pool";
+  }
+  return false;
+}
+function isOnErrorCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return false;
+  const prop = callee.property;
+  const isOn = prop?.type === "Identifier" && prop.name === "on" || prop?.type === "Literal" && prop.value === "on";
+  if (!isOn) return false;
+  const first = node.arguments?.[0];
+  return first?.type === "Literal" && first.value === "error";
+}
+function isRequestJsonCall(node) {
+  if (node?.type !== "CallExpression") return false;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return false;
+  const prop = callee.property;
+  if (prop?.type !== "Identifier" || prop.name !== "json") return false;
+  const obj = callee.object;
+  return obj?.type === "Identifier" && (obj.name === "req" || obj.name === "request");
+}
+function isTypeofStringComparison(node) {
+  if (node?.type !== "BinaryExpression") return false;
+  if (node.operator !== "===" && node.operator !== "!==") return false;
+  const sides = [node.left, node.right];
+  const hasTypeof = sides.some((s) => s?.type === "UnaryExpression" && s.operator === "typeof");
+  const hasStringLit = sides.some(
+    (s) => s?.type === "Literal" && s.value === "string"
+  );
+  return hasTypeof && hasStringLit;
+}
+function isLengthMember(node) {
+  return node?.type === "MemberExpression" && node.property?.type === "Identifier" && node.property.name === "length";
+}
+
+// src/providers/railway/rules/cron-service-must-share-schema-bootstrap.ts
+var rule14 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "A Railway cron/worker script must bootstrap the DB schema before querying tables the web app creates lazily",
+      category: "correctness",
+      docsUrl: "https://docs.railway.com/guides/cron-jobs",
+      rationale: 'When the table is created lazily by the web app and the cron script queries it directly, the very first scheduled cron run after a fresh deploy can hit the table before any request has created it, throwing "relation does not exist". Railway does not retry a failed cron run before its next schedule, so the job silently stays broken. The script must call the same ensureSchema() bootstrap (or create the table itself) before querying.',
+      recommended: true
+    },
+    messages: {
+      missingSchemaBootstrap: "This script queries a table without bootstrapping the schema first. Call the shared ensureSchema() (or create the table) before querying, or the first Railway cron run can fail on a missing relation."
+    },
+    schema: []
+  },
+  create(context) {
+    let usesPg = false;
+    let bootstrapsSchema = false;
+    let firstTableQuery = null;
+    return {
+      ImportDeclaration(node) {
+        if (isPgModule(importSourceOf(node))) usesPg = true;
+      },
+      CallExpression(node) {
+        if (isPgModule(requireSourceOf(node))) usesPg = true;
+        if (isSchemaBootstrapCall(node)) bootstrapsSchema = true;
+        if (isQueryCall(node)) {
+          const sql = getQuerySql(node);
+          if (sql && sqlIsDDL(sql)) bootstrapsSchema = true;
+          if (sql && sqlTouchesTable(sql) && !firstTableQuery) firstTableQuery = node;
+        }
+      },
+      "Program:exit"() {
+        if (!usesPg) return;
+        if (bootstrapsSchema) return;
+        if (firstTableQuery) {
+          context.report({ node: firstTableQuery, messageId: "missingSchemaBootstrap" });
+        }
+      }
+    };
+  }
+};
+var railwayCronServiceMustShareSchemaBootstrapRule = rule14;
+
+// src/providers/railway/rules/no-unauthenticated-public-write-endpoint.ts
+var ENV_SECRET = /(TOKEN|SECRET|KEY|PASSWORD|AUTH)/i;
+var AUTH_FN = /^(auth|getAuth|getSession|getUser|getServerSession|verify|verifyAuth|authorize|authenticate|require\w*|checkAuth|isAuthorized|currentUser)$/;
+var rule15 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Mutating Railway route handlers must authenticate before persisting, since a public domain makes them internet-reachable",
+      category: "security",
+      cwe: "CWE-306",
+      owasp: "API2:2023 Broken Authentication",
+      docsUrl: "https://docs.railway.com/guides/public-networking",
+      rationale: "Generating a public domain for a Railway service exposes its routes to the entire internet. A write handler that persists request data with no token, session, or origin check becomes an open write API: anyone can insert arbitrary rows, growing metered Postgres storage and corrupting application data. Authenticate the request before persisting.",
+      recommended: true
+    },
+    messages: {
+      unauthenticatedWrite: "This {{method}} handler persists request data without an authentication check. Verify a token/session/origin before writing \u2014 a Railway public domain exposes it to the internet."
+    },
+    schema: []
+  },
+  create(context) {
+    const handlers = [];
+    function forEachHandlerContaining(node, fn) {
+      for (const h of handlers) {
+        if (contains2(h.node, node)) fn(h);
+      }
+    }
+    return {
+      ExportNamedDeclaration(node) {
+        for (const h of getExportedHandlers(node)) {
+          if (MUTATING_METHODS.has(h.name)) {
+            handlers.push({ ...h, hasWrite: false, hasAuth: false });
+          }
+        }
+      },
+      MemberExpression(node) {
+        if (node.property?.type === "Identifier" && node.property.name === "headers") {
+          forEachHandlerContaining(node, (h) => {
+            h.hasAuth = true;
+          });
+        }
+        if (node.property?.type === "Identifier" && ENV_SECRET.test(node.property.name) && node.object?.type === "MemberExpression" && node.object.property?.type === "Identifier" && node.object.property.name === "env") {
+          forEachHandlerContaining(node, (h) => {
+            h.hasAuth = true;
+          });
+        }
+      },
+      CallExpression(node) {
+        if (isQueryCall(node)) {
+          const sql = getQuerySql(node);
+          if (sql && sqlIsWrite(sql)) {
+            forEachHandlerContaining(node, (h) => {
+              h.hasWrite = true;
+            });
+          }
+        }
+        const callee = node.callee;
+        const name = callee?.type === "Identifier" ? callee.name : callee?.type === "MemberExpression" && callee.property?.type === "Identifier" ? callee.property.name : null;
+        if (name && AUTH_FN.test(name)) {
+          forEachHandlerContaining(node, (h) => {
+            h.hasAuth = true;
+          });
+        }
+      },
+      "Program:exit"() {
+        for (const h of handlers) {
+          if (h.hasWrite && !h.hasAuth) {
+            context.report({
+              node: h.node,
+              messageId: "unauthenticatedWrite",
+              data: { method: h.name }
+            });
+          }
+        }
+      }
+    };
+  }
+};
+var railwayNoUnauthenticatedPublicWriteEndpointRule = rule15;
+
+// src/providers/railway/rules/pg-pool-requires-error-handler.ts
+var rule16 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: 'A pg Pool on Railway must register a pool.on("error") handler',
+      category: "reliability",
+      docsUrl: "https://node-postgres.com/apis/pool#events",
+      rationale: 'node-postgres emits backend errors on idle clients as an "error" event on the Pool. A Node EventEmitter with no "error" listener rethrows, crashing the process. Railway-managed Postgres routinely drops idle connections during maintenance and restarts, so a long-running server container without pool.on("error", ...) will eventually crash on an event it could have absorbed.',
+      recommended: true
+    },
+    messages: {
+      missingErrorHandler: 'This pg Pool has no pool.on("error", ...) handler. An idle-client backend error with no listener will crash the process when Railway drops the connection.'
+    },
+    schema: []
+  },
+  create(context) {
+    let usesPg = false;
+    let hasErrorHandler = false;
+    const pools = [];
+    return {
+      ImportDeclaration(node) {
+        if (isPgModule(importSourceOf(node))) usesPg = true;
+      },
+      CallExpression(node) {
+        if (isPgModule(requireSourceOf(node))) usesPg = true;
+        if (isOnErrorCall(node)) hasErrorHandler = true;
+      },
+      NewExpression(node) {
+        if (isNewPoolExpression(node)) pools.push(node);
+      },
+      "Program:exit"() {
+        if (!usesPg || hasErrorHandler) return;
+        for (const pool of pools) {
+          context.report({ node: pool, messageId: "missingErrorHandler" });
+        }
+      }
+    };
+  }
+};
+var railwayPgPoolRequiresErrorHandlerRule = rule16;
+
+// src/providers/railway/rules/validate-request-payload-bounds.ts
+var rule17 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Persisted request payloads on Railway must enforce length bounds, not just type checks",
+      category: "security",
+      cwe: "CWE-770",
+      owasp: "API4:2023 Unrestricted Resource Consumption",
+      docsUrl: "https://docs.railway.com/guides/postgresql",
+      rationale: 'A handler that validates only the type of incoming fields (typeof === "string") but never their length lets a client persist arbitrarily large values. On Railway, Postgres storage is billed by volume size, so unbounded inserts grow cost indefinitely and a burst of abuse persists until an age-based cleanup eventually catches it. Enforce an explicit length cap before persisting.',
+      recommended: true
+    },
+    messages: {
+      missingBounds: "This {{method}} handler type-checks the payload but never bounds its length before persisting. Add an explicit length cap (e.g. value.length > 200) to prevent unbounded Railway Postgres growth."
+    },
+    schema: []
+  },
+  create(context) {
+    const handlers = [];
+    function forEach(node, fn) {
+      for (const h of handlers) if (contains2(h.node, node)) fn(h);
+    }
+    return {
+      ExportNamedDeclaration(node) {
+        for (const h of getExportedHandlers(node)) {
+          if (MUTATING_METHODS.has(h.name)) {
+            handlers.push({
+              ...h,
+              readsJson: false,
+              typeChecksString: false,
+              hasWrite: false,
+              hasLengthCheck: false
+            });
+          }
+        }
+      },
+      CallExpression(node) {
+        if (isRequestJsonCall(node)) forEach(node, (h) => h.readsJson = true);
+        if (isQueryCall(node)) {
+          const sql = getQuerySql(node);
+          if (sql && sqlIsWrite(sql)) forEach(node, (h) => h.hasWrite = true);
+        }
+      },
+      BinaryExpression(node) {
+        if (isTypeofStringComparison(node)) forEach(node, (h) => h.typeChecksString = true);
+      },
+      MemberExpression(node) {
+        if (isLengthMember(node)) forEach(node, (h) => h.hasLengthCheck = true);
+      },
+      "Program:exit"() {
+        for (const h of handlers) {
+          if (h.readsJson && h.typeChecksString && h.hasWrite && !h.hasLengthCheck) {
+            context.report({
+              node: h.node,
+              messageId: "missingBounds",
+              data: { method: h.name }
+            });
+          }
+        }
+      }
+    };
+  }
+};
+var railwayValidateRequestPayloadBoundsRule = rule17;
+
+// src/providers/railway/rules/no-raw-error-logging-near-db-connection.ts
+var rule18 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Do not log raw error objects in a Railway Postgres connection context \u2014 the DSN/password can leak into logs",
+      category: "security",
+      cwe: "CWE-532",
+      owasp: "API8:2023 Security Misconfiguration",
+      docsUrl: "https://docs.railway.com/guides/logs",
+      rationale: "pg connection-failure errors can carry connection details \u2014 and in some driver versions the full DSN \u2014 in their message and stack. DATABASE_URL contains the Postgres password, so console.error(err) on a pool failure can write that password into Railway deploy/build logs, which may be exported to a third-party log drain or read by anyone with project access. Log err.message (a redacted, intentional field) instead of the whole error.",
+      recommended: true
+    },
+    messages: {
+      rawErrorLogged: "Logging a raw error object in a database-connection context can leak DATABASE_URL (with the Postgres password) into Railway logs. Log err.message instead."
+    },
+    schema: []
+  },
+  create(context) {
+    let isDbContext = false;
+    const rawLogCalls = [];
+    return {
+      ImportDeclaration(node) {
+        if (isPgModule(importSourceOf(node))) isDbContext = true;
+      },
+      NewExpression(node) {
+        if (isNewPoolExpression(node)) isDbContext = true;
+      },
+      MemberExpression(node) {
+        if (node.property?.type === "Identifier" && node.property.name === "DATABASE_URL" && node.object?.type === "MemberExpression" && node.object.property?.type === "Identifier" && node.object.property.name === "env") {
+          isDbContext = true;
+        }
+      },
+      CallExpression(node) {
+        if (isPgModule(requireSourceOf(node))) isDbContext = true;
+        if (isConsoleCall(node)) {
+          const hasBareError = (node.arguments ?? []).some((a) => isBareErrorIdentifier(a));
+          if (hasBareError) rawLogCalls.push(node);
+        }
+      },
+      "Program:exit"() {
+        if (!isDbContext) return;
+        for (const call of rawLogCalls) {
+          context.report({ node: call, messageId: "rawErrorLogged" });
+        }
+      }
+    };
+  }
+};
+var railwayNoRawErrorLoggingNearDbConnectionRule = rule18;
+
+// src/providers/railway/rules/no-ddl-in-request-handler.ts
+var rule19 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Schema DDL must not run inside a Railway request handler",
+      category: "correctness",
+      docsUrl: "https://docs.railway.com/reference/config-as-code",
+      rationale: "Running CREATE TABLE IF NOT EXISTS (directly or via ensureSchema()) on every request adds a catalog round-trip to the hot path and is not race-proof: when Railway runs more than one replica, two cold-starting instances can attempt the create simultaneously and one can fail with a duplicate-relation error. Run schema creation once at deploy time (e.g. a preDeployCommand migration) instead.",
+      recommended: true
+    },
+    messages: {
+      ddlInHandler: "Schema DDL runs inside the {{method}} request handler. Move schema creation to a one-time deploy step (e.g. preDeployCommand) \u2014 per-request CREATE TABLE can race across Railway replicas."
+    },
+    schema: []
+  },
+  create(context) {
+    const handlers = [];
+    const reported = /* @__PURE__ */ new Set();
+    function reportInHandler(node) {
+      for (const h of handlers) {
+        if (contains2(h.node, node) && !reported.has(h.node)) {
+          reported.add(h.node);
+          context.report({ node: h.node, messageId: "ddlInHandler", data: { method: h.name } });
+        }
+      }
+    }
+    return {
+      ExportNamedDeclaration(node) {
+        for (const h of getExportedHandlers(node)) handlers.push(h);
+      },
+      CallExpression(node) {
+        if (isSchemaBootstrapCall(node)) {
+          reportInHandler(node);
+          return;
+        }
+        if (isQueryCall(node)) {
+          const sql = getQuerySql(node);
+          if (sql && sqlIsDDL(sql)) reportInHandler(node);
+        }
+      }
+    };
+  }
+};
+var railwayNoDdlInRequestHandlerRule = rule19;
+
 // src/plugin/index.ts
 var plugin = {
   meta: { name: PLUGIN_NAME, version: "0.0.1" },
@@ -1123,15 +1670,21 @@ var plugin = {
     "resend-no-error-code-mapping": resendNoErrorCodeMappingRule,
     "resend-webhook-no-idempotency": resendWebhookNoIdempotencyRule,
     "resend-missing-tags": resendMissingTagsRule,
-    "resend-request-id-not-logged": resendRequestIdNotLoggedRule
+    "resend-request-id-not-logged": resendRequestIdNotLoggedRule,
+    "railway-cron-service-must-share-schema-bootstrap": railwayCronServiceMustShareSchemaBootstrapRule,
+    "railway-no-unauthenticated-public-write-endpoint": railwayNoUnauthenticatedPublicWriteEndpointRule,
+    "railway-pg-pool-requires-error-handler": railwayPgPoolRequiresErrorHandlerRule,
+    "railway-validate-request-payload-bounds": railwayValidateRequestPayloadBoundsRule,
+    "railway-no-raw-error-logging-near-db-connection": railwayNoRawErrorLoggingNearDbConnectionRule,
+    "railway-no-ddl-in-request-handler": railwayNoDdlInRequestHandlerRule
   }
 };
 
 // src/plugin/rule-registry.ts
 function buildRegistry() {
   const registry2 = /* @__PURE__ */ new Map();
-  for (const [key, rule14] of Object.entries(plugin.rules)) {
-    const docs = rule14?.meta?.docs ?? {};
+  for (const [key, rule20] of Object.entries(plugin.rules)) {
+    const docs = rule20?.meta?.docs ?? {};
     registry2.set(key, {
       category: docs.category,
       description: docs.description ?? "",
@@ -1341,9 +1894,9 @@ function buildOxlintConfig(detectedNames) {
   const ruleMetaByKey = /* @__PURE__ */ new Map();
   for (const provider of providers) {
     if (!detectedNames.has(provider.name)) continue;
-    for (const rule14 of provider.oxlintRules) {
-      oxlintRules[`${PLUGIN_NAME}/${rule14.key}`] = rule14.severity === "error" || rule14.severity === void 0 ? "error" : "warn";
-      ruleMetaByKey.set(rule14.key, rule14);
+    for (const rule20 of provider.oxlintRules) {
+      oxlintRules[`${PLUGIN_NAME}/${rule20.key}`] = rule20.severity === "error" || rule20.severity === void 0 ? "error" : "warn";
+      ruleMetaByKey.set(rule20.key, rule20);
     }
   }
   return { oxlintRules, ruleMetaByKey };
@@ -1464,9 +2017,9 @@ var import_node_path4 = require("path");
 function rationaleByRule() {
   const map = /* @__PURE__ */ new Map();
   for (const provider of providers) {
-    for (const rule14 of provider.oxlintRules) {
-      const docs = getRuleDocsMeta(rule14.key);
-      if (docs?.rationale) map.set(rule14.resultRule, docs.rationale);
+    for (const rule20 of provider.oxlintRules) {
+      const docs = getRuleDocsMeta(rule20.key);
+      if (docs?.rationale) map.set(rule20.resultRule, docs.rationale);
     }
   }
   return map;

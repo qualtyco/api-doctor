@@ -15,6 +15,12 @@ import { resendNoErrorCodeMappingRule } from '../providers/resend/rules/no-error
 import { resendWebhookNoIdempotencyRule } from '../providers/resend/rules/webhook-no-idempotency.js';
 import { resendMissingTagsRule } from '../providers/resend/rules/missing-tags.js';
 import { resendRequestIdNotLoggedRule } from '../providers/resend/rules/request-id-not-logged.js';
+import { railwayCronServiceMustShareSchemaBootstrapRule } from '../providers/railway/rules/cron-service-must-share-schema-bootstrap.js';
+import { railwayNoUnauthenticatedPublicWriteEndpointRule } from '../providers/railway/rules/no-unauthenticated-public-write-endpoint.js';
+import { railwayPgPoolRequiresErrorHandlerRule } from '../providers/railway/rules/pg-pool-requires-error-handler.js';
+import { railwayValidateRequestPayloadBoundsRule } from '../providers/railway/rules/validate-request-payload-bounds.js';
+import { railwayNoRawErrorLoggingNearDbConnectionRule } from '../providers/railway/rules/no-raw-error-logging-near-db-connection.js';
+import { railwayNoDdlInRequestHandlerRule } from '../providers/railway/rules/no-ddl-in-request-handler.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -32,6 +38,15 @@ const plugin = {
     'resend-webhook-no-idempotency': resendWebhookNoIdempotencyRule,
     'resend-missing-tags': resendMissingTagsRule,
     'resend-request-id-not-logged': resendRequestIdNotLoggedRule,
+    'railway-cron-service-must-share-schema-bootstrap':
+      railwayCronServiceMustShareSchemaBootstrapRule,
+    'railway-no-unauthenticated-public-write-endpoint':
+      railwayNoUnauthenticatedPublicWriteEndpointRule,
+    'railway-pg-pool-requires-error-handler': railwayPgPoolRequiresErrorHandlerRule,
+    'railway-validate-request-payload-bounds': railwayValidateRequestPayloadBoundsRule,
+    'railway-no-raw-error-logging-near-db-connection':
+      railwayNoRawErrorLoggingNearDbConnectionRule,
+    'railway-no-ddl-in-request-handler': railwayNoDdlInRequestHandlerRule,
   },
 } as const;
 

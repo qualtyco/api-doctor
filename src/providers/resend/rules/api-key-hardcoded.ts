@@ -2,7 +2,7 @@
  * resend-api-key-hardcoded (security)
  *
  * Flags Resend API key literals (`re_...`) embedded directly in source code.
- * Keys must come from `process.env.RESEND_API_KEY` (audit "COMPLIANT AREAS" #1).
+ * Keys must come from `process.env.RESEND_API_KEY`.
  *
  * Detection is AST-based: it inspects string `Literal` and `TemplateElement`
  * VALUES only, so the same token appearing in a comment is never a node and is

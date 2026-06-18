@@ -1,8 +1,8 @@
 /**
  * resend-missing-idempotency-key (reliability)
  *
- * Audit finding D [MEDIUM]: send/batch calls should pass an idempotencyKey to
- * prevent duplicate emails on retries. Flags a Resend send call when no object
+ * Send/batch calls should pass an idempotencyKey to prevent duplicate emails
+ * on retries. Flags a Resend send call when no object
  * argument carries an `idempotencyKey` property. Checking every object argument
  * accepts the key whether it sits in the payload or a separate options arg.
  */

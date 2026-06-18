@@ -2,8 +2,8 @@
  * resend-api-key-in-client-bundle (security)
  *
  * The Resend SDK is server-only; importing it into client-bundled code risks
- * shipping the API key to the browser (audit "COMPLIANT AREAS" #1 + docs:
- * keys belong in server env). Flags a value import from `resend` when the file
+ * shipping the API key to the browser (Resend's docs say keys belong in
+ * server env only). Flags a value import from `resend` when the file
  * is client code:
  *   - it carries a top-level "use client" directive, OR
  *   - it lives under a `components/` path and renders JSX.

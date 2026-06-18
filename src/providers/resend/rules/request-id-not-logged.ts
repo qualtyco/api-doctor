@@ -1,8 +1,8 @@
 /**
  * resend-request-id-not-logged (integration)
  *
- * From the prompt (not the audit): when handling a Resend error, logging the
- * request id makes support/debugging far easier. Flags an error-handling block
+ * When handling a Resend error, logging the request id makes
+ * support/debugging far easier. Flags an error-handling block
  * (a `catch` clause or an `if (error)` block) in a file that imports `resend`,
  * which references `<error>.message` but never references a request-id header
  * (`x-request-id` or `x-resend-request-id`). Advisory only (info).

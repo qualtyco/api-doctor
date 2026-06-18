@@ -1,8 +1,8 @@
 /**
  * resend-marketing-missing-unsubscribe (correctness)
  *
- * Audit finding B [CRITICAL]: marketing emails must give recipients a way to
- * unsubscribe (CAN-SPAM / CASL). Flags a Resend send whose `tags` mark it as
+ * Marketing emails must give recipients a way to unsubscribe (CAN-SPAM /
+ * CASL). Flags a Resend send whose `tags` mark it as
  * marketing while the same call provides neither a `List-Unsubscribe` header
  * nor the `{{{RESEND_UNSUBSCRIBE_URL}}}` placeholder in its HTML.
  */
