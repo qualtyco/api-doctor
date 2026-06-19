@@ -432,6 +432,127 @@ declare const plugin: {
                 CallExpression(node: any): void;
             };
         };
+        readonly 'supabase-scope-queries-by-tenant-column': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    missingTenantFilter: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                'CallExpression:exit'(node: any): void;
+                'Program:exit'(): void;
+            };
+        };
+        readonly 'supabase-validate-uuid-columns': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    missingUuidValidation: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                VariableDeclarator(node: any): void;
+                BinaryExpression(node: any): void;
+                CallExpression(node: any): void;
+            };
+        };
+        readonly 'supabase-order-by-timestamp-not-identity': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    orderByIdentity: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                'CallExpression:exit'(node: any): void;
+            };
+        };
+        readonly 'supabase-consistent-input-length-limits': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    inconsistentLengthLimit: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                BinaryExpression(node: any): void;
+                CallExpression(node: any): void;
+            };
+        };
+        readonly 'supabase-idempotent-mutations': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    missingIdempotencyKey: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                CallExpression(node: any): void;
+            };
+        };
+        readonly 'supabase-fail-fast-env-validation': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    missingEnvValidation: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                ImportDeclaration(node: any): void;
+                VariableDeclarator(node: any): void;
+                IfStatement(node: any): void;
+                CallExpression(node: any): void;
+            };
+        };
     };
 };
 

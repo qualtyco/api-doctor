@@ -184,18 +184,6 @@ var railwayManifest = {
   ]
 };
 
-// src/providers/stripe/manifest.ts
-var stripeManifest = {
-  name: "stripe",
-  displayName: "Stripe",
-  detect: {
-    packages: ["stripe"],
-    imports: ["stripe"],
-    urlPatterns: ["api.stripe.com"]
-  },
-  oxlintRules: []
-};
-
 // src/providers/supabase/manifest.ts
 var supabaseManifest = {
   name: "supabase",
@@ -205,14 +193,62 @@ var supabaseManifest = {
     imports: ["@supabase/supabase-js"],
     urlPatterns: ["supabase.co"]
   },
-  oxlintRules: []
+  oxlintRules: [
+    {
+      key: "supabase-scope-queries-by-tenant-column",
+      resultRule: "supabase/correctness/scope-queries-by-tenant-column",
+      message: "Query selects a tenant column but never filters by it.",
+      fix: 'Add .eq("<column>", value) (or .match()/.filter()) to scope results to the caller.',
+      docsUrl: "https://supabase.com/docs/reference/javascript/eq",
+      severity: "error"
+    },
+    {
+      key: "supabase-validate-uuid-columns",
+      resultRule: "supabase/correctness/validate-uuid-columns",
+      message: 'Value passed to a uuid-typed column is only checked with typeof === "string".',
+      fix: "Validate UUID shape with a regex (e.g. /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) before insert/upsert.",
+      docsUrl: "https://supabase.com/docs/guides/database/tables#data-types",
+      severity: "info"
+    },
+    {
+      key: "supabase-order-by-timestamp-not-identity",
+      resultRule: "supabase/correctness/order-by-timestamp-not-identity",
+      message: 'Query orders by "id" instead of a selected timestamp column.',
+      fix: 'Order by the timestamp column (e.g. .order("created_at", { ascending: false })) instead of the surrogate key.',
+      docsUrl: "https://supabase.com/docs/reference/javascript/order",
+      severity: "info"
+    },
+    {
+      key: "supabase-consistent-input-length-limits",
+      resultRule: "supabase/correctness/consistent-input-length-limits",
+      message: "A sibling string field in this insert has no length cap, unlike the others.",
+      fix: "Apply the same length cap pattern used for the other fields, e.g. field.length > 2000.",
+      docsUrl: "https://supabase.com/docs/guides/database/tables",
+      severity: "warning"
+    },
+    {
+      key: "supabase-idempotent-mutations",
+      resultRule: "supabase/reliability/idempotent-mutations",
+      message: "Insert has no idempotency/dedupe key, so a retry can create a duplicate row.",
+      fix: 'Add a client-generated idempotency key field backed by a unique constraint, or use .upsert(..., { onConflict: "<key column>" }).',
+      docsUrl: "https://supabase.com/docs/reference/javascript/upsert",
+      severity: "warning"
+    },
+    {
+      key: "supabase-fail-fast-env-validation",
+      resultRule: "supabase/reliability/fail-fast-env-validation",
+      message: "createClient is called with env vars that have no presence check.",
+      fix: "Throw a clear error (e.g. if (!url || !key) throw new Error(...)) before calling createClient.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/initializing",
+      severity: "warning"
+    }
+  ]
 };
 
 // src/providers/index.ts
 var providers = [
   resendManifest,
   railwayManifest,
-  stripeManifest,
   supabaseManifest
 ];
 
@@ -1627,6 +1663,495 @@ var rule19 = {
 };
 var railwayNoDdlInRequestHandlerRule = rule19;
 
+// src/providers/supabase/utils.ts
+function memberPropName(node) {
+  if (node?.type !== "CallExpression") return void 0;
+  const callee = node.callee;
+  if (callee?.type !== "MemberExpression") return void 0;
+  const prop = callee.property;
+  if (!callee.computed && prop?.type === "Identifier") return prop.name;
+  if (callee.computed && prop?.type === "Literal" && typeof prop.value === "string") {
+    return prop.value;
+  }
+  return void 0;
+}
+function chainObjectCall(node) {
+  const obj = node?.callee?.object;
+  return obj?.type === "CallExpression" ? obj : null;
+}
+function parseSelectColumns(arg) {
+  if (arg?.type !== "Literal" || typeof arg.value !== "string") return [];
+  return arg.value.split(",").map((c) => c.trim()).filter(Boolean);
+}
+function isTenantColumnName(name) {
+  return /^[a-z][a-z0-9]*_id$/i.test(name) && name.toLowerCase() !== "id";
+}
+function isTimestampColumnName(name) {
+  return /^[a-z][a-z0-9]*_at$/i.test(name);
+}
+function resolvePropertyValueName(prop) {
+  if (prop?.shorthand && prop.key?.type === "Identifier") return prop.key.name;
+  const value = prop?.value;
+  if (value?.type === "Identifier") return value.name;
+  if (value?.type === "LogicalExpression" && (value.operator === "??" || value.operator === "||")) {
+    if (value.left?.type === "Identifier") return value.left.name;
+  }
+  return void 0;
+}
+function typeofStringCheckTarget(node) {
+  if (node?.type !== "BinaryExpression") return void 0;
+  if (node.operator !== "===" && node.operator !== "!==") return void 0;
+  const sides = [node.left, node.right];
+  const typeofSide = sides.find(
+    (s) => s?.type === "UnaryExpression" && s.operator === "typeof" && s.argument?.type === "Identifier"
+  );
+  const litSide = sides.find((s) => s?.type === "Literal" && s.value === "string");
+  if (!typeofSide || !litSide) return void 0;
+  return typeofSide.argument.name;
+}
+
+// src/providers/supabase/rules/scope-queries-by-tenant-column.ts
+var rule20 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase queries that select a tenant column must filter by it",
+      category: "correctness",
+      rationale: "A column like session_id or user_id existing in the schema (and being selected) signals intent to scope rows to one caller, but selecting it is not the same as filtering by it. Without an .eq()/.match()/.filter() on that column, the query returns every row for every tenant, turning a per-user feed into a single shared, cross-user one.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/eq",
+      recommended: true
+    },
+    messages: {
+      missingTenantFilter: 'This query selects "{{column}}" but never filters by it. Add .eq("{{column}}", ...) (or .match()/.filter()) to scope results to the caller.'
+    },
+    schema: []
+  },
+  create(context) {
+    const chainStates = /* @__PURE__ */ new Map();
+    const selectStates = [];
+    function recordFilteredColumn(state, name) {
+      if (typeof name === "string") state.filteredColumns.add(name);
+      else state.filteredColumns.add("*");
+    }
+    return {
+      "CallExpression:exit"(node) {
+        const prop = memberPropName(node);
+        if (!prop) return;
+        const objCall = chainObjectCall(node);
+        if (prop === "select" && objCall && memberPropName(objCall) === "from") {
+          const columns = parseSelectColumns(node.arguments?.[0]);
+          const tenantColumns = columns.filter(isTenantColumnName);
+          if (tenantColumns.length === 0) return;
+          const state2 = { selectNode: node, tenantColumns, filteredColumns: /* @__PURE__ */ new Set() };
+          chainStates.set(node, state2);
+          selectStates.push(state2);
+          return;
+        }
+        const state = objCall ? chainStates.get(objCall) : void 0;
+        if (!state) return;
+        if (prop === "eq" || prop === "filter") {
+          const colArg = node.arguments?.[0];
+          recordFilteredColumn(state, colArg?.type === "Literal" ? colArg.value : void 0);
+        } else if (prop === "match") {
+          const objArg = node.arguments?.[0];
+          if (objArg?.type === "ObjectExpression") {
+            for (const p of objArg.properties ?? []) {
+              if (p?.type !== "Property") continue;
+              const name = p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+              recordFilteredColumn(state, name);
+            }
+          } else {
+            recordFilteredColumn(state, void 0);
+          }
+        }
+        chainStates.set(node, state);
+      },
+      "Program:exit"() {
+        for (const state of selectStates) {
+          if (state.filteredColumns.has("*")) continue;
+          const missing = state.tenantColumns.find((c) => !state.filteredColumns.has(c));
+          if (missing) {
+            context.report({
+              node: state.selectNode,
+              messageId: "missingTenantFilter",
+              data: { column: missing }
+            });
+          }
+        }
+      }
+    };
+  }
+};
+var supabaseScopeQueriesByTenantColumnRule = rule20;
+
+// src/providers/supabase/rules/validate-uuid-columns.ts
+function regexSourceLooksUuidShaped(pattern) {
+  return /[0-9a-f]{2,}/i.test(pattern) && pattern.includes("-");
+}
+var rule21 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Columns typed uuid must be validated for UUID shape, not just typeof string",
+      category: "correctness",
+      rationale: 'typeof === "string" accepts any string, including malformed UUIDs like "abc". When the underlying column is typed uuid, the database rejects it with a generic type-cast error that the app then has to collapse into an opaque 500 \u2014 masking a client-correctable 400 as a server failure. Validating the UUID shape (e.g. with a regex) before the insert lets the app return a precise 400 instead.',
+      docsUrl: "https://supabase.com/docs/guides/database/tables#data-types",
+      recommended: true
+    },
+    messages: {
+      missingUuidValidation: 'Column "{{column}}" looks UUID-typed but the value is only checked with typeof === "string", not a UUID-shape regex. Validate the format before insert/upsert.'
+    },
+    schema: []
+  },
+  create(context) {
+    const validations = /* @__PURE__ */ new Map();
+    const regexVarPatterns = /* @__PURE__ */ new Map();
+    function markValidation(name, key) {
+      let v = validations.get(name);
+      if (!v) {
+        v = { typeofOnly: false, uuidChecked: false };
+        validations.set(name, v);
+      }
+      v[key] = true;
+    }
+    return {
+      VariableDeclarator(node) {
+        if (node.id?.type === "Identifier" && node.init?.type === "Literal" && node.init.regex) {
+          regexVarPatterns.set(node.id.name, node.init.regex.pattern);
+        }
+      },
+      BinaryExpression(node) {
+        const varName = typeofStringCheckTarget(node);
+        if (varName) markValidation(varName, "typeofOnly");
+      },
+      CallExpression(node) {
+        const prop = memberPropName(node);
+        if (prop === "test") {
+          const objNode = node.callee.object;
+          let pattern;
+          if (objNode?.type === "Literal" && objNode.regex) {
+            pattern = objNode.regex.pattern;
+          } else if (objNode?.type === "Identifier" && regexVarPatterns.has(objNode.name)) {
+            pattern = regexVarPatterns.get(objNode.name);
+          }
+          if (pattern && regexSourceLooksUuidShaped(pattern)) {
+            const arg2 = node.arguments?.[0];
+            if (arg2?.type === "Identifier") markValidation(arg2.name, "uuidChecked");
+          }
+          return;
+        }
+        if (prop !== "insert" && prop !== "upsert") return;
+        const objCall = chainObjectCall(node);
+        if (!objCall || memberPropName(objCall) !== "from") return;
+        const arg = node.arguments?.[0];
+        if (arg?.type !== "ObjectExpression") return;
+        for (const p of arg.properties ?? []) {
+          if (p?.type !== "Property") continue;
+          const keyName = p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+          if (typeof keyName !== "string" || !isTenantColumnName(keyName)) continue;
+          const valueName = resolvePropertyValueName(p);
+          if (!valueName) continue;
+          const v = validations.get(valueName);
+          if (v?.typeofOnly && !v.uuidChecked) {
+            context.report({ node: p, messageId: "missingUuidValidation", data: { column: keyName } });
+          }
+        }
+      }
+    };
+  }
+};
+var supabaseValidateUuidColumnsRule = rule21;
+
+// src/providers/supabase/rules/order-by-timestamp-not-identity.ts
+var rule22 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Order by a selected timestamp column instead of the identity column",
+      category: "correctness",
+      rationale: "Ordering by a bigint identity PK only produces correct chronological order because the PK happens to be monotonic with insert order today. That assumption breaks under bulk inserts, backfills, or replication where PK order and time order can diverge. When the query already selects a timestamp column built for this purpose, order by it instead of the surrogate key.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/order",
+      recommended: true
+    },
+    messages: {
+      orderByIdentity: 'This query selects "{{column}}" but orders by "id" instead. Order by "{{column}}" so result order does not depend on PK/insert-order coincidence.'
+    },
+    schema: []
+  },
+  create(context) {
+    const chainStates = /* @__PURE__ */ new Map();
+    return {
+      "CallExpression:exit"(node) {
+        const prop = memberPropName(node);
+        if (!prop) return;
+        const objCall = chainObjectCall(node);
+        if (prop === "select" && objCall && memberPropName(objCall) === "from") {
+          const columns = parseSelectColumns(node.arguments?.[0]);
+          const timestampColumns = columns.filter(isTimestampColumnName);
+          chainStates.set(node, { timestampColumns });
+          return;
+        }
+        const state = objCall ? chainStates.get(objCall) : void 0;
+        if (!state) return;
+        if (prop === "order") {
+          const colArg = node.arguments?.[0];
+          const orderColumn = colArg?.type === "Literal" ? colArg.value : void 0;
+          if (typeof orderColumn === "string" && orderColumn.toLowerCase() === "id" && state.timestampColumns.length > 0) {
+            context.report({
+              node,
+              messageId: "orderByIdentity",
+              data: { column: state.timestampColumns[0] }
+            });
+          }
+        }
+        chainStates.set(node, state);
+      }
+    };
+  }
+};
+var supabaseOrderByTimestampNotIdentityRule = rule22;
+
+// src/providers/supabase/rules/consistent-input-length-limits.ts
+var rule23 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Sibling string fields inserted together should share the same length cap discipline",
+      category: "correctness",
+      rationale: "A field with no length cap on an otherwise-validated, unauthenticated insert path lets a client persist arbitrarily large payloads repeatedly, growing storage with no bound. When sibling fields in the same insert already have explicit length caps, an uncapped field next to them is usually an oversight rather than an intentional choice.",
+      docsUrl: "https://supabase.com/docs/guides/database/tables",
+      recommended: true
+    },
+    messages: {
+      inconsistentLengthLimit: 'Field "{{field}}" has no length cap, but sibling field "{{cappedField}}" in the same insert does. Add a .length check for "{{field}}" too.'
+    },
+    schema: []
+  },
+  create(context) {
+    const validations = /* @__PURE__ */ new Map();
+    function markValidation(name, key) {
+      let v = validations.get(name);
+      if (!v) {
+        v = { typeofStringChecked: false, hasLengthCap: false };
+        validations.set(name, v);
+      }
+      v[key] = true;
+    }
+    function lengthCapTarget(node) {
+      if (node?.type !== "BinaryExpression") return void 0;
+      if (node.operator !== ">" && node.operator !== ">=") return void 0;
+      const left = node.left;
+      const right = node.right;
+      if (left?.type !== "MemberExpression") return void 0;
+      if (left.property?.type !== "Identifier" || left.property.name !== "length") return void 0;
+      if (left.object?.type !== "Identifier") return void 0;
+      if (right?.type !== "Literal" || typeof right.value !== "number") return void 0;
+      return left.object.name;
+    }
+    return {
+      BinaryExpression(node) {
+        const typeofVar = typeofStringCheckTarget(node);
+        if (typeofVar) markValidation(typeofVar, "typeofStringChecked");
+        const lengthVar = lengthCapTarget(node);
+        if (lengthVar) markValidation(lengthVar, "hasLengthCap");
+      },
+      CallExpression(node) {
+        const prop = memberPropName(node);
+        if (prop !== "insert" && prop !== "upsert") return;
+        const objCall = chainObjectCall(node);
+        if (!objCall || memberPropName(objCall) !== "from") return;
+        const arg = node.arguments?.[0];
+        if (arg?.type !== "ObjectExpression") return;
+        const stringFields = [];
+        for (const p of arg.properties ?? []) {
+          if (p?.type !== "Property") continue;
+          const field = p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+          if (typeof field !== "string") continue;
+          const varName = resolvePropertyValueName(p);
+          if (!varName) continue;
+          const v = validations.get(varName);
+          if (v?.typeofStringChecked) stringFields.push({ propNode: p, field, varName });
+        }
+        const capped = stringFields.filter((f) => validations.get(f.varName)?.hasLengthCap);
+        const uncapped = stringFields.filter((f) => !validations.get(f.varName)?.hasLengthCap);
+        if (capped.length === 0 || uncapped.length === 0) return;
+        for (const f of uncapped) {
+          context.report({
+            node: f.propNode,
+            messageId: "inconsistentLengthLimit",
+            data: { field: f.field, cappedField: capped[0].field }
+          });
+        }
+      }
+    };
+  }
+};
+var supabaseConsistentInputLengthLimitsRule = rule23;
+
+// src/providers/supabase/rules/idempotent-mutations.ts
+function objectHasIdempotencyKey(objectExpression) {
+  if (objectExpression?.type !== "ObjectExpression") return false;
+  return (objectExpression.properties ?? []).some((p) => {
+    if (p?.type !== "Property") return false;
+    const name = p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+    return typeof name === "string" && /idempot|dedupe/i.test(name);
+  });
+}
+function insertPayloadHasIdempotencyKey(arg) {
+  if (arg?.type === "ObjectExpression") return objectHasIdempotencyKey(arg);
+  if (arg?.type === "ArrayExpression") {
+    return (arg.elements ?? []).some((el) => objectHasIdempotencyKey(el));
+  }
+  return false;
+}
+var rule24 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase insert calls should be retry-safe via an idempotency key",
+      category: "reliability",
+      rationale: 'Nothing prevents a duplicate row if the client fetch behind an insert is retried (flaky network, double-click, browser replay) \u2014 there is no unique constraint or dedupe key visible in the payload, and no upsert semantics. Generate a client-side idempotency key per logical action and either include it as a field guarded by a unique constraint, or use .upsert(..., { onConflict: "<key column>" }).',
+      docsUrl: "https://supabase.com/docs/reference/javascript/upsert",
+      recommended: true
+    },
+    messages: {
+      missingIdempotencyKey: 'This insert has no idempotency/dedupe key field, so a retried request can create a duplicate row. Add one, or use .upsert(..., { onConflict: "<key column>" }).'
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        const prop = memberPropName(node);
+        if (prop !== "insert") return;
+        const objCall = chainObjectCall(node);
+        if (!objCall || memberPropName(objCall) !== "from") return;
+        const arg = node.arguments?.[0];
+        if (!arg) return;
+        if (insertPayloadHasIdempotencyKey(arg)) return;
+        context.report({ node, messageId: "missingIdempotencyKey" });
+      }
+    };
+  }
+};
+var supabaseIdempotentMutationsRule = rule24;
+
+// src/providers/supabase/rules/fail-fast-env-validation.ts
+function unwrapNonNull(node) {
+  return node?.type === "TSNonNullExpression" ? node.expression : node;
+}
+function processEnvMemberName(node) {
+  const n = unwrapNonNull(node);
+  if (n?.type !== "MemberExpression" || n.computed) return void 0;
+  const obj = n.object;
+  if (obj?.type !== "MemberExpression" || obj.computed) return void 0;
+  if (obj.object?.type !== "Identifier" || obj.object.name !== "process") return void 0;
+  if (obj.property?.type !== "Identifier" || obj.property.name !== "env") return void 0;
+  if (n.property?.type !== "Identifier") return void 0;
+  return n.property.name;
+}
+function hasThrowOrReturn(node) {
+  if (!node) return false;
+  if (node.type === "ThrowStatement" || node.type === "ReturnStatement") return true;
+  if (node.type === "BlockStatement") {
+    return (node.body ?? []).some((s) => s.type === "ThrowStatement" || s.type === "ReturnStatement");
+  }
+  return false;
+}
+var rule25 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "createClient must fail fast when required env vars are missing",
+      category: "reliability",
+      rationale: "createClient does not throw on undefined arguments \u2014 a missing env var surfaces later as an opaque error deep in a fetch call rather than a clear message at startup. Checking presence before calling createClient turns a confusing runtime failure (e.g. on a misconfigured second service) into an immediate, actionable one.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/initializing",
+      recommended: true
+    },
+    messages: {
+      missingEnvValidation: "createClient is called with {{vars}} with no presence check beforehand. Throw if it/they are unset before calling createClient."
+    },
+    schema: []
+  },
+  create(context) {
+    let createClientLocalName;
+    const envVarOfVariable = /* @__PURE__ */ new Map();
+    const validatedVarNames = /* @__PURE__ */ new Set();
+    const validatedEnvNames = /* @__PURE__ */ new Set();
+    function addTarget(node) {
+      const n = unwrapNonNull(node);
+      if (n?.type === "Identifier") {
+        validatedVarNames.add(n.name);
+        return;
+      }
+      const envName = processEnvMemberName(n);
+      if (envName) validatedEnvNames.add(envName);
+    }
+    function collectGuardTargets(node) {
+      if (!node) return;
+      if (node.type === "LogicalExpression" && node.operator === "||") {
+        collectGuardTargets(node.left);
+        collectGuardTargets(node.right);
+        return;
+      }
+      if (node.type === "UnaryExpression" && node.operator === "!") {
+        addTarget(node.argument);
+        return;
+      }
+      if (node.type === "BinaryExpression" && (node.operator === "==" || node.operator === "===")) {
+        const sides = [node.left, node.right];
+        const isNullish = (n) => n?.type === "Literal" && n.value === null || n?.type === "Identifier" && n.name === "undefined";
+        const target = sides.find((s) => !isNullish(s));
+        const nullSide = sides.find(isNullish);
+        if (target && nullSide) addTarget(target);
+      }
+    }
+    return {
+      ImportDeclaration(node) {
+        if (node.source?.value !== "@supabase/supabase-js") return;
+        for (const s of node.specifiers ?? []) {
+          if (s?.type === "ImportSpecifier" && s.imported?.type === "Identifier" && s.imported.name === "createClient" && s.local?.type === "Identifier") {
+            createClientLocalName = s.local.name;
+          }
+        }
+      },
+      VariableDeclarator(node) {
+        if (node.id?.type !== "Identifier") return;
+        const envName = processEnvMemberName(node.init);
+        if (envName) envVarOfVariable.set(node.id.name, envName);
+      },
+      IfStatement(node) {
+        if (!hasThrowOrReturn(node.consequent)) return;
+        collectGuardTargets(node.test);
+      },
+      CallExpression(node) {
+        if (!createClientLocalName) return;
+        if (node.callee?.type !== "Identifier" || node.callee.name !== createClientLocalName) return;
+        const missing = [];
+        for (const rawArg of node.arguments ?? []) {
+          const arg = unwrapNonNull(rawArg);
+          let envName;
+          let isValidated;
+          if (arg?.type === "Identifier") {
+            envName = envVarOfVariable.get(arg.name);
+            if (!envName) continue;
+            isValidated = validatedVarNames.has(arg.name);
+          } else {
+            envName = processEnvMemberName(arg);
+            if (!envName) continue;
+            isValidated = validatedEnvNames.has(envName);
+          }
+          if (!isValidated) missing.push(envName);
+        }
+        if (missing.length > 0) {
+          context.report({ node, messageId: "missingEnvValidation", data: { vars: missing.join(", ") } });
+        }
+      }
+    };
+  }
+};
+var supabaseFailFastEnvValidationRule = rule25;
+
 // src/plugin/index.ts
 var plugin = {
   meta: { name: PLUGIN_NAME, version: "0.0.1" },
@@ -1649,15 +2174,21 @@ var plugin = {
     "railway-pg-pool-requires-error-handler": railwayPgPoolRequiresErrorHandlerRule,
     "railway-validate-request-payload-bounds": railwayValidateRequestPayloadBoundsRule,
     "railway-no-raw-error-logging-near-db-connection": railwayNoRawErrorLoggingNearDbConnectionRule,
-    "railway-no-ddl-in-request-handler": railwayNoDdlInRequestHandlerRule
+    "railway-no-ddl-in-request-handler": railwayNoDdlInRequestHandlerRule,
+    "supabase-scope-queries-by-tenant-column": supabaseScopeQueriesByTenantColumnRule,
+    "supabase-validate-uuid-columns": supabaseValidateUuidColumnsRule,
+    "supabase-order-by-timestamp-not-identity": supabaseOrderByTimestampNotIdentityRule,
+    "supabase-consistent-input-length-limits": supabaseConsistentInputLengthLimitsRule,
+    "supabase-idempotent-mutations": supabaseIdempotentMutationsRule,
+    "supabase-fail-fast-env-validation": supabaseFailFastEnvValidationRule
   }
 };
 
 // src/plugin/rule-registry.ts
 function buildRegistry() {
   const registry2 = /* @__PURE__ */ new Map();
-  for (const [key, rule20] of Object.entries(plugin.rules)) {
-    const docs = rule20?.meta?.docs ?? {};
+  for (const [key, rule26] of Object.entries(plugin.rules)) {
+    const docs = rule26?.meta?.docs ?? {};
     registry2.set(key, {
       category: docs.category,
       description: docs.description ?? "",
@@ -1867,9 +2398,9 @@ function buildOxlintConfig(detectedNames) {
   const ruleMetaByKey = /* @__PURE__ */ new Map();
   for (const provider of providers) {
     if (!detectedNames.has(provider.name)) continue;
-    for (const rule20 of provider.oxlintRules) {
-      oxlintRules[`${PLUGIN_NAME}/${rule20.key}`] = rule20.severity === "error" || rule20.severity === void 0 ? "error" : "warn";
-      ruleMetaByKey.set(rule20.key, rule20);
+    for (const rule26 of provider.oxlintRules) {
+      oxlintRules[`${PLUGIN_NAME}/${rule26.key}`] = rule26.severity === "error" || rule26.severity === void 0 ? "error" : "warn";
+      ruleMetaByKey.set(rule26.key, rule26);
     }
   }
   return { oxlintRules, ruleMetaByKey };
@@ -1990,9 +2521,9 @@ import { basename as basename2 } from "path";
 function rationaleByRule() {
   const map = /* @__PURE__ */ new Map();
   for (const provider of providers) {
-    for (const rule20 of provider.oxlintRules) {
-      const docs = getRuleDocsMeta(rule20.key);
-      if (docs?.rationale) map.set(rule20.resultRule, docs.rationale);
+    for (const rule26 of provider.oxlintRules) {
+      const docs = getRuleDocsMeta(rule26.key);
+      if (docs?.rationale) map.set(rule26.resultRule, docs.rationale);
     }
   }
   return map;

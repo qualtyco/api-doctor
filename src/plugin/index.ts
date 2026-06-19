@@ -21,6 +21,12 @@ import { railwayPgPoolRequiresErrorHandlerRule } from '../providers/railway/rule
 import { railwayValidateRequestPayloadBoundsRule } from '../providers/railway/rules/validate-request-payload-bounds.js';
 import { railwayNoRawErrorLoggingNearDbConnectionRule } from '../providers/railway/rules/no-raw-error-logging-near-db-connection.js';
 import { railwayNoDdlInRequestHandlerRule } from '../providers/railway/rules/no-ddl-in-request-handler.js';
+import { supabaseScopeQueriesByTenantColumnRule } from '../providers/supabase/rules/scope-queries-by-tenant-column.js';
+import { supabaseValidateUuidColumnsRule } from '../providers/supabase/rules/validate-uuid-columns.js';
+import { supabaseOrderByTimestampNotIdentityRule } from '../providers/supabase/rules/order-by-timestamp-not-identity.js';
+import { supabaseConsistentInputLengthLimitsRule } from '../providers/supabase/rules/consistent-input-length-limits.js';
+import { supabaseIdempotentMutationsRule } from '../providers/supabase/rules/idempotent-mutations.js';
+import { supabaseFailFastEnvValidationRule } from '../providers/supabase/rules/fail-fast-env-validation.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -47,6 +53,12 @@ const plugin = {
     'railway-no-raw-error-logging-near-db-connection':
       railwayNoRawErrorLoggingNearDbConnectionRule,
     'railway-no-ddl-in-request-handler': railwayNoDdlInRequestHandlerRule,
+    'supabase-scope-queries-by-tenant-column': supabaseScopeQueriesByTenantColumnRule,
+    'supabase-validate-uuid-columns': supabaseValidateUuidColumnsRule,
+    'supabase-order-by-timestamp-not-identity': supabaseOrderByTimestampNotIdentityRule,
+    'supabase-consistent-input-length-limits': supabaseConsistentInputLengthLimitsRule,
+    'supabase-idempotent-mutations': supabaseIdempotentMutationsRule,
+    'supabase-fail-fast-env-validation': supabaseFailFastEnvValidationRule,
   },
 } as const;
 
