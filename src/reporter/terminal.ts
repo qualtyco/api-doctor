@@ -79,8 +79,8 @@ function headerIcon(score: number, color: (s: string) => string): string[] {
     color('└────┘'),
   ];
   if (score >= 75) return box([' ^^ ', ' ‿‿ ']);
-  if (score >= 50) return box([' ── ', '  ‿ ']);
-  return box([' ×× ', '  ∨ ']);
+  if (score >= 50) return box([' o o', ' __ ']);
+  return box([' >< ', ' == ']);
 }
 
 function progressBar(score: number, color: (s: string) => string): string {
