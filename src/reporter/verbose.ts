@@ -4,6 +4,7 @@
  */
 import pc from 'picocolors';
 import type { Report, Severity } from '../types.js';
+import { revealDelay } from './animate.js';
 
 function severityTag(severity: Severity): string {
   if (severity === 'error') return pc.red('error');
@@ -24,7 +25,7 @@ function printSnippet(report: Report, index: number): void {
   }
 }
 
-export function renderVerboseReport(report: Report): void {
+export async function renderVerboseReport(report: Report): Promise<void> {
   const { summary, findings } = report;
   console.log('');
   console.log(
@@ -42,7 +43,8 @@ export function renderVerboseReport(report: Report): void {
     return;
   }
 
-  findings.forEach((finding, index) => {
+  for (let index = 0; index < findings.length; index++) {
+    const finding = findings[index];
     const loc = `${finding.location.file}:${finding.location.line}:${finding.location.column}`;
     console.log(
       `${severityTag(finding.severity)} ${pc.bold(finding.message)} ${pc.dim(`[${finding.rule}]`)}`,
@@ -54,5 +56,6 @@ export function renderVerboseReport(report: Report): void {
     console.log(`  ${pc.cyan('Fix:')} ${finding.fix}`);
     if (finding.docsUrl) console.log(`  ${pc.dim('Docs:')} ${finding.docsUrl}`);
     console.log('');
-  });
+    await revealDelay();
+  }
 }

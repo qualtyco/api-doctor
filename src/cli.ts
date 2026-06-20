@@ -13,6 +13,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installAgentFiles } from './install.js';
 import { providers } from './providers/index.js';
+import { createSpinner } from './reporter/animate.js';
 import {
   DEFAULT_REPORT_DIR,
   DEFAULT_REPORT_FILE,
@@ -91,10 +92,14 @@ program
     const start = performance.now();
 
     try {
-      const { results, detected, directory: scannedDir, filesScanned, filesContent } = await scan(
-        directory,
-        { onlyProviders },
-      );
+      const spinner = createSpinner('Scanning for API integrations…');
+      let scanOutput;
+      try {
+        scanOutput = await scan(directory, { onlyProviders });
+      } finally {
+        spinner.stop();
+      }
+      const { results, detected, directory: scannedDir, filesScanned, filesContent } = scanOutput;
       const elapsedMs = performance.now() - start;
 
       const report = buildReport({
@@ -113,7 +118,7 @@ program
       const rel = relative(scannedDir, outputPath);
       const reportDisplayPath = rel.startsWith('..') ? outputPath : rel;
 
-      emitReport(results, detected, report, {
+      await emitReport(results, detected, report, {
         quiet: opts.quiet,
         verbose: opts.verbose,
         format,

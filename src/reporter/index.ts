@@ -26,12 +26,12 @@ export interface EmitOptions {
 
 export { countErrors };
 
-export function emitReport(
+export async function emitReport(
   results: ScanResult[],
   detected: DetectedProvider[],
   report: Report,
   options: EmitOptions,
-): void {
+): Promise<void> {
   const writeFileReport = (): void => {
     if (!options.noReport) writeReport(report, options.outputPath);
   };
@@ -60,9 +60,9 @@ export function emitReport(
   }
 
   if (options.verbose) {
-    renderVerboseReport(report);
+    await renderVerboseReport(report);
   } else {
-    renderTerminalReport(results, detected, { elapsedMs: options.elapsedMs });
+    await renderTerminalReport(results, detected, { elapsedMs: options.elapsedMs });
   }
 
   writeFileReport();

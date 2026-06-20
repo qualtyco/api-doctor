@@ -7,6 +7,7 @@
 import pc from 'picocolors';
 import { providers } from '../providers/index.js';
 import type { DetectedProvider, ScanResult } from '../types.js';
+import { lineDelay, revealDelay } from './animate.js';
 
 const ISSUES_URL = 'https://github.com/qualtyco/api-doctor/issues';
 const BAR_WIDTH = 24;
@@ -41,7 +42,7 @@ function detectionSourceLabel(source: DetectedProvider['source']): string {
   }
 }
 
-function printDetectedProviders(detected: DetectedProvider[]): void {
+async function printDetectedProviders(detected: DetectedProvider[]): Promise<void> {
   console.log(pc.bold('Detected APIs & SDKs'));
   for (const d of detected) {
     const manifest = providers.find((p) => p.name === d.name);
@@ -55,6 +56,7 @@ function printDetectedProviders(detected: DetectedProvider[]): void {
     } else {
       console.log(`  ${pc.dim('○')} ${label} ${via} ${pc.dim('— no checks yet')}`);
     }
+    await revealDelay();
   }
   console.log('');
 }
@@ -95,17 +97,22 @@ function padVisible(text: string, width: number): string {
   return text + ' '.repeat(spaces);
 }
 
-function printHeader(score: number): void {
+async function printHeader(score: number): Promise<void> {
   const color = scoreColor(score);
-  const icon = headerIcon(score, color);
   const scoreText = `${color(String(score))}${pc.dim(' / 100')} ${color(statusLabel(score))}`;
   const bar = progressBar(score, color);
+  const icon = headerIcon(score, color);
   const iconColWidth = 8;
-
-  console.log(`${padVisible(icon[0], iconColWidth)}${scoreText}`);
-  console.log(`${padVisible(icon[1], iconColWidth)}${bar}`);
-  console.log(padVisible(icon[2], iconColWidth));
-  console.log(padVisible(icon[3], iconColWidth));
+  const lines = [
+    `${padVisible(icon[0], iconColWidth)}${scoreText}`,
+    `${padVisible(icon[1], iconColWidth)}${bar}`,
+    padVisible(icon[2], iconColWidth),
+    padVisible(icon[3], iconColWidth),
+  ];
+  for (const line of lines) {
+    console.log(line);
+    await lineDelay();
+  }
 }
 
 function formatDuration(ms?: number): string {
@@ -154,7 +161,7 @@ function printSummary(
   console.log(`${parts.join(pc.dim(', '))}${tail ? pc.dim(` ${tail}`) : ''}`);
 }
 
-function printIssueGroups(groups: IssueGroup[], verbose: boolean): void {
+async function printIssueGroups(groups: IssueGroup[], verbose: boolean): Promise<void> {
   for (const group of groups) {
     const count = group.items.length;
     const severity = group.items[0]?.severity;
@@ -163,28 +170,31 @@ function printIssueGroups(groups: IssueGroup[], verbose: boolean): void {
     const prefix =
       severity === 'warning' ? pc.yellow('×') : severity === 'info' ? pc.cyan('ℹ') : pc.red('×');
     console.log(`${prefix} ${group.message}${countLabel}`);
+    await lineDelay();
 
-    group.items.forEach((item, index) => {
+    for (const [index, item] of group.items.entries()) {
       console.log(pc.dim(`    ${index + 1}. ${item.file}:${item.line}`));
       if (verbose) {
         console.log(pc.dim(`       ${item.snippet}`));
         console.log(pc.cyan(`       Fix: ${group.fix}`));
         if (group.docsUrl) console.log(pc.dim(`       Docs: ${group.docsUrl}`));
       }
-    });
+      if (group.items.length > 1) await lineDelay();
+    }
 
     if (!verbose && (group.fix || group.docsUrl)) {
       console.log(pc.cyan(`    → ${group.fix}`));
     }
     console.log('');
+    await revealDelay();
   }
 }
 
-export function renderTerminalReport(
+export async function renderTerminalReport(
   results: ScanResult[],
   detected: DetectedProvider[],
   options: ReportOptions = {},
-): void {
+): Promise<void> {
   if (detected.length === 0) {
     const names = providers.map((p) => p.displayName).join(', ');
     console.log(pc.dim('No API providers detected in this project.'));
@@ -202,9 +212,10 @@ export function renderTerminalReport(
   const checked = detected.filter((d) => d.checked);
 
   console.log('');
-  printDetectedProviders(detected);
-  printHeader(score);
+  await printDetectedProviders(detected);
+  await printHeader(score);
   console.log('');
+  await revealDelay();
 
   if (results.length === 0) {
     const duration = formatDuration(options.elapsedMs);
@@ -220,7 +231,7 @@ export function renderTerminalReport(
 
   printSummary(errors, warnings, infos, fileCount, options.elapsedMs);
   console.log('');
-  printIssueGroups(groupResults(results), options.verbose ?? false);
+  await printIssueGroups(groupResults(results), options.verbose ?? false);
 }
 
 export function countErrors(results: ScanResult[]): number {

@@ -5,7 +5,7 @@
  * 3) shells out to oxlint and parses JSON diagnostics,
  * 4) maps diagnostics into ScanResult objects for the reporter.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -18,6 +18,29 @@ import type { DetectedProvider, OxlintRuleMeta, ScanResult } from './types.js';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.next']);
 const SOURCE_EXT = /\.(tsx?|jsx?)$/;
+
+/**
+ * Runs oxlint asynchronously (rather than spawnSync) so the event loop stays
+ * free — this is what lets the CLI's spinner actually animate while it waits.
+ */
+function runOxlint(
+  args: string[],
+  cwd: string,
+): Promise<{ stdout: string; stderr: string; error?: Error }> {
+  return new Promise((resolveRun) => {
+    const child = spawn('npx', args, { cwd });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr?.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.on('error', (error) => resolveRun({ stdout, stderr, error }));
+    child.on('close', () => resolveRun({ stdout, stderr }));
+  });
+}
 
 /**
  * Recursively walks a directory tree and collects relative paths to source files.
@@ -151,18 +174,13 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
   // Run oxlint against the target project; diagnostics come back as JSON on stdout.
-  const res = spawnSync(
-    'npx',
+  const res = await runOxlint(
     ['oxlint', '--config', configPath, '--format', 'json', '.'],
-    {
-      cwd: absRoot,
-      encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024,
-    },
+    absRoot,
   );
 
   try {
-    // spawnSync sets `error` when the process couldn't start at all.
+    // `error` is set when the process couldn't start at all.
     if (res.error) {
       throw new ScanError('Failed to run oxlint', res.error);
     }

@@ -269,6 +269,45 @@ var providers = [
   supabaseManifest
 ];
 
+// src/reporter/animate.ts
+var SPINNER_FRAMES = ["\u280B", "\u2819", "\u2839", "\u2838", "\u283C", "\u2834", "\u2826", "\u2827", "\u2807", "\u280F"];
+var SPINNER_INTERVAL_MS = 80;
+var GROUP_DELAY_MS = 220;
+var LINE_DELAY_MS = 45;
+function isAnimated() {
+  return Boolean(process.stdout.isTTY) && !process.env.CI;
+}
+function sleep(ms) {
+  return new Promise((resolve3) => setTimeout(resolve3, ms));
+}
+async function revealDelay() {
+  if (!isAnimated()) return;
+  await sleep(GROUP_DELAY_MS);
+}
+async function lineDelay() {
+  if (!isAnimated()) return;
+  await sleep(LINE_DELAY_MS);
+}
+function createSpinner(label) {
+  if (!isAnimated()) {
+    return { stop() {
+    } };
+  }
+  let frame = 0;
+  const render = () => {
+    process.stderr.write(`\r${SPINNER_FRAMES[frame % SPINNER_FRAMES.length]} ${label}`);
+    frame += 1;
+  };
+  render();
+  const timer = setInterval(render, SPINNER_INTERVAL_MS);
+  return {
+    stop() {
+      clearInterval(timer);
+      process.stderr.write(`\r${" ".repeat(label.length + 2)}\r`);
+    }
+  };
+}
+
 // src/reporter/json-writer.ts
 import { existsSync as existsSync2, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "fs";
 import { basename, dirname as dirname2 } from "path";
@@ -1844,7 +1883,7 @@ function buildReport(input) {
 }
 
 // src/scanner.ts
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 import { mkdtempSync, rmSync, writeFileSync as writeFileSync3 } from "fs";
 import { readdir, readFile as readFile2 } from "fs/promises";
 import { createRequire } from "module";
@@ -1902,6 +1941,21 @@ async function detectProviders(directory, filesContent) {
 // src/scanner.ts
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", "dist", "build", ".next"]);
 var SOURCE_EXT = /\.(tsx?|jsx?)$/;
+function runOxlint(args, cwd) {
+  return new Promise((resolveRun) => {
+    const child = spawn("npx", args, { cwd });
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", (error) => resolveRun({ stdout, stderr, error }));
+    child.on("close", () => resolveRun({ stdout, stderr }));
+  });
+}
 async function walk(dir, root, files) {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -1974,14 +2028,9 @@ async function scan(directory, options = {}) {
     ignorePatterns: Array.from(SKIP_DIRS)
   };
   writeFileSync3(configPath, JSON.stringify(config, null, 2), "utf-8");
-  const res = spawnSync(
-    "npx",
+  const res = await runOxlint(
     ["oxlint", "--config", configPath, "--format", "json", "."],
-    {
-      cwd: absRoot,
-      encoding: "utf8",
-      maxBuffer: 10 * 1024 * 1024
-    }
+    absRoot
   );
   try {
     if (res.error) {
@@ -2150,7 +2199,7 @@ function detectionSourceLabel(source) {
       return "URL patterns";
   }
 }
-function printDetectedProviders(detected) {
+async function printDetectedProviders(detected) {
   console.log(pc.bold("Detected APIs & SDKs"));
   for (const d of detected) {
     const manifest = providers.find((p) => p.name === d.name);
@@ -2163,6 +2212,7 @@ function printDetectedProviders(detected) {
     } else {
       console.log(`  ${pc.dim("\u25CB")} ${label} ${via} ${pc.dim("\u2014 no checks yet")}`);
     }
+    await revealDelay();
   }
   console.log("");
 }
@@ -2197,16 +2247,22 @@ function padVisible(text, width) {
   const spaces = Math.max(0, width - plain.length);
   return text + " ".repeat(spaces);
 }
-function printHeader(score) {
+async function printHeader(score) {
   const color = scoreColor(score);
-  const icon = headerIcon(score, color);
   const scoreText = `${color(String(score))}${pc.dim(" / 100")} ${color(statusLabel(score))}`;
   const bar = progressBar(score, color);
+  const icon = headerIcon(score, color);
   const iconColWidth = 8;
-  console.log(`${padVisible(icon[0], iconColWidth)}${scoreText}`);
-  console.log(`${padVisible(icon[1], iconColWidth)}${bar}`);
-  console.log(padVisible(icon[2], iconColWidth));
-  console.log(padVisible(icon[3], iconColWidth));
+  const lines = [
+    `${padVisible(icon[0], iconColWidth)}${scoreText}`,
+    `${padVisible(icon[1], iconColWidth)}${bar}`,
+    padVisible(icon[2], iconColWidth),
+    padVisible(icon[3], iconColWidth)
+  ];
+  for (const line of lines) {
+    console.log(line);
+    await lineDelay();
+  }
 }
 function formatDuration(ms) {
   if (ms === void 0) return "";
@@ -2241,7 +2297,7 @@ function printSummary(errors, warnings, infos, fileCount, elapsedMs) {
   ].filter(Boolean).join(" ");
   console.log(`${parts.join(pc.dim(", "))}${tail ? pc.dim(` ${tail}`) : ""}`);
 }
-function printIssueGroups(groups, verbose) {
+async function printIssueGroups(groups, verbose) {
   for (const group of groups) {
     const count = group.items.length;
     const severity = group.items[0]?.severity;
@@ -2249,21 +2305,24 @@ function printIssueGroups(groups, verbose) {
     const countLabel = count > 1 ? countColor(` (${count})`) : "";
     const prefix = severity === "warning" ? pc.yellow("\xD7") : severity === "info" ? pc.cyan("\u2139") : pc.red("\xD7");
     console.log(`${prefix} ${group.message}${countLabel}`);
-    group.items.forEach((item, index) => {
+    await lineDelay();
+    for (const [index, item] of group.items.entries()) {
       console.log(pc.dim(`    ${index + 1}. ${item.file}:${item.line}`));
       if (verbose) {
         console.log(pc.dim(`       ${item.snippet}`));
         console.log(pc.cyan(`       Fix: ${group.fix}`));
         if (group.docsUrl) console.log(pc.dim(`       Docs: ${group.docsUrl}`));
       }
-    });
+      if (group.items.length > 1) await lineDelay();
+    }
     if (!verbose && (group.fix || group.docsUrl)) {
       console.log(pc.cyan(`    \u2192 ${group.fix}`));
     }
     console.log("");
+    await revealDelay();
   }
 }
-function renderTerminalReport(results, detected, options = {}) {
+async function renderTerminalReport(results, detected, options = {}) {
   if (detected.length === 0) {
     const names = providers.map((p) => p.displayName).join(", ");
     console.log(pc.dim("No API providers detected in this project."));
@@ -2278,9 +2337,10 @@ function renderTerminalReport(results, detected, options = {}) {
   const fileCount = new Set(results.map((r) => r.file)).size;
   const checked = detected.filter((d) => d.checked);
   console.log("");
-  printDetectedProviders(detected);
-  printHeader(score);
+  await printDetectedProviders(detected);
+  await printHeader(score);
   console.log("");
+  await revealDelay();
   if (results.length === 0) {
     const duration = formatDuration(options.elapsedMs);
     const scannedLabel = checked.length > 0 ? `Checked ${checked.map((d) => providers.find((p) => p.name === d.name)?.displayName ?? d.name).join(", ")}` : `Found ${displayNames(detected)}`;
@@ -2291,7 +2351,7 @@ function renderTerminalReport(results, detected, options = {}) {
   }
   printSummary(errors, warnings, infos, fileCount, options.elapsedMs);
   console.log("");
-  printIssueGroups(groupResults(results), options.verbose ?? false);
+  await printIssueGroups(groupResults(results), options.verbose ?? false);
 }
 function countErrors(results) {
   return results.filter((r) => r.severity === "error").length;
@@ -2316,7 +2376,7 @@ function printSnippet(report, index) {
     console.log(isIssue ? body : pc2.dim(body));
   }
 }
-function renderVerboseReport(report) {
+async function renderVerboseReport(report) {
   const { summary, findings } = report;
   console.log("");
   console.log(
@@ -2332,7 +2392,8 @@ function renderVerboseReport(report) {
     console.log(pc2.green(`${pc2.bold("\u2713")} No issues found`));
     return;
   }
-  findings.forEach((finding, index) => {
+  for (let index = 0; index < findings.length; index++) {
+    const finding = findings[index];
     const loc = `${finding.location.file}:${finding.location.line}:${finding.location.column}`;
     console.log(
       `${severityTag(finding.severity)} ${pc2.bold(finding.message)} ${pc2.dim(`[${finding.rule}]`)}`
@@ -2344,11 +2405,12 @@ function renderVerboseReport(report) {
     console.log(`  ${pc2.cyan("Fix:")} ${finding.fix}`);
     if (finding.docsUrl) console.log(`  ${pc2.dim("Docs:")} ${finding.docsUrl}`);
     console.log("");
-  });
+    await revealDelay();
+  }
 }
 
 // src/reporter/index.ts
-function emitReport(results, detected, report, options) {
+async function emitReport(results, detected, report, options) {
   const writeFileReport = () => {
     if (!options.noReport) writeReport(report, options.outputPath);
   };
@@ -2374,9 +2436,9 @@ function emitReport(results, detected, report, options) {
     return;
   }
   if (options.verbose) {
-    renderVerboseReport(report);
+    await renderVerboseReport(report);
   } else {
-    renderTerminalReport(results, detected, { elapsedMs: options.elapsedMs });
+    await renderTerminalReport(results, detected, { elapsedMs: options.elapsedMs });
   }
   writeFileReport();
   if (!options.noReport) {
@@ -2419,10 +2481,14 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
   const onlyProviders = opts.provider ? opts.provider.split(",").map((s) => s.trim()).filter(Boolean) : void 0;
   const start = performance.now();
   try {
-    const { results, detected, directory: scannedDir, filesScanned, filesContent } = await scan(
-      directory,
-      { onlyProviders }
-    );
+    const spinner = createSpinner("Scanning for API integrations\u2026");
+    let scanOutput;
+    try {
+      scanOutput = await scan(directory, { onlyProviders });
+    } finally {
+      spinner.stop();
+    }
+    const { results, detected, directory: scannedDir, filesScanned, filesContent } = scanOutput;
     const elapsedMs = performance.now() - start;
     const report = buildReport({
       results,
@@ -2436,7 +2502,7 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
     const outputPath = opts.output ? resolve2(opts.output) : join4(scannedDir, DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE);
     const rel = relative2(scannedDir, outputPath);
     const reportDisplayPath = rel.startsWith("..") ? outputPath : rel;
-    emitReport(results, detected, report, {
+    await emitReport(results, detected, report, {
       quiet: opts.quiet,
       verbose: opts.verbose,
       format,
