@@ -48,7 +48,7 @@ For every relevant file in the sample project, cross-reference against sources i
 Before producing the final report, add:
 
 - **At least 2 adversarial findings**: code that *looks* wrong but is actually correct. These become negative test cases for rule writing. Each adversarial must include a "why it's actually correct" explanation with a docs reference.
-- **At least 1 partial-credit finding**: a bug where the agent got most of it right but missed a detail (e.g., signature verified *after* body processing; idempotency key generated with `Math.random()`; correct Railway-specific behavior but no portable fallback).
+- **At least 1 partial-credit finding**: a bug where the agent got most of it right but missed a detail (e.g., signature verified *after* body processing; idempotency key generated with `Math.random()`; correct provider-specific behavior but no portable fallback).
 
 This prevents the rule pack from becoming one-sided.
 
@@ -56,7 +56,6 @@ This prevents the rule pack from becoming one-sided.
 
 After all findings are recorded, scan for clusters: multiple findings that share an underlying gap in how agents model the provider. Examples from past audits:
 
-- Railway: 5 findings all stemmed from agents not modeling deploy-time vs. runtime separation
 - Resend: multiple findings stemmed from agents not modeling marketing-vs-transactional email distinctions
 
 If you find a cluster of 3+ findings sharing a root cause, document it in a "Root-cause clusters" section of the report. This is valuable for both rule design (cluster findings sometimes consolidate into fewer rules) and for content/marketing (clusters make publishable blog posts).

@@ -71,7 +71,6 @@ Works with Claude Code, Cursor, Codex, OpenCode, and others
 | Provider                              | Status                                     |
 | ------------------------------------- | ------------------------------------------ |
 | [Resend](https://resend.com/docs)     | [13 rules](src/providers/resend/README.md) |
-| [Railway](https://docs.railway.com)   | [6 rules](src/providers/railway/README.md) |
 | [Supabase](https://supabase.com/docs) | [6 rules](src/providers/supabase)          |
 
 
