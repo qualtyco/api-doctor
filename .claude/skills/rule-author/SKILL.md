@@ -1,6 +1,6 @@
 ---
 name: rule-author
-description: Converts a provider audit document into AST-based oxlint rules, fixtures, and tests in the api-doctor monorepo. Reads docs/audits/<provider>-audit-<date>.md and writes to packages/oxlint-plugin-api-doctor/. Use when Reuben says "write the rules from the audit," "implement the <provider> rule pack," or "convert audit <path> into oxlint rules."
+description: Converts a provider audit document into AST-based oxlint rules, fixtures, and tests in the api-doctor monorepo. Reads docs/audits/<provider>-audit-<date>.md and writes to packages/oxlint-plugin-api-doctor/. Use when asked to "write the rules from the audit," "implement the <provider> rule pack," or "convert audit <path> into oxlint rules."
 ---
 
 # Rule Author Skill
@@ -15,7 +15,7 @@ Confirm before starting:
 2. Provider name (read from audit, confirm)
 3. Whether any rules in the recommended list should be skipped
 
-If the audit doesn't exist or has fewer than 13 findings, stop and tell Reuben to re-run the audit first.
+If the audit doesn't exist or has fewer than 13 findings, stop and ask the user to re-run the audit first.
 
 The reference rule is `resend/webhook-signature-missing` — match its structure.
 
@@ -23,7 +23,7 @@ The reference rule is `resend/webhook-signature-missing` — match its structure
 
 ### 1. Plan
 
-Read the audit. Extract the recommended rule list and adversarial findings. Present this plan to Reuben:
+Read the audit. Extract the recommended rule list and adversarial findings. Present this plan to the user:
 
 > "Implementing N rules from `<audit-path>`:
 > 1. `<provider>/<rule-1>` (Finding A) — critical, security

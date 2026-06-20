@@ -1,9 +1,51 @@
-[![npm version](https://img.shields.io/npm/v/@api-doctor/cli)](https://www.npmjs.com/package/@api-doctor/cli)
-[![license](https://img.shields.io/npm/l/@api-doctor/cli)](https://github.com/qualtyco/api-doctor/blob/main/LICENSE)
-
 # api-doctor
+[![npm version](https://img.shields.io/npm/v/@api-doctor/cli)](https://www.npmjs.com/package/@api-doctor/cli)
 
-Oxlint-powered checks for AI-generated API integrations — catch silent bugs before they ship.
+**AI compiles hallucinated code that pass. This fixes it before accepting it.**
+
+Claude, Cursor, and Codex write code that compiles and looks finished, then hallucinate the parts that do not show up in a sanity check.
+
+## Quick Start
+
+```bash
+npx @api-doctor/cli .
+```
+
+### VIDEO HERE
+
+## Why this exists
+
+One wrong assumption poisons every later turn. Coding agents agree instead of pushing back. Slop code ships because the agent writing it is the same agent reviewing it.
+
+## CLI as a SKILL
+
+api-doctor checks code the moment your agentic coding session writes it. 
+
+Not docs, that is Mintlify and Fern. Not after production, that is Datadog and your ticket queue. Think of it as a cli skill
+
+## No confidence scores
+
+Asking a model how confident it is does not work, it reports high confidence either way. api-doctor does not ask. It checks deterministically and burns zero tokens.
+
+## What it catches
+
+
+| Category        | Examples                                                                                      |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| **Security**    | Hardcoded API keys, secrets in the client bundle, webhooks read before signature verification |
+| **Correctness** | Wrong API for the job, missing compliance requirements like unsubscribe links                 |
+| **Reliability** | Missing idempotency keys, unenforced batch limits, unmapped error codes                       |
+| **Integration** | Malformed `from` addresses, missing tags, dropped request IDs                                 |
+
+
+Full list in `src/providers/<name>/README.md`.
+
+## How it works
+
+1. **Detect**: scans `package.json`, imports, and URLs for the SDKs in use.
+2. **Enable**: turns on the rule set for each SDK found.
+3. **Check**: walks the code your agent just wrote.
+4. **Report**: prints a score and writes `.api-doctor/report.json`.
 
 ## Usage
 
@@ -11,101 +53,32 @@ Oxlint-powered checks for AI-generated API integrations — catch silent bugs be
 npx @api-doctor/cli .
 ```
 
-By default this prints the grouped terminal report and writes a structured
-report to `.api-doctor/report.json` in the scanned directory.
+Prints a score in the terminal and writes `.api-doctor/report.json`.
 
-### Options
+## Install for agents
 
-| Flag | Description |
-|------|-------------|
-| `--quiet` | Print only the score and the report file path; suppress everything else. |
-| `--verbose` | Print every finding inline with a code snippet (no aggregation). |
-| `--format <json\|markdown\|sarif>` | Emit structured output to stdout instead of the human report. Suitable for piping. (`sarif` is not implemented yet.) |
-| `--output <path>` | Write the report file to a custom path instead of `.api-doctor/report.json`. |
-| `--no-report` | Do not write the report file. |
-| `--max-warnings <n>` | Exit with code 1 if the warning count exceeds `n`. |
-| `--provider <names>` | Comma-separated providers to scan (e.g. `resend`). |
-| `--list-providers` | List supported providers and exit. |
-
-### Exit codes
-
-These follow the ESLint convention, so the tool drops into CI without extra wiring:
-
-| Code | Meaning |
-|------|---------|
-| `0` | No errors, and warnings within the `--max-warnings` threshold. |
-| `1` | Errors found, or warnings exceeded `--max-warnings`. |
-| `2` | Tool-level failure (unreadable directory, oxlint crash, invalid flag). |
-
-### Example workflows
-
-Fail a CI build on any error or warning:
+Once you have a report, install the skill so your agent reads it and fixes findings on its own.
 
 ```bash
-npx @api-doctor/cli . --max-warnings 0
+npx @api-doctor/cli install
 ```
 
-Hand the findings to a coding agent:
-
-```bash
-npx @api-doctor/cli . --format markdown > issues.md
-```
-
-Pipe the report straight into an agent:
-
-```bash
-npx @api-doctor/cli . --format markdown | claude
-```
-
-Consume the structured findings programmatically (the JSON schema is versioned via `schemaVersion`):
-
-```bash
-npx @api-doctor/cli . --format json > issues.json
-```
-
-The `.api-doctor/` directory is gitignored automatically (a `.gitignore` with `*` is seeded on first write).
-
-## How it works
-
-1. **Detect** — scans the project for known API SDKs (package.json deps, imports, URL patterns)
-2. **Enable rules** — turns on the matching oxlint rules from the bundled plugin
-3. **Lint** — runs oxlint with AST-based rules (no string matching)
-4. **Report** — prints a 0–100 score and grouped issues, and writes `.api-doctor/report.json`
-
-You can also use the oxlint plugin directly:
-
-```json
-{
-  "jsPlugins": ["@api-doctor/cli/plugin"],
-  "rules": {
-    "@api-doctor/cli/resend-webhook-signature": "error"
-  }
-}
-```
+Works with Claude Code, Cursor, Codex, OpenCode, and others
 
 ## Supported providers
 
-| Provider | Rules | Docs |
-|----------|-------|------|
-| [Resend](https://resend.com) | 13 rules — security, correctness, reliability, integration | [src/providers/resend/README.md](src/providers/resend/README.md) |
 
-### Coming soon
+| Provider                              | Status                                     |
+| ------------------------------------- | ------------------------------------------ |
+| [Resend](https://resend.com/docs)     | [13 rules](src/providers/resend/README.md) |
+| [Railway](https://docs.railway.com)   | [6 rules](src/providers/railway/README.md) |
+| [Supabase](https://supabase.com/docs) | [6 rules](src/providers/supabase)          |
 
-| Provider | Status |
-|----------|--------|
-| Stripe | detect-only — rules in progress |
-| Supabase | detect-only — rules in progress |
 
-## Development
+## Contributing
 
-```bash
-pnpm install
-pnpm build
-pnpm test
-```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) to add rules or new providers.
+Found a bug or want a new provider? Open an issue or start a discussion on GitHub.
 
 ## License
 
-MIT
+[MIT](LICENSE.md) © Qualty Co

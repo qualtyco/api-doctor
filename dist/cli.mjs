@@ -2,9 +2,88 @@
 
 // src/cli.ts
 import { Command } from "commander";
-import { readFileSync } from "fs";
-import { dirname as dirname2, join as join3, relative as relative2, resolve as resolve2 } from "path";
+import { readFileSync as readFileSync2 } from "fs";
+import { dirname as dirname3, join as join4, relative as relative2, resolve as resolve2 } from "path";
 import { fileURLToPath } from "url";
+
+// src/install.ts
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
+var AGENTS_MARKER_START = "<!-- api-doctor:start -->";
+var AGENTS_MARKER_END = "<!-- api-doctor:end -->";
+var SKILL_BODY = `Run \`npx @api-doctor/cli .\` after writing or editing code that calls a
+third-party API SDK (Resend, Stripe, Supabase, and more). It checks the
+generated integration code for hardcoded keys, missing webhook
+verification, missing idempotency keys, and similar issues that compile
+fine but fail silently in production.
+
+Findings are written to \`.api-doctor/report.json\` as structured JSON
+(\`findings[]\`, each with \`location.file\`, \`location.line\`, \`message\`,
+\`fix\`). Read that file, fix every \`error\` finding before treating the task
+as done, and fix \`warning\` findings when the change is reasonable.`;
+function claudeSkill() {
+  return {
+    path: join(".claude", "skills", "api-doctor", "SKILL.md"),
+    content: `---
+name: api-doctor
+description: Check AI-generated API integration code for silent bugs before shipping. Use after writing or editing code that calls a third-party API SDK such as Resend, Stripe, or Supabase.
+---
+
+${SKILL_BODY}
+`
+  };
+}
+function cursorRule() {
+  return {
+    path: join(".cursor", "rules", "api-doctor.mdc"),
+    content: `---
+description: Check AI-generated API integration code for silent bugs before shipping
+globs:
+alwaysApply: false
+---
+
+${SKILL_BODY}
+`
+  };
+}
+function agentsSection() {
+  return `${AGENTS_MARKER_START}
+## api-doctor
+
+${SKILL_BODY}
+${AGENTS_MARKER_END}`;
+}
+function installAgentFiles(directory) {
+  const created = [];
+  const updated = [];
+  for (const file of [claudeSkill(), cursorRule()]) {
+    const fullPath = join(directory, file.path);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    const isNew = !existsSync(fullPath);
+    writeFileSync(fullPath, file.content, "utf-8");
+    (isNew ? created : updated).push(file.path);
+  }
+  const agentsPath = join(directory, "AGENTS.md");
+  const section = agentsSection();
+  if (existsSync(agentsPath)) {
+    const existing = readFileSync(agentsPath, "utf-8");
+    const startIdx = existing.indexOf(AGENTS_MARKER_START);
+    const endIdx = existing.indexOf(AGENTS_MARKER_END);
+    const next = startIdx !== -1 && endIdx !== -1 ? existing.slice(0, startIdx) + section + existing.slice(endIdx + AGENTS_MARKER_END.length) : `${existing.trimEnd()}
+
+${section}
+`;
+    writeFileSync(agentsPath, next, "utf-8");
+    updated.push("AGENTS.md");
+  } else {
+    writeFileSync(agentsPath, `# Agent instructions
+
+${section}
+`, "utf-8");
+    created.push("AGENTS.md");
+  }
+  return { created, updated };
+}
 
 // src/providers/resend/manifest.ts
 var resendManifest = {
@@ -253,20 +332,20 @@ var providers = [
 ];
 
 // src/reporter/json-writer.ts
-import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { basename, dirname } from "path";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, writeFileSync as writeFileSync2 } from "fs";
+import { basename, dirname as dirname2 } from "path";
 var DEFAULT_REPORT_DIR = ".api-doctor";
 var DEFAULT_REPORT_FILE = "report.json";
 function writeReport(report, outputPath) {
-  const dir = dirname(outputPath);
-  mkdirSync(dir, { recursive: true });
+  const dir = dirname2(outputPath);
+  mkdirSync2(dir, { recursive: true });
   if (basename(dir) === DEFAULT_REPORT_DIR) {
     const gitignorePath = `${dir}/.gitignore`;
-    if (!existsSync(gitignorePath)) {
-      writeFileSync(gitignorePath, "*\n", "utf-8");
+    if (!existsSync2(gitignorePath)) {
+      writeFileSync2(gitignorePath, "*\n", "utf-8");
     }
   }
-  writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}
+  writeFileSync2(outputPath, `${JSON.stringify(report, null, 2)}
 `, "utf-8");
 }
 
@@ -2315,15 +2394,15 @@ function buildReport(input) {
 
 // src/scanner.ts
 import { spawnSync } from "child_process";
-import { mkdtempSync, rmSync, writeFileSync as writeFileSync2 } from "fs";
+import { mkdtempSync, rmSync, writeFileSync as writeFileSync3 } from "fs";
 import { readdir, readFile as readFile2 } from "fs/promises";
 import { createRequire } from "module";
 import os from "os";
-import { join as join2, relative, resolve } from "path";
+import { join as join3, relative, resolve } from "path";
 
 // src/detector.ts
 import { readFile } from "fs/promises";
-import { join } from "path";
+import { join as join2 } from "path";
 function hasImportPattern(source, pkg2) {
   return source.includes(`from '${pkg2}'`) || source.includes(`from "${pkg2}"`) || source.includes(`require('${pkg2}')`) || source.includes(`require("${pkg2}")`);
 }
@@ -2332,7 +2411,7 @@ async function detectProviders(directory, filesContent) {
   const allSources = [...filesContent.values()].join("\n");
   let deps = {};
   try {
-    const raw = await readFile(join(directory, "package.json"), "utf-8");
+    const raw = await readFile(join2(directory, "package.json"), "utf-8");
     const pkg2 = JSON.parse(raw);
     deps = { ...pkg2.dependencies, ...pkg2.devDependencies };
   } catch {
@@ -2376,7 +2455,7 @@ async function walk(dir, root, files) {
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.name.startsWith(".")) continue;
-    const full = join2(dir, entry.name);
+    const full = join3(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       await walk(full, root, files);
@@ -2415,7 +2494,7 @@ async function scan(directory, options = {}) {
   }
   const filesContent = /* @__PURE__ */ new Map();
   for (const rel of paths) {
-    const content = await readFile2(join2(absRoot, rel), "utf-8");
+    const content = await readFile2(join3(absRoot, rel), "utf-8");
     filesContent.set(rel, content);
   }
   let detected = await detectProviders(absRoot, filesContent);
@@ -2436,14 +2515,14 @@ async function scan(directory, options = {}) {
   }
   const require2 = createRequire(import.meta.url);
   const pluginEntry = require2.resolve("@api-doctor/cli/plugin");
-  const tmpDir = mkdtempSync(join2(os.tmpdir(), "api-doctor-oxlint-"));
-  const configPath = join2(tmpDir, "oxlintrc.json");
+  const tmpDir = mkdtempSync(join3(os.tmpdir(), "api-doctor-oxlint-"));
+  const configPath = join3(tmpDir, "oxlintrc.json");
   const config = {
     jsPlugins: [pluginEntry],
     rules: oxlintRules,
     ignorePatterns: Array.from(SKIP_DIRS)
   };
-  writeFileSync2(configPath, JSON.stringify(config, null, 2), "utf-8");
+  writeFileSync3(configPath, JSON.stringify(config, null, 2), "utf-8");
   const res = spawnSync(
     "npx",
     ["oxlint", "--config", configPath, "--format", "json", "."],
@@ -2855,9 +2934,9 @@ function emitReport(results, detected, report, options) {
 }
 
 // src/cli.ts
-var __dirname2 = dirname2(fileURLToPath(import.meta.url));
+var __dirname2 = dirname3(fileURLToPath(import.meta.url));
 var pkg = JSON.parse(
-  readFileSync(join3(__dirname2, "../package.json"), "utf-8")
+  readFileSync2(join4(__dirname2, "../package.json"), "utf-8")
 );
 var VALID_FORMATS = ["json", "markdown", "sarif"];
 function fail(message) {
@@ -2903,7 +2982,7 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
       durationMs: elapsedMs,
       version: pkg.version
     });
-    const outputPath = opts.output ? resolve2(opts.output) : join3(scannedDir, DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE);
+    const outputPath = opts.output ? resolve2(opts.output) : join4(scannedDir, DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE);
     const rel = relative2(scannedDir, outputPath);
     const reportDisplayPath = rel.startsWith("..") ? outputPath : rel;
     emitReport(results, detected, report, {
@@ -2924,6 +3003,12 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
     }
     throw err;
   }
+});
+program.command("install").description("Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents").argument("[directory]", "Project directory to install into", ".").action((directory) => {
+  const { created, updated } = installAgentFiles(resolve2(directory));
+  for (const path of created) console.log(`api-doctor: created ${path}`);
+  for (const path of updated) console.log(`api-doctor: updated ${path}`);
+  console.log("api-doctor: agents will now read .api-doctor/report.json and fix findings on their own.");
 });
 program.parse();
 //# sourceMappingURL=cli.mjs.map

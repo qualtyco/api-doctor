@@ -29,9 +29,88 @@ var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 
 // src/cli.ts
 var import_commander = require("commander");
-var import_node_fs3 = require("fs");
-var import_node_path5 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_path6 = require("path");
 var import_node_url = require("url");
+
+// src/install.ts
+var import_node_fs = require("fs");
+var import_node_path = require("path");
+var AGENTS_MARKER_START = "<!-- api-doctor:start -->";
+var AGENTS_MARKER_END = "<!-- api-doctor:end -->";
+var SKILL_BODY = `Run \`npx @api-doctor/cli .\` after writing or editing code that calls a
+third-party API SDK (Resend, Stripe, Supabase, and more). It checks the
+generated integration code for hardcoded keys, missing webhook
+verification, missing idempotency keys, and similar issues that compile
+fine but fail silently in production.
+
+Findings are written to \`.api-doctor/report.json\` as structured JSON
+(\`findings[]\`, each with \`location.file\`, \`location.line\`, \`message\`,
+\`fix\`). Read that file, fix every \`error\` finding before treating the task
+as done, and fix \`warning\` findings when the change is reasonable.`;
+function claudeSkill() {
+  return {
+    path: (0, import_node_path.join)(".claude", "skills", "api-doctor", "SKILL.md"),
+    content: `---
+name: api-doctor
+description: Check AI-generated API integration code for silent bugs before shipping. Use after writing or editing code that calls a third-party API SDK such as Resend, Stripe, or Supabase.
+---
+
+${SKILL_BODY}
+`
+  };
+}
+function cursorRule() {
+  return {
+    path: (0, import_node_path.join)(".cursor", "rules", "api-doctor.mdc"),
+    content: `---
+description: Check AI-generated API integration code for silent bugs before shipping
+globs:
+alwaysApply: false
+---
+
+${SKILL_BODY}
+`
+  };
+}
+function agentsSection() {
+  return `${AGENTS_MARKER_START}
+## api-doctor
+
+${SKILL_BODY}
+${AGENTS_MARKER_END}`;
+}
+function installAgentFiles(directory) {
+  const created = [];
+  const updated = [];
+  for (const file of [claudeSkill(), cursorRule()]) {
+    const fullPath = (0, import_node_path.join)(directory, file.path);
+    (0, import_node_fs.mkdirSync)((0, import_node_path.dirname)(fullPath), { recursive: true });
+    const isNew = !(0, import_node_fs.existsSync)(fullPath);
+    (0, import_node_fs.writeFileSync)(fullPath, file.content, "utf-8");
+    (isNew ? created : updated).push(file.path);
+  }
+  const agentsPath = (0, import_node_path.join)(directory, "AGENTS.md");
+  const section = agentsSection();
+  if ((0, import_node_fs.existsSync)(agentsPath)) {
+    const existing = (0, import_node_fs.readFileSync)(agentsPath, "utf-8");
+    const startIdx = existing.indexOf(AGENTS_MARKER_START);
+    const endIdx = existing.indexOf(AGENTS_MARKER_END);
+    const next = startIdx !== -1 && endIdx !== -1 ? existing.slice(0, startIdx) + section + existing.slice(endIdx + AGENTS_MARKER_END.length) : `${existing.trimEnd()}
+
+${section}
+`;
+    (0, import_node_fs.writeFileSync)(agentsPath, next, "utf-8");
+    updated.push("AGENTS.md");
+  } else {
+    (0, import_node_fs.writeFileSync)(agentsPath, `# Agent instructions
+
+${section}
+`, "utf-8");
+    created.push("AGENTS.md");
+  }
+  return { created, updated };
+}
 
 // src/providers/resend/manifest.ts
 var resendManifest = {
@@ -280,20 +359,20 @@ var providers = [
 ];
 
 // src/reporter/json-writer.ts
-var import_node_fs = require("fs");
-var import_node_path = require("path");
+var import_node_fs2 = require("fs");
+var import_node_path2 = require("path");
 var DEFAULT_REPORT_DIR = ".api-doctor";
 var DEFAULT_REPORT_FILE = "report.json";
 function writeReport(report, outputPath) {
-  const dir = (0, import_node_path.dirname)(outputPath);
-  (0, import_node_fs.mkdirSync)(dir, { recursive: true });
-  if ((0, import_node_path.basename)(dir) === DEFAULT_REPORT_DIR) {
+  const dir = (0, import_node_path2.dirname)(outputPath);
+  (0, import_node_fs2.mkdirSync)(dir, { recursive: true });
+  if ((0, import_node_path2.basename)(dir) === DEFAULT_REPORT_DIR) {
     const gitignorePath = `${dir}/.gitignore`;
-    if (!(0, import_node_fs.existsSync)(gitignorePath)) {
-      (0, import_node_fs.writeFileSync)(gitignorePath, "*\n", "utf-8");
+    if (!(0, import_node_fs2.existsSync)(gitignorePath)) {
+      (0, import_node_fs2.writeFileSync)(gitignorePath, "*\n", "utf-8");
     }
   }
-  (0, import_node_fs.writeFileSync)(outputPath, `${JSON.stringify(report, null, 2)}
+  (0, import_node_fs2.writeFileSync)(outputPath, `${JSON.stringify(report, null, 2)}
 `, "utf-8");
 }
 
@@ -2342,15 +2421,15 @@ function buildReport(input) {
 
 // src/scanner.ts
 var import_node_child_process = require("child_process");
-var import_node_fs2 = require("fs");
+var import_node_fs3 = require("fs");
 var import_promises2 = require("fs/promises");
 var import_node_module = require("module");
 var import_node_os = __toESM(require("os"), 1);
-var import_node_path3 = require("path");
+var import_node_path4 = require("path");
 
 // src/detector.ts
 var import_promises = require("fs/promises");
-var import_node_path2 = require("path");
+var import_node_path3 = require("path");
 function hasImportPattern(source, pkg2) {
   return source.includes(`from '${pkg2}'`) || source.includes(`from "${pkg2}"`) || source.includes(`require('${pkg2}')`) || source.includes(`require("${pkg2}")`);
 }
@@ -2359,7 +2438,7 @@ async function detectProviders(directory, filesContent) {
   const allSources = [...filesContent.values()].join("\n");
   let deps = {};
   try {
-    const raw = await (0, import_promises.readFile)((0, import_node_path2.join)(directory, "package.json"), "utf-8");
+    const raw = await (0, import_promises.readFile)((0, import_node_path3.join)(directory, "package.json"), "utf-8");
     const pkg2 = JSON.parse(raw);
     deps = { ...pkg2.dependencies, ...pkg2.devDependencies };
   } catch {
@@ -2403,12 +2482,12 @@ async function walk(dir, root, files) {
   const entries = await (0, import_promises2.readdir)(dir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.name.startsWith(".")) continue;
-    const full = (0, import_node_path3.join)(dir, entry.name);
+    const full = (0, import_node_path4.join)(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       await walk(full, root, files);
     } else if (SOURCE_EXT.test(entry.name)) {
-      files.push((0, import_node_path3.relative)(root, full));
+      files.push((0, import_node_path4.relative)(root, full));
     }
   }
 }
@@ -2433,7 +2512,7 @@ function buildOxlintConfig(detectedNames) {
   return { oxlintRules, ruleMetaByKey };
 }
 async function scan(directory, options = {}) {
-  const absRoot = (0, import_node_path3.resolve)(directory);
+  const absRoot = (0, import_node_path4.resolve)(directory);
   const paths = [];
   try {
     await walk(absRoot, absRoot, paths);
@@ -2442,7 +2521,7 @@ async function scan(directory, options = {}) {
   }
   const filesContent = /* @__PURE__ */ new Map();
   for (const rel of paths) {
-    const content = await (0, import_promises2.readFile)((0, import_node_path3.join)(absRoot, rel), "utf-8");
+    const content = await (0, import_promises2.readFile)((0, import_node_path4.join)(absRoot, rel), "utf-8");
     filesContent.set(rel, content);
   }
   let detected = await detectProviders(absRoot, filesContent);
@@ -2463,14 +2542,14 @@ async function scan(directory, options = {}) {
   }
   const require2 = (0, import_node_module.createRequire)(importMetaUrl);
   const pluginEntry = require2.resolve("@api-doctor/cli/plugin");
-  const tmpDir = (0, import_node_fs2.mkdtempSync)((0, import_node_path3.join)(import_node_os.default.tmpdir(), "api-doctor-oxlint-"));
-  const configPath = (0, import_node_path3.join)(tmpDir, "oxlintrc.json");
+  const tmpDir = (0, import_node_fs3.mkdtempSync)((0, import_node_path4.join)(import_node_os.default.tmpdir(), "api-doctor-oxlint-"));
+  const configPath = (0, import_node_path4.join)(tmpDir, "oxlintrc.json");
   const config = {
     jsPlugins: [pluginEntry],
     rules: oxlintRules,
     ignorePatterns: Array.from(SKIP_DIRS)
   };
-  (0, import_node_fs2.writeFileSync)(configPath, JSON.stringify(config, null, 2), "utf-8");
+  (0, import_node_fs3.writeFileSync)(configPath, JSON.stringify(config, null, 2), "utf-8");
   const res = (0, import_node_child_process.spawnSync)(
     "npx",
     ["oxlint", "--config", configPath, "--format", "json", "."],
@@ -2504,7 +2583,7 @@ async function scan(directory, options = {}) {
       const relFile = (() => {
         const filename = String(d.filename ?? "");
         if (!filename) return "";
-        if (filename.startsWith(absRoot)) return (0, import_node_path3.relative)(absRoot, filename);
+        if (filename.startsWith(absRoot)) return (0, import_node_path4.relative)(absRoot, filename);
         return filename.replace(/^[.\\/]+/, "");
       })();
       const span = d.labels?.[0]?.span;
@@ -2539,12 +2618,12 @@ async function scan(directory, options = {}) {
       filesContent
     };
   } finally {
-    (0, import_node_fs2.rmSync)(tmpDir, { recursive: true, force: true });
+    (0, import_node_fs3.rmSync)(tmpDir, { recursive: true, force: true });
   }
 }
 
 // src/reporter/markdown.ts
-var import_node_path4 = require("path");
+var import_node_path5 = require("path");
 function rationaleByRule() {
   const map = /* @__PURE__ */ new Map();
   for (const provider of providers) {
@@ -2575,7 +2654,7 @@ function renderMarkdown(report) {
   out.push("");
   out.push(`**Score:** ${summary.score}/100 (${summary.severity})`);
   out.push(`**Generated:** ${new Date(scanMeta.scannedAt).toUTCString()}`);
-  out.push(`**Project:** ${(0, import_node_path4.basename)(scanMeta.directory)}`);
+  out.push(`**Project:** ${(0, import_node_path5.basename)(scanMeta.directory)}`);
   out.push(`**Tool:** api-doctor v${tool.version}`);
   out.push("");
   out.push("## Summary");
@@ -2882,9 +2961,9 @@ function emitReport(results, detected, report, options) {
 }
 
 // src/cli.ts
-var __dirname = (0, import_node_path5.dirname)((0, import_node_url.fileURLToPath)(importMetaUrl));
+var __dirname = (0, import_node_path6.dirname)((0, import_node_url.fileURLToPath)(importMetaUrl));
 var pkg = JSON.parse(
-  (0, import_node_fs3.readFileSync)((0, import_node_path5.join)(__dirname, "../package.json"), "utf-8")
+  (0, import_node_fs4.readFileSync)((0, import_node_path6.join)(__dirname, "../package.json"), "utf-8")
 );
 var VALID_FORMATS = ["json", "markdown", "sarif"];
 function fail(message) {
@@ -2930,8 +3009,8 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
       durationMs: elapsedMs,
       version: pkg.version
     });
-    const outputPath = opts.output ? (0, import_node_path5.resolve)(opts.output) : (0, import_node_path5.join)(scannedDir, DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE);
-    const rel = (0, import_node_path5.relative)(scannedDir, outputPath);
+    const outputPath = opts.output ? (0, import_node_path6.resolve)(opts.output) : (0, import_node_path6.join)(scannedDir, DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE);
+    const rel = (0, import_node_path6.relative)(scannedDir, outputPath);
     const reportDisplayPath = rel.startsWith("..") ? outputPath : rel;
     emitReport(results, detected, report, {
       quiet: opts.quiet,
@@ -2951,6 +3030,12 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
     }
     throw err;
   }
+});
+program.command("install").description("Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents").argument("[directory]", "Project directory to install into", ".").action((directory) => {
+  const { created, updated } = installAgentFiles((0, import_node_path6.resolve)(directory));
+  for (const path of created) console.log(`api-doctor: created ${path}`);
+  for (const path of updated) console.log(`api-doctor: updated ${path}`);
+  console.log("api-doctor: agents will now read .api-doctor/report.json and fix findings on their own.");
 });
 program.parse();
 //# sourceMappingURL=cli.cjs.map

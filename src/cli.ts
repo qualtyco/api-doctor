@@ -11,6 +11,7 @@ import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { installAgentFiles } from './install.js';
 import { providers } from './providers/index.js';
 import {
   DEFAULT_REPORT_DIR,
@@ -132,6 +133,17 @@ program
       }
       throw err;
     }
+  });
+
+program
+  .command('install')
+  .description('Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents')
+  .argument('[directory]', 'Project directory to install into', '.')
+  .action((directory: string) => {
+    const { created, updated } = installAgentFiles(resolve(directory));
+    for (const path of created) console.log(`api-doctor: created ${path}`);
+    for (const path of updated) console.log(`api-doctor: updated ${path}`);
+    console.log('api-doctor: agents will now read .api-doctor/report.json and fix findings on their own.');
   });
 
 program.parse();

@@ -114,8 +114,6 @@ Fixture files may be named `*.test.ts` to exercise test-file detection; vitest e
 7. Fixtures and tests under `tests/`
 8. `pnpm build && pnpm test`
 
-Full details and manifest field reference: [CONTRIBUTING.md](CONTRIBUTING.md)
-
 ## Rule implementation notes
 
 - Use AST visitors (`CallExpression`, `ImportDeclaration`, `Program:exit`), never regex over raw source text.

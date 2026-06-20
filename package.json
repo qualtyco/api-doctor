@@ -4,6 +4,7 @@
   "description": "Verification rules for AI-generated API integrations via oxlint",
   "type": "module",
   "private": false,
+  "license": "MIT",
   "bin": {
     "api-doctor": "./dist/cli.mjs"
   },

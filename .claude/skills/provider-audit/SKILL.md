@@ -1,6 +1,6 @@
 ---
 name: provider-audit
-description: Audits AI-generated integration code for an API provider by cross-referencing it against the provider's MCP and docs. Produces a categorized findings report at docs/audits/<provider>-audit-<YYYY-MM-DD>.md. Use when Reuben says "audit <provider>," "find what agents get wrong with <provider>," or "produce the audit for the next rule pack."
+description: Audits AI-generated integration code for an API provider by cross-referencing it against the provider's MCP and docs. Produces a categorized findings report at docs/audits/<provider>-audit-<YYYY-MM-DD>.md. Use when asked to "audit <provider>," "find what agents get wrong with <provider>," or "produce the audit for the next rule pack."
 ---
 
 # Provider Audit Skill
