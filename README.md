@@ -22,7 +22,7 @@ npx @api-doctor/cli .
 | | Provider | Rules |
 | --- | --- | --- |
 | <img src="https://cdn.simpleicons.org/resend/000000" width="28" height="28" alt="" /> | **[Resend](https://resend.com/docs)** | [13 rules](src/providers/resend/README.md) |
-| <img src="https://cdn.simpleicons.org/supabase/3FCF8E" width="28" height="28" alt="" /> | **[Supabase](https://supabase.com/docs)** | [6 rules](src/providers/supabase) |
+| <img src="https://cdn.simpleicons.org/supabase/3FCF8E" width="28" height="28" alt="" /> | **[Supabase](https://supabase.com/docs)** | [12 rules](src/providers/supabase/README.md) |
  
 ---
  

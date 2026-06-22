@@ -41,6 +41,102 @@ export function isTimestampColumnName(name: string): boolean {
   return /^[a-z][a-z0-9]*_at$/i.test(name);
 }
 
+/** True when `node` is the `.from("table")` base of a Supabase query chain. */
+export function isSupabaseFromCall(node: any): boolean {
+  return memberPropName(node) === 'from' && node?.callee?.object?.type === 'Identifier';
+}
+
+/** Returns the table name from a `.from("table")` call anywhere in the chain. */
+export function fromTableName(node: any): string | undefined {
+  let current: any | null = node;
+  while (current?.type === 'CallExpression') {
+    if (memberPropName(current) === 'from') {
+      const arg = current.arguments?.[0];
+      return arg?.type === 'Literal' && typeof arg.value === 'string' ? arg.value : undefined;
+    }
+    current = chainObjectCall(current);
+  }
+  return undefined;
+}
+
+/** True when a chained Supabase call includes `.single()`. */
+export function chainHasMethod(node: any, method: string): boolean {
+  let current: any | null = node;
+  while (current?.type === 'CallExpression') {
+    if (memberPropName(current) === method) return true;
+    current = chainObjectCall(current);
+  }
+  return false;
+}
+
+export function isSupabaseMutationKind(
+  node: any,
+  kind: 'delete' | 'insert' | 'update' | 'upsert',
+): boolean {
+  if (!chainHasMethod(node, kind)) return false;
+  let current: any | null = node;
+  while (current?.type === 'CallExpression') {
+    if (memberPropName(current) === 'from') return true;
+    current = chainObjectCall(current);
+  }
+  return false;
+}
+
+/** Property names on `user_metadata` that should never gate authorization. */
+const USER_METADATA_AUTHZ_KEYS = new Set([
+  'role',
+  'roles',
+  'admin',
+  'is_admin',
+  'permission',
+  'permissions',
+]);
+
+/** True when `node` reads an auth-sensitive field from `user_metadata`. */
+export function isUserMetadataAuthzRead(node: any): boolean {
+  if (node?.type !== 'MemberExpression') return false;
+  const parts: string[] = [];
+  let current: any = node;
+  while (current?.type === 'MemberExpression') {
+    const prop = current.property;
+    const name =
+      !current.computed && prop?.type === 'Identifier'
+        ? prop.name
+        : prop?.type === 'Literal' && typeof prop.value === 'string'
+          ? prop.value
+          : undefined;
+    if (name) parts.unshift(name);
+    current = current.object;
+  }
+  const metaIdx = parts.indexOf('user_metadata');
+  if (metaIdx === -1) return false;
+  const field = parts[metaIdx + 1];
+  return typeof field === 'string' && USER_METADATA_AUTHZ_KEYS.has(field);
+}
+
+/** Returns binding names destructured from `pattern` (ObjectPattern or Identifier). */
+export function destructuredNames(pattern: any): Set<string> {
+  const names = new Set<string>();
+  if (!pattern) return names;
+  if (pattern.type === 'Identifier') {
+    names.add(pattern.name);
+    return names;
+  }
+  if (pattern.type !== 'ObjectPattern') return names;
+  for (const prop of pattern.properties ?? []) {
+    if (prop?.type === 'Property') {
+      if (prop.value?.type === 'Identifier') names.add(prop.value.name);
+      else if (prop.key?.type === 'Identifier' && prop.shorthand) names.add(prop.key.name);
+      else if (prop.key?.type === 'Identifier' && prop.value?.type === 'Identifier') {
+        names.add(prop.value.name);
+      }
+    } else if (prop?.type === 'RestElement' && prop.argument?.type === 'Identifier') {
+      names.add(prop.argument.name);
+    }
+  }
+  return names;
+}
+
 /**
  * Resolves the source identifier name backing an insert/upsert object
  * property's value: shorthand (`{ x }`), a bare identifier (`{ x: y }`), or

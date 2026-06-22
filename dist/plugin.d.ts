@@ -416,6 +416,137 @@ declare const plugin: {
                 CallExpression(node: any): void;
             };
         };
+        readonly 'supabase-no-user-metadata-authz': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    cwe: string;
+                    owasp: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    userMetadataAuthzRead: string;
+                    userMetadataAuthzWrite: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                MemberExpression(node: any): void;
+                CallExpression(node: any): void;
+            };
+        };
+        readonly 'supabase-single-without-error-check': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    missingErrorCheck: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                VariableDeclarator(node: any): void;
+                AssignmentExpression(node: any): void;
+                ExpressionStatement(node: any): void;
+            };
+        };
+        readonly 'supabase-non-atomic-replace-pattern': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    nonAtomicReplace: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                FunctionDeclaration(node: any): void;
+                'FunctionDeclaration:exit'(node: any): void;
+                FunctionExpression(node: any): void;
+                'FunctionExpression:exit'(node: any): void;
+                ArrowFunctionExpression(node: any): void;
+                'ArrowFunctionExpression:exit'(node: any): void;
+                VariableDeclarator(node: any): void;
+                ExpressionStatement(node: any): void;
+            };
+        };
+        readonly 'supabase-unchecked-mutation-error': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    uncheckedMutation: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                ExpressionStatement(node: any): void;
+                VariableDeclarator(node: any): void;
+                AssignmentExpression(node: any): void;
+            };
+        };
+        readonly 'supabase-realtime-missing-filter': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    missingFilter: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                CallExpression(node: any): void;
+            };
+        };
+        readonly 'supabase-storage-error-not-surfaced': {
+            meta: {
+                type: string;
+                docs: {
+                    description: string;
+                    category: string;
+                    rationale: string;
+                    docsUrl: string;
+                    recommended: boolean;
+                };
+                messages: {
+                    uploadErrorNotSurfaced: string;
+                };
+                schema: never[];
+            };
+            create(context: any): {
+                VariableDeclarator(node: any): void;
+                IfStatement(node: any): void;
+                'Program:exit'(): void;
+            };
+        };
     };
 };
 

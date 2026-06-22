@@ -21,6 +21,12 @@ import { supabaseOrderByTimestampNotIdentityRule } from '../providers/supabase/r
 import { supabaseConsistentInputLengthLimitsRule } from '../providers/supabase/rules/consistent-input-length-limits.js';
 import { supabaseIdempotentMutationsRule } from '../providers/supabase/rules/idempotent-mutations.js';
 import { supabaseFailFastEnvValidationRule } from '../providers/supabase/rules/fail-fast-env-validation.js';
+import { supabaseNoUserMetadataAuthzRule } from '../providers/supabase/rules/no-user-metadata-authz.js';
+import { supabaseSingleWithoutErrorCheckRule } from '../providers/supabase/rules/single-without-error-check.js';
+import { supabaseNonAtomicReplacePatternRule } from '../providers/supabase/rules/non-atomic-replace-pattern.js';
+import { supabaseUncheckedMutationErrorRule } from '../providers/supabase/rules/unchecked-mutation-error.js';
+import { supabaseRealtimeMissingFilterRule } from '../providers/supabase/rules/realtime-missing-filter.js';
+import { supabaseStorageErrorNotSurfacedRule } from '../providers/supabase/rules/storage-error-not-surfaced.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -44,6 +50,12 @@ const plugin = {
     'supabase-consistent-input-length-limits': supabaseConsistentInputLengthLimitsRule,
     'supabase-idempotent-mutations': supabaseIdempotentMutationsRule,
     'supabase-fail-fast-env-validation': supabaseFailFastEnvValidationRule,
+    'supabase-no-user-metadata-authz': supabaseNoUserMetadataAuthzRule,
+    'supabase-single-without-error-check': supabaseSingleWithoutErrorCheckRule,
+    'supabase-non-atomic-replace-pattern': supabaseNonAtomicReplacePatternRule,
+    'supabase-unchecked-mutation-error': supabaseUncheckedMutationErrorRule,
+    'supabase-realtime-missing-filter': supabaseRealtimeMissingFilterRule,
+    'supabase-storage-error-not-surfaced': supabaseStorageErrorNotSurfacedRule,
   },
 } as const;
 

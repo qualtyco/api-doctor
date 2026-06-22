@@ -319,6 +319,54 @@ var supabaseManifest = {
       fix: "Throw a clear error (e.g. if (!url || !key) throw new Error(...)) before calling createClient.",
       docsUrl: "https://supabase.com/docs/reference/javascript/initializing",
       severity: "warning"
+    },
+    {
+      key: "supabase-no-user-metadata-authz",
+      resultRule: "supabase/security/no-user-metadata-authz",
+      message: "Authorization data is read from or written to user_metadata, which clients can modify.",
+      fix: "Store roles in app_metadata via a trusted server path, or in an RLS-protected profiles table \u2014 never user_metadata.",
+      docsUrl: "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      severity: "error"
+    },
+    {
+      key: "supabase-single-without-error-check",
+      resultRule: "supabase/correctness/single-without-error-check",
+      message: "A .single() query ignores the returned error field.",
+      fix: "Destructure and check error, or use .maybeSingle() and handle a missing row explicitly.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/single",
+      severity: "warning"
+    },
+    {
+      key: "supabase-non-atomic-replace-pattern",
+      resultRule: "supabase/correctness/non-atomic-replace-pattern",
+      message: "Child rows are replaced via delete-then-insert without checking errors.",
+      fix: "Wrap delete+insert in a Postgres RPC (single transaction) and surface error from each step.",
+      docsUrl: "https://supabase.com/docs/guides/database/functions",
+      severity: "warning"
+    },
+    {
+      key: "supabase-unchecked-mutation-error",
+      resultRule: "supabase/correctness/unchecked-mutation-error",
+      message: "A Supabase insert/update/delete never checks the returned error field.",
+      fix: "Destructure { error } from every mutation and revert optimistic UI or show a toast on failure.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/insert",
+      severity: "warning"
+    },
+    {
+      key: "supabase-realtime-missing-filter",
+      resultRule: "supabase/reliability/realtime-missing-filter",
+      message: "A Realtime postgres_changes subscription listens to an entire table with no filter.",
+      fix: "Add a filter option scoped to the current user (e.g. filter: `receiver_id=eq.${user.id}`).",
+      docsUrl: "https://supabase.com/docs/guides/realtime/postgres-changes#filtering",
+      severity: "error"
+    },
+    {
+      key: "supabase-storage-error-not-surfaced",
+      resultRule: "supabase/reliability/storage-error-not-surfaced",
+      message: "A storage upload failure is ignored and execution continues.",
+      fix: "On uploadError, stop and show an error instead of saving a stale URL.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/storage-from-upload",
+      severity: "warning"
     }
   ]
 };
@@ -1324,6 +1372,78 @@ function isTenantColumnName(name) {
 function isTimestampColumnName(name) {
   return /^[a-z][a-z0-9]*_at$/i.test(name);
 }
+function fromTableName(node) {
+  let current = node;
+  while (current?.type === "CallExpression") {
+    if (memberPropName(current) === "from") {
+      const arg = current.arguments?.[0];
+      return arg?.type === "Literal" && typeof arg.value === "string" ? arg.value : void 0;
+    }
+    current = chainObjectCall(current);
+  }
+  return void 0;
+}
+function chainHasMethod(node, method) {
+  let current = node;
+  while (current?.type === "CallExpression") {
+    if (memberPropName(current) === method) return true;
+    current = chainObjectCall(current);
+  }
+  return false;
+}
+function isSupabaseMutationKind(node, kind) {
+  if (!chainHasMethod(node, kind)) return false;
+  let current = node;
+  while (current?.type === "CallExpression") {
+    if (memberPropName(current) === "from") return true;
+    current = chainObjectCall(current);
+  }
+  return false;
+}
+var USER_METADATA_AUTHZ_KEYS = /* @__PURE__ */ new Set([
+  "role",
+  "roles",
+  "admin",
+  "is_admin",
+  "permission",
+  "permissions"
+]);
+function isUserMetadataAuthzRead(node) {
+  if (node?.type !== "MemberExpression") return false;
+  const parts = [];
+  let current = node;
+  while (current?.type === "MemberExpression") {
+    const prop = current.property;
+    const name = !current.computed && prop?.type === "Identifier" ? prop.name : prop?.type === "Literal" && typeof prop.value === "string" ? prop.value : void 0;
+    if (name) parts.unshift(name);
+    current = current.object;
+  }
+  const metaIdx = parts.indexOf("user_metadata");
+  if (metaIdx === -1) return false;
+  const field = parts[metaIdx + 1];
+  return typeof field === "string" && USER_METADATA_AUTHZ_KEYS.has(field);
+}
+function destructuredNames(pattern) {
+  const names = /* @__PURE__ */ new Set();
+  if (!pattern) return names;
+  if (pattern.type === "Identifier") {
+    names.add(pattern.name);
+    return names;
+  }
+  if (pattern.type !== "ObjectPattern") return names;
+  for (const prop of pattern.properties ?? []) {
+    if (prop?.type === "Property") {
+      if (prop.value?.type === "Identifier") names.add(prop.value.name);
+      else if (prop.key?.type === "Identifier" && prop.shorthand) names.add(prop.key.name);
+      else if (prop.key?.type === "Identifier" && prop.value?.type === "Identifier") {
+        names.add(prop.value.name);
+      }
+    } else if (prop?.type === "RestElement" && prop.argument?.type === "Identifier") {
+      names.add(prop.argument.name);
+    }
+  }
+  return names;
+}
 function resolvePropertyValueName(prop) {
   if (prop?.shorthand && prop.key?.type === "Identifier") return prop.key.name;
   const value = prop?.value;
@@ -1787,6 +1907,363 @@ var rule19 = {
 };
 var supabaseFailFastEnvValidationRule = rule19;
 
+// src/providers/supabase/rules/no-user-metadata-authz.ts
+var AUTHZ_DATA_KEYS = /* @__PURE__ */ new Set(["role", "roles", "admin", "is_admin", "permission", "permissions"]);
+function objectHasAuthzDataKey(objectExpression) {
+  if (objectExpression?.type !== "ObjectExpression") return false;
+  return (objectExpression.properties ?? []).some((p) => {
+    if (p?.type !== "Property") return false;
+    const name = p.shorthand && p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+    return typeof name === "string" && AUTHZ_DATA_KEYS.has(name);
+  });
+}
+function findAuthDataPayload(args) {
+  for (const arg of args) {
+    if (arg?.type !== "ObjectExpression") continue;
+    for (const p of arg.properties ?? []) {
+      if (p?.type !== "Property") continue;
+      const key = p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+      if (key === "data" && p.value?.type === "ObjectExpression") return p.value;
+      if (key === "options" && p.value?.type === "ObjectExpression") {
+        for (const opt of p.value.properties ?? []) {
+          if (opt?.type !== "Property") continue;
+          const optKey = opt.key?.type === "Identifier" ? opt.key.name : opt.key?.type === "Literal" ? opt.key.value : void 0;
+          if (optKey === "data" && opt.value?.type === "ObjectExpression") return opt.value;
+        }
+      }
+    }
+  }
+  return null;
+}
+function isAuthUserMetadataWrite(node) {
+  const prop = memberPropName(node);
+  if (prop !== "signUp" && prop !== "updateUser") return false;
+  const dataPayload = findAuthDataPayload(node.arguments ?? []);
+  return dataPayload ? objectHasAuthzDataKey(dataPayload) : false;
+}
+var rule20 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Do not store or read authorization data from user_metadata",
+      category: "security",
+      cwe: "CWE-285",
+      owasp: "A01:2021 Broken Access Control",
+      rationale: "Supabase documents raw_user_meta_data as client-writable and unsuitable for authorization. Reading user_metadata.role (or writing role into signUp/updateUser data) lets any signed-in user self-assign privileged roles from the browser. Store roles in app_metadata via a trusted server path, or in an RLS-protected profiles table.",
+      docsUrl: "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      recommended: true
+    },
+    messages: {
+      userMetadataAuthzRead: "Authorization is read from user_metadata, which the client can modify. Use app_metadata or a server-side role table instead.",
+      userMetadataAuthzWrite: "Authorization data is written to user_metadata via signUp/updateUser, which the client can change later. Use app_metadata or a server-side role table instead."
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      MemberExpression(node) {
+        if (isUserMetadataAuthzRead(node)) {
+          context.report({ node, messageId: "userMetadataAuthzRead" });
+        }
+      },
+      CallExpression(node) {
+        if (isAuthUserMetadataWrite(node)) {
+          context.report({ node, messageId: "userMetadataAuthzWrite" });
+        }
+      }
+    };
+  }
+};
+var supabaseNoUserMetadataAuthzRule = rule20;
+
+// src/providers/supabase/rules/single-without-error-check.ts
+function isSingleSupabaseQuery(awaitArg) {
+  return awaitArg?.type === "CallExpression" && chainHasMethod(awaitArg, "single");
+}
+var rule21 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase .single() calls must inspect the returned error field",
+      category: "correctness",
+      rationale: ".single() signals zero-or-one-row intent via the error field (PGRST116), not by leaving data undefined silently. Destructuring only data and never reading error produces infinite spinners on deleted rows, bad IDs, or RLS-denied reads. Prefer .maybeSingle() or branch on error before rendering.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/single",
+      recommended: true
+    },
+    messages: {
+      missingErrorCheck: "This .single() result ignores error \u2014 a missing or denied row will look like a perpetual load. Destructure error or use .maybeSingle()."
+    },
+    schema: []
+  },
+  create(context) {
+    function checkAwaitBinding(node, pattern, awaitExpr) {
+      if (!isSingleSupabaseQuery(awaitExpr.argument)) return;
+      const names = destructuredNames(pattern);
+      if (names.has("error")) return;
+      context.report({ node, messageId: "missingErrorCheck" });
+    }
+    return {
+      VariableDeclarator(node) {
+        if (node.init?.type !== "AwaitExpression") return;
+        checkAwaitBinding(node, node.id, node.init);
+      },
+      AssignmentExpression(node) {
+        if (node.right?.type !== "AwaitExpression") return;
+        checkAwaitBinding(node, node.left, node.right);
+      },
+      ExpressionStatement(node) {
+        const expr = node.expression;
+        if (expr?.type !== "AwaitExpression") return;
+        if (!isSingleSupabaseQuery(expr.argument)) return;
+        if (memberPropName(expr.argument) === "single") {
+          context.report({ node, messageId: "missingErrorCheck" });
+        }
+      }
+    };
+  }
+};
+var supabaseSingleWithoutErrorCheckRule = rule21;
+
+// src/providers/supabase/rules/non-atomic-replace-pattern.ts
+function isSupabaseTableMutation(node, kind) {
+  return isSupabaseMutationKind(node, kind);
+}
+var rule22 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase delete-then-insert replace patterns should check errors or use RPC",
+      category: "correctness",
+      rationale: "Replacing child rows by deleting all rows for a user then re-inserting is a common Supabase pattern, but sequential client calls are not transactional. If delete succeeds and a later insert fails, existing rows are gone with no error shown. Wrap both steps in a Postgres RPC function or check error after each call.",
+      docsUrl: "https://supabase.com/docs/guides/database/functions",
+      recommended: true
+    },
+    messages: {
+      nonAtomicReplace: "This function deletes then re-inserts rows without checking errors \u2014 a failed insert after a successful delete loses data silently."
+    },
+    schema: []
+  },
+  create(context) {
+    const fnStack = [];
+    const mutationsByFunction = /* @__PURE__ */ new Map();
+    function currentFunction() {
+      return fnStack[fnStack.length - 1];
+    }
+    function recordMutation(node, awaitExpr, pattern, kind) {
+      const fn = currentFunction();
+      if (!fn) return;
+      if (!isSupabaseTableMutation(awaitExpr.argument, kind)) return;
+      const checksError = pattern ? destructuredNames(pattern).has("error") : false;
+      const list = mutationsByFunction.get(fn) ?? [];
+      list.push({ node, table: fromTableName(awaitExpr.argument), kind, checksError });
+      mutationsByFunction.set(fn, list);
+    }
+    function enterFunction(node) {
+      fnStack.push(node);
+    }
+    function exitFunction(node) {
+      const sites = mutationsByFunction.get(node);
+      if (sites) {
+        const deletes = sites.filter((s) => s.kind === "delete");
+        const inserts = sites.filter((s) => s.kind === "insert");
+        if (deletes.length > 0 && inserts.length > 0) {
+          const uncheckedDelete = deletes.some((d) => !d.checksError);
+          const uncheckedInsert = inserts.some((i) => !i.checksError);
+          const sameTable = uncheckedDelete && uncheckedInsert && deletes.some((d) => inserts.some((i) => d.table && i.table && d.table === i.table));
+          if (sameTable) {
+            context.report({ node: inserts[0].node, messageId: "nonAtomicReplace" });
+          }
+        }
+        mutationsByFunction.delete(node);
+      }
+      fnStack.pop();
+    }
+    return {
+      FunctionDeclaration(node) {
+        enterFunction(node);
+      },
+      "FunctionDeclaration:exit"(node) {
+        exitFunction(node);
+      },
+      FunctionExpression(node) {
+        enterFunction(node);
+      },
+      "FunctionExpression:exit"(node) {
+        exitFunction(node);
+      },
+      ArrowFunctionExpression(node) {
+        enterFunction(node);
+      },
+      "ArrowFunctionExpression:exit"(node) {
+        exitFunction(node);
+      },
+      VariableDeclarator(node) {
+        if (node.init?.type !== "AwaitExpression") return;
+        const arg = node.init.argument;
+        if (isSupabaseTableMutation(arg, "delete")) recordMutation(node, node.init, node.id, "delete");
+        if (isSupabaseTableMutation(arg, "insert")) recordMutation(node, node.init, node.id, "insert");
+      },
+      ExpressionStatement(node) {
+        const expr = node.expression;
+        if (expr?.type !== "AwaitExpression") return;
+        const arg = expr.argument;
+        if (isSupabaseTableMutation(arg, "delete")) recordMutation(node, expr, void 0, "delete");
+        if (isSupabaseTableMutation(arg, "insert")) recordMutation(node, expr, void 0, "insert");
+      }
+    };
+  }
+};
+var supabaseNonAtomicReplacePatternRule = rule22;
+
+// src/providers/supabase/rules/unchecked-mutation-error.ts
+var MUTATIONS = ["insert", "update", "delete", "upsert"];
+function isSupabaseMutationCall(node) {
+  return MUTATIONS.some((kind) => isSupabaseMutationKind(node, kind));
+}
+var rule23 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase mutations must check the returned error field",
+      category: "correctness",
+      rationale: "Unlike fetch(), Supabase client mutations return { data, error } and resolve even when RLS denies the write or a constraint fails. Fire-and-forget awaits or destructuring only data lets optimistic UI state diverge from the database with no toast or rollback.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/insert",
+      recommended: true
+    },
+    messages: {
+      uncheckedMutation: "This Supabase mutation never checks error \u2014 RLS denials and constraint failures will be silent."
+    },
+    schema: []
+  },
+  create(context) {
+    function checkMutationAwait(node, pattern, awaitExpr) {
+      if (!isSupabaseMutationCall(awaitExpr.argument)) return;
+      if (!pattern) {
+        context.report({ node, messageId: "uncheckedMutation" });
+        return;
+      }
+      const names = destructuredNames(pattern);
+      if (!names.has("error")) {
+        context.report({ node, messageId: "uncheckedMutation" });
+      }
+    }
+    return {
+      ExpressionStatement(node) {
+        const expr = node.expression;
+        if (expr?.type !== "AwaitExpression") return;
+        checkMutationAwait(node, void 0, expr);
+      },
+      VariableDeclarator(node) {
+        if (node.init?.type !== "AwaitExpression") return;
+        checkMutationAwait(node, node.id, node.init);
+      },
+      AssignmentExpression(node) {
+        if (node.right?.type !== "AwaitExpression") return;
+        checkMutationAwait(node, node.left, node.right);
+      }
+    };
+  }
+};
+var supabaseUncheckedMutationErrorRule = rule23;
+
+// src/providers/supabase/rules/realtime-missing-filter.ts
+var rule24 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase Realtime postgres_changes subscriptions should use a filter",
+      category: "reliability",
+      rationale: "Listening to postgres_changes on an entire table without a filter means every insert/update/delete by any user triggers the callback on every connected client. RLS still scopes the data, but the refetch storm scales with concurrent users and will degrade under real load. Scope subscriptions with the documented filter option (e.g. receiver_id=eq.{id}).",
+      docsUrl: "https://supabase.com/docs/guides/realtime/postgres-changes#filtering",
+      recommended: true
+    },
+    messages: {
+      missingFilter: "This Realtime postgres_changes subscription has no filter and will fire on every row change in the table."
+    },
+    schema: []
+  },
+  create(context) {
+    return {
+      CallExpression(node) {
+        if (memberPropName(node) !== "on") return;
+        const eventArg = node.arguments?.[0];
+        if (eventArg?.type !== "Literal" || eventArg.value !== "postgres_changes") return;
+        const options = node.arguments?.[1];
+        if (options?.type !== "ObjectExpression") return;
+        const hasFilter = (options.properties ?? []).some((p) => {
+          if (p?.type !== "Property") return false;
+          const key = p.key?.type === "Identifier" ? p.key.name : p.key?.type === "Literal" ? p.key.value : void 0;
+          return key === "filter";
+        });
+        if (!hasFilter) {
+          context.report({ node, messageId: "missingFilter" });
+        }
+      }
+    };
+  }
+};
+var supabaseRealtimeMissingFilterRule = rule24;
+
+// src/providers/supabase/rules/storage-error-not-surfaced.ts
+function isStorageUploadCall(node) {
+  let current = node;
+  let sawStorage = false;
+  let sawUpload = false;
+  while (current?.type === "CallExpression") {
+    const prop = memberPropName(current);
+    if (prop === "storage") sawStorage = true;
+    if (prop === "upload") sawUpload = true;
+    current = chainObjectCall(current);
+  }
+  return sawStorage && sawUpload;
+}
+var rule25 = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Supabase storage upload errors must be surfaced to the user",
+      category: "reliability",
+      rationale: "Storage uploads return { error } without throwing. An if (!uploadError) block with no else lets the caller fall through to a profile save and success toast even when the file never uploaded \u2014 the user only notices later that their avatar or resume did not change.",
+      docsUrl: "https://supabase.com/docs/reference/javascript/storage-from-upload",
+      recommended: true
+    },
+    messages: {
+      uploadErrorNotSurfaced: "Storage upload failure is ignored when uploadError is set \u2014 add an else branch to stop and show an error."
+    },
+    schema: []
+  },
+  create(context) {
+    const uploadAwaitVars = /* @__PURE__ */ new Set();
+    return {
+      VariableDeclarator(node) {
+        if (node.init?.type !== "AwaitExpression") return;
+        if (!isStorageUploadCall(node.init.argument)) return;
+        if (node.id?.type === "ObjectPattern") {
+          for (const p of node.id.properties ?? []) {
+            if (p?.type !== "Property") continue;
+            if (p.key?.type === "Identifier" && p.key.name === "error" && p.value?.type === "Identifier") {
+              uploadAwaitVars.add(p.value.name);
+            }
+          }
+        }
+      },
+      IfStatement(node) {
+        const test = node.test;
+        if (test?.type !== "UnaryExpression" || test.operator !== "!") return;
+        const arg = test.argument;
+        if (arg?.type !== "Identifier") return;
+        if (!uploadAwaitVars.has(arg.name) && !/uploadError|uploadErr/i.test(arg.name)) return;
+        if (node.alternate) return;
+        context.report({ node, messageId: "uploadErrorNotSurfaced" });
+      },
+      "Program:exit"() {
+        uploadAwaitVars.clear();
+      }
+    };
+  }
+};
+var supabaseStorageErrorNotSurfacedRule = rule25;
+
 // src/plugin/index.ts
 var plugin = {
   meta: { name: PLUGIN_NAME, version: "0.0.1" },
@@ -1809,15 +2286,21 @@ var plugin = {
     "supabase-order-by-timestamp-not-identity": supabaseOrderByTimestampNotIdentityRule,
     "supabase-consistent-input-length-limits": supabaseConsistentInputLengthLimitsRule,
     "supabase-idempotent-mutations": supabaseIdempotentMutationsRule,
-    "supabase-fail-fast-env-validation": supabaseFailFastEnvValidationRule
+    "supabase-fail-fast-env-validation": supabaseFailFastEnvValidationRule,
+    "supabase-no-user-metadata-authz": supabaseNoUserMetadataAuthzRule,
+    "supabase-single-without-error-check": supabaseSingleWithoutErrorCheckRule,
+    "supabase-non-atomic-replace-pattern": supabaseNonAtomicReplacePatternRule,
+    "supabase-unchecked-mutation-error": supabaseUncheckedMutationErrorRule,
+    "supabase-realtime-missing-filter": supabaseRealtimeMissingFilterRule,
+    "supabase-storage-error-not-surfaced": supabaseStorageErrorNotSurfacedRule
   }
 };
 
 // src/plugin/rule-registry.ts
 function buildRegistry() {
   const registry2 = /* @__PURE__ */ new Map();
-  for (const [key, rule20] of Object.entries(plugin.rules)) {
-    const docs = rule20?.meta?.docs ?? {};
+  for (const [key, rule26] of Object.entries(plugin.rules)) {
+    const docs = rule26?.meta?.docs ?? {};
     registry2.set(key, {
       category: docs.category,
       description: docs.description ?? "",
@@ -2042,9 +2525,9 @@ function buildOxlintConfig(detectedNames) {
   const ruleMetaByKey = /* @__PURE__ */ new Map();
   for (const provider of providers) {
     if (!detectedNames.has(provider.name)) continue;
-    for (const rule20 of provider.oxlintRules) {
-      oxlintRules[`${PLUGIN_NAME}/${rule20.key}`] = rule20.severity === "error" || rule20.severity === void 0 ? "error" : "warn";
-      ruleMetaByKey.set(rule20.key, rule20);
+    for (const rule26 of provider.oxlintRules) {
+      oxlintRules[`${PLUGIN_NAME}/${rule26.key}`] = rule26.severity === "error" || rule26.severity === void 0 ? "error" : "warn";
+      ruleMetaByKey.set(rule26.key, rule26);
     }
   }
   return { oxlintRules, ruleMetaByKey };
@@ -2160,9 +2643,9 @@ var import_node_path5 = require("path");
 function rationaleByRule() {
   const map = /* @__PURE__ */ new Map();
   for (const provider of providers) {
-    for (const rule20 of provider.oxlintRules) {
-      const docs = getRuleDocsMeta(rule20.key);
-      if (docs?.rationale) map.set(rule20.resultRule, docs.rationale);
+    for (const rule26 of provider.oxlintRules) {
+      const docs = getRuleDocsMeta(rule26.key);
+      if (docs?.rationale) map.set(rule26.resultRule, docs.rationale);
     }
   }
   return map;

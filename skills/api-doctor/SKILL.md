@@ -7,8 +7,11 @@ description: Check AI-generated API integration code for silent bugs before ship
 
 Run api-doctor after writing or editing code that calls a third-party API SDK
 (Resend, Supabase, and more). It checks integration code for hardcoded keys,
-missing webhook verification, missing idempotency keys, and similar issues that
-compile fine but fail silently in production.
+missing webhook verification, unchecked `{ data, error }` Supabase mutations,
+missing Realtime filters, and similar issues that compile fine but fail silently
+in production.
+
+Provider rule catalogs: `src/providers/resend/README.md` (13 rules), `src/providers/supabase/README.md` (12 rules).
 
 ## Run a scan
 
