@@ -3,46 +3,45 @@
 // src/cli.ts
 import { Command } from "commander";
 import { readFileSync as readFileSync2 } from "fs";
-import { dirname as dirname3, join as join4, relative as relative2, resolve as resolve2 } from "path";
-import { fileURLToPath } from "url";
+import { dirname as dirname3, join as join4, relative as relative3, resolve as resolve2 } from "path";
+import { fileURLToPath as fileURLToPath2 } from "url";
 
 // src/install.ts
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync
+} from "fs";
+import { dirname, join, relative } from "path";
+import { fileURLToPath } from "url";
+var SKILL_RELATIVE_PATH = join("skills", "api-doctor", "SKILL.md");
+function isAgentSkillInstalled(directory) {
+  return existsSync(join(directory, SKILL_RELATIVE_PATH));
+}
+var INSTALL_COMMAND = "npx @api-doctor/cli install";
 var AGENTS_MARKER_START = "<!-- api-doctor:start -->";
 var AGENTS_MARKER_END = "<!-- api-doctor:end -->";
-var SKILL_BODY = `Run \`npx @api-doctor/cli .\` after writing or editing code that calls a
-third-party API SDK (Resend, Stripe, Supabase, and more). It checks the
-generated integration code for hardcoded keys, missing webhook
-verification, missing idempotency keys, and similar issues that compile
-fine but fail silently in production.
-
-Findings are written to \`.api-doctor/report.json\` as structured JSON
-(\`findings[]\`, each with \`location.file\`, \`location.line\`, \`message\`,
-\`fix\`). Read that file, fix every \`error\` finding before treating the task
-as done, and fix \`warning\` findings when the change is reasonable.`;
-function claudeSkill() {
-  return {
-    path: join(".claude", "skills", "api-doctor", "SKILL.md"),
-    content: `---
-name: api-doctor
-description: Check AI-generated API integration code for silent bugs before shipping. Use after writing or editing code that calls a third-party API SDK such as Resend, Stripe, or Supabase.
----
-
-${SKILL_BODY}
-`
-  };
+function bundledSkillPath() {
+  const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const skillPath = join(packageRoot, SKILL_RELATIVE_PATH);
+  if (!existsSync(skillPath)) {
+    throw new Error(`Bundled skill not found at ${skillPath}`);
+  }
+  return skillPath;
 }
 function cursorRule() {
   return {
     path: join(".cursor", "rules", "api-doctor.mdc"),
     content: `---
-description: Check AI-generated API integration code for silent bugs before shipping
-globs:
+description: api-doctor \u2014 handle integration audit findings
 alwaysApply: false
 ---
 
-${SKILL_BODY}
+@skills/api-doctor/SKILL.md
 `
   };
 }
@@ -50,13 +49,55 @@ function agentsSection() {
   return `${AGENTS_MARKER_START}
 ## api-doctor
 
-${SKILL_BODY}
+Follow [skills/api-doctor/SKILL.md](skills/api-doctor/SKILL.md).
 ${AGENTS_MARKER_END}`;
 }
-function installAgentFiles(directory) {
+function installCanonicalSkill(directory, force, created, updated, skipped) {
+  const destPath = join(directory, SKILL_RELATIVE_PATH);
+  mkdirSync(dirname(destPath), { recursive: true });
+  if (existsSync(destPath) && !force) {
+    skipped.push(SKILL_RELATIVE_PATH);
+    return;
+  }
+  const isNew = !existsSync(destPath);
+  copyFileSync(bundledSkillPath(), destPath);
+  (isNew ? created : updated).push(SKILL_RELATIVE_PATH);
+}
+function installClaudeSymlink(directory, updated) {
+  const claudeDir = join(directory, ".claude", "skills", "api-doctor");
+  const claudeSkillPath = join(claudeDir, "SKILL.md");
+  const canonicalPath = join(directory, SKILL_RELATIVE_PATH);
+  const linkTarget = relative(claudeDir, canonicalPath);
+  mkdirSync(claudeDir, { recursive: true });
+  if (existsSync(claudeSkillPath)) {
+    try {
+      unlinkSync(claudeSkillPath);
+    } catch {
+    }
+  }
+  try {
+    symlinkSync(linkTarget, claudeSkillPath, "file");
+    updated.push(`${join(".claude", "skills", "api-doctor", "SKILL.md")} \u2192 ${SKILL_RELATIVE_PATH}`);
+  } catch {
+    const fallback = `---
+name: api-doctor
+description: Check AI-generated API integration code for silent bugs before shipping.
+---
+
+Read and follow [skills/api-doctor/SKILL.md](../../../skills/api-doctor/SKILL.md).
+`;
+    writeFileSync(claudeSkillPath, fallback, "utf-8");
+    updated.push(join(".claude", "skills", "api-doctor", "SKILL.md"));
+  }
+}
+function installAgentFiles(directory, options = {}) {
+  const { force = false } = options;
   const created = [];
   const updated = [];
-  for (const file of [claudeSkill(), cursorRule()]) {
+  const skipped = [];
+  installCanonicalSkill(directory, force, created, updated, skipped);
+  installClaudeSymlink(directory, updated);
+  for (const file of [cursorRule()]) {
     const fullPath = join(directory, file.path);
     mkdirSync(dirname(fullPath), { recursive: true });
     const isNew = !existsSync(fullPath);
@@ -82,7 +123,7 @@ ${section}
 `, "utf-8");
     created.push("AGENTS.md");
   }
-  return { created, updated };
+  return { created, updated, skipped };
 }
 
 // src/providers/resend/manifest.ts
@@ -1888,7 +1929,7 @@ import { mkdtempSync, rmSync, writeFileSync as writeFileSync3 } from "fs";
 import { readdir, readFile as readFile2 } from "fs/promises";
 import { createRequire } from "module";
 import os from "os";
-import { join as join3, relative, resolve } from "path";
+import { join as join3, relative as relative2, resolve } from "path";
 
 // src/detector.ts
 import { readFile } from "fs/promises";
@@ -1965,7 +2006,7 @@ async function walk(dir, root, files) {
       if (SKIP_DIRS.has(entry.name)) continue;
       await walk(full, root, files);
     } else if (SOURCE_EXT.test(entry.name)) {
-      files.push(relative(root, full));
+      files.push(relative2(root, full));
     }
   }
 }
@@ -2056,7 +2097,7 @@ async function scan(directory, options = {}) {
       const relFile = (() => {
         const filename = String(d.filename ?? "");
         if (!filename) return "";
-        if (filename.startsWith(absRoot)) return relative(absRoot, filename);
+        if (filename.startsWith(absRoot)) return relative2(absRoot, filename);
         return filename.replace(/^[.\\/]+/, "");
       })();
       const span = d.labels?.[0]?.span;
@@ -2356,6 +2397,11 @@ async function renderTerminalReport(results, detected, options = {}) {
 function countErrors(results) {
   return results.filter((r) => r.severity === "error").length;
 }
+function renderInstallHint() {
+  console.log("");
+  console.log(pc.cyan("\u2192 Hook up your coding agent (one-time):"));
+  console.log(pc.bold(`  ${INSTALL_COMMAND}`));
+}
 
 // src/reporter/verbose.ts
 import pc2 from "picocolors";
@@ -2444,10 +2490,13 @@ async function emitReport(results, detected, report, options) {
   if (!options.noReport) {
     console.log(`\u2192 Report written to ${options.reportDisplayPath}`);
   }
+  if (!isAgentSkillInstalled(report.scanMeta.directory)) {
+    renderInstallHint();
+  }
 }
 
 // src/cli.ts
-var __dirname2 = dirname3(fileURLToPath(import.meta.url));
+var __dirname2 = dirname3(fileURLToPath2(import.meta.url));
 var pkg = JSON.parse(
   readFileSync2(join4(__dirname2, "../package.json"), "utf-8")
 );
@@ -2500,7 +2549,7 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
       version: pkg.version
     });
     const outputPath = opts.output ? resolve2(opts.output) : join4(scannedDir, DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE);
-    const rel = relative2(scannedDir, outputPath);
+    const rel = relative3(scannedDir, outputPath);
     const reportDisplayPath = rel.startsWith("..") ? outputPath : rel;
     await emitReport(results, detected, report, {
       quiet: opts.quiet,
@@ -2521,11 +2570,18 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
     throw err;
   }
 });
-program.command("install").description("Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents").argument("[directory]", "Project directory to install into", ".").action((directory) => {
-  const { created, updated } = installAgentFiles(resolve2(directory));
+program.command("install").description("Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents").argument("[directory]", "Project directory to install into", ".").option("--force", "Overwrite an existing skills/api-doctor/SKILL.md from the package").action((directory, options) => {
+  const { created, updated, skipped } = installAgentFiles(resolve2(directory), {
+    force: options.force
+  });
   for (const path of created) console.log(`api-doctor: created ${path}`);
   for (const path of updated) console.log(`api-doctor: updated ${path}`);
-  console.log("api-doctor: agents will now read .api-doctor/report.json and fix findings on their own.");
+  for (const path of skipped) {
+    console.log(`api-doctor: skipped ${path} (already exists; use --force to refresh)`);
+  }
+  console.log(
+    "api-doctor: edit skills/api-doctor/SKILL.md \u2014 all agents reference that file."
+  );
 });
 program.parse();
 //# sourceMappingURL=cli.mjs.map

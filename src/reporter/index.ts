@@ -5,9 +5,10 @@
  */
 import type { DetectedProvider, Report, ScanResult } from '../types.js';
 import { ScanError } from '../scanner.js';
+import { INSTALL_COMMAND, isAgentSkillInstalled } from '../install.js';
 import { writeReport } from './json-writer.js';
 import { renderMarkdown } from './markdown.js';
-import { countErrors, renderTerminalReport } from './terminal.js';
+import { countErrors, renderInstallHint, renderTerminalReport } from './terminal.js';
 import { renderVerboseReport } from './verbose.js';
 
 export type OutputFormat = 'json' | 'markdown' | 'sarif';
@@ -68,5 +69,9 @@ export async function emitReport(
   writeFileReport();
   if (!options.noReport) {
     console.log(`→ Report written to ${options.reportDisplayPath}`);
+  }
+
+  if (!isAgentSkillInstalled(report.scanMeta.directory)) {
+    renderInstallHint();
   }
 }

@@ -31,45 +31,36 @@ var importMetaUrl = /* @__PURE__ */ getImportMetaUrl();
 var import_commander = require("commander");
 var import_node_fs4 = require("fs");
 var import_node_path6 = require("path");
-var import_node_url = require("url");
+var import_node_url2 = require("url");
 
 // src/install.ts
 var import_node_fs = require("fs");
 var import_node_path = require("path");
+var import_node_url = require("url");
+var SKILL_RELATIVE_PATH = (0, import_node_path.join)("skills", "api-doctor", "SKILL.md");
+function isAgentSkillInstalled(directory) {
+  return (0, import_node_fs.existsSync)((0, import_node_path.join)(directory, SKILL_RELATIVE_PATH));
+}
+var INSTALL_COMMAND = "npx @api-doctor/cli install";
 var AGENTS_MARKER_START = "<!-- api-doctor:start -->";
 var AGENTS_MARKER_END = "<!-- api-doctor:end -->";
-var SKILL_BODY = `Run \`npx @api-doctor/cli .\` after writing or editing code that calls a
-third-party API SDK (Resend, Stripe, Supabase, and more). It checks the
-generated integration code for hardcoded keys, missing webhook
-verification, missing idempotency keys, and similar issues that compile
-fine but fail silently in production.
-
-Findings are written to \`.api-doctor/report.json\` as structured JSON
-(\`findings[]\`, each with \`location.file\`, \`location.line\`, \`message\`,
-\`fix\`). Read that file, fix every \`error\` finding before treating the task
-as done, and fix \`warning\` findings when the change is reasonable.`;
-function claudeSkill() {
-  return {
-    path: (0, import_node_path.join)(".claude", "skills", "api-doctor", "SKILL.md"),
-    content: `---
-name: api-doctor
-description: Check AI-generated API integration code for silent bugs before shipping. Use after writing or editing code that calls a third-party API SDK such as Resend, Stripe, or Supabase.
----
-
-${SKILL_BODY}
-`
-  };
+function bundledSkillPath() {
+  const packageRoot = (0, import_node_path.join)((0, import_node_path.dirname)((0, import_node_url.fileURLToPath)(importMetaUrl)), "..");
+  const skillPath = (0, import_node_path.join)(packageRoot, SKILL_RELATIVE_PATH);
+  if (!(0, import_node_fs.existsSync)(skillPath)) {
+    throw new Error(`Bundled skill not found at ${skillPath}`);
+  }
+  return skillPath;
 }
 function cursorRule() {
   return {
     path: (0, import_node_path.join)(".cursor", "rules", "api-doctor.mdc"),
     content: `---
-description: Check AI-generated API integration code for silent bugs before shipping
-globs:
+description: api-doctor \u2014 handle integration audit findings
 alwaysApply: false
 ---
 
-${SKILL_BODY}
+@skills/api-doctor/SKILL.md
 `
   };
 }
@@ -77,13 +68,55 @@ function agentsSection() {
   return `${AGENTS_MARKER_START}
 ## api-doctor
 
-${SKILL_BODY}
+Follow [skills/api-doctor/SKILL.md](skills/api-doctor/SKILL.md).
 ${AGENTS_MARKER_END}`;
 }
-function installAgentFiles(directory) {
+function installCanonicalSkill(directory, force, created, updated, skipped) {
+  const destPath = (0, import_node_path.join)(directory, SKILL_RELATIVE_PATH);
+  (0, import_node_fs.mkdirSync)((0, import_node_path.dirname)(destPath), { recursive: true });
+  if ((0, import_node_fs.existsSync)(destPath) && !force) {
+    skipped.push(SKILL_RELATIVE_PATH);
+    return;
+  }
+  const isNew = !(0, import_node_fs.existsSync)(destPath);
+  (0, import_node_fs.copyFileSync)(bundledSkillPath(), destPath);
+  (isNew ? created : updated).push(SKILL_RELATIVE_PATH);
+}
+function installClaudeSymlink(directory, updated) {
+  const claudeDir = (0, import_node_path.join)(directory, ".claude", "skills", "api-doctor");
+  const claudeSkillPath = (0, import_node_path.join)(claudeDir, "SKILL.md");
+  const canonicalPath = (0, import_node_path.join)(directory, SKILL_RELATIVE_PATH);
+  const linkTarget = (0, import_node_path.relative)(claudeDir, canonicalPath);
+  (0, import_node_fs.mkdirSync)(claudeDir, { recursive: true });
+  if ((0, import_node_fs.existsSync)(claudeSkillPath)) {
+    try {
+      (0, import_node_fs.unlinkSync)(claudeSkillPath);
+    } catch {
+    }
+  }
+  try {
+    (0, import_node_fs.symlinkSync)(linkTarget, claudeSkillPath, "file");
+    updated.push(`${(0, import_node_path.join)(".claude", "skills", "api-doctor", "SKILL.md")} \u2192 ${SKILL_RELATIVE_PATH}`);
+  } catch {
+    const fallback = `---
+name: api-doctor
+description: Check AI-generated API integration code for silent bugs before shipping.
+---
+
+Read and follow [skills/api-doctor/SKILL.md](../../../skills/api-doctor/SKILL.md).
+`;
+    (0, import_node_fs.writeFileSync)(claudeSkillPath, fallback, "utf-8");
+    updated.push((0, import_node_path.join)(".claude", "skills", "api-doctor", "SKILL.md"));
+  }
+}
+function installAgentFiles(directory, options = {}) {
+  const { force = false } = options;
   const created = [];
   const updated = [];
-  for (const file of [claudeSkill(), cursorRule()]) {
+  const skipped = [];
+  installCanonicalSkill(directory, force, created, updated, skipped);
+  installClaudeSymlink(directory, updated);
+  for (const file of [cursorRule()]) {
     const fullPath = (0, import_node_path.join)(directory, file.path);
     (0, import_node_fs.mkdirSync)((0, import_node_path.dirname)(fullPath), { recursive: true });
     const isNew = !(0, import_node_fs.existsSync)(fullPath);
@@ -109,7 +142,7 @@ ${section}
 `, "utf-8");
     created.push("AGENTS.md");
   }
-  return { created, updated };
+  return { created, updated, skipped };
 }
 
 // src/providers/resend/manifest.ts
@@ -2383,6 +2416,11 @@ async function renderTerminalReport(results, detected, options = {}) {
 function countErrors(results) {
   return results.filter((r) => r.severity === "error").length;
 }
+function renderInstallHint() {
+  console.log("");
+  console.log(import_picocolors.default.cyan("\u2192 Hook up your coding agent (one-time):"));
+  console.log(import_picocolors.default.bold(`  ${INSTALL_COMMAND}`));
+}
 
 // src/reporter/verbose.ts
 var import_picocolors2 = __toESM(require("picocolors"), 1);
@@ -2471,10 +2509,13 @@ async function emitReport(results, detected, report, options) {
   if (!options.noReport) {
     console.log(`\u2192 Report written to ${options.reportDisplayPath}`);
   }
+  if (!isAgentSkillInstalled(report.scanMeta.directory)) {
+    renderInstallHint();
+  }
 }
 
 // src/cli.ts
-var __dirname = (0, import_node_path6.dirname)((0, import_node_url.fileURLToPath)(importMetaUrl));
+var __dirname = (0, import_node_path6.dirname)((0, import_node_url2.fileURLToPath)(importMetaUrl));
 var pkg = JSON.parse(
   (0, import_node_fs4.readFileSync)((0, import_node_path6.join)(__dirname, "../package.json"), "utf-8")
 );
@@ -2548,11 +2589,18 @@ program.name("api-doctor").description("Verification rules for AI-generated API 
     throw err;
   }
 });
-program.command("install").description("Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents").argument("[directory]", "Project directory to install into", ".").action((directory) => {
-  const { created, updated } = installAgentFiles((0, import_node_path6.resolve)(directory));
+program.command("install").description("Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents").argument("[directory]", "Project directory to install into", ".").option("--force", "Overwrite an existing skills/api-doctor/SKILL.md from the package").action((directory, options) => {
+  const { created, updated, skipped } = installAgentFiles((0, import_node_path6.resolve)(directory), {
+    force: options.force
+  });
   for (const path of created) console.log(`api-doctor: created ${path}`);
   for (const path of updated) console.log(`api-doctor: updated ${path}`);
-  console.log("api-doctor: agents will now read .api-doctor/report.json and fix findings on their own.");
+  for (const path of skipped) {
+    console.log(`api-doctor: skipped ${path} (already exists; use --force to refresh)`);
+  }
+  console.log(
+    "api-doctor: edit skills/api-doctor/SKILL.md \u2014 all agents reference that file."
+  );
 });
 program.parse();
 //# sourceMappingURL=cli.cjs.map

@@ -144,11 +144,19 @@ program
   .command('install')
   .description('Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents')
   .argument('[directory]', 'Project directory to install into', '.')
-  .action((directory: string) => {
-    const { created, updated } = installAgentFiles(resolve(directory));
+  .option('--force', 'Overwrite an existing skills/api-doctor/SKILL.md from the package')
+  .action((directory: string, options: { force?: boolean }) => {
+    const { created, updated, skipped } = installAgentFiles(resolve(directory), {
+      force: options.force,
+    });
     for (const path of created) console.log(`api-doctor: created ${path}`);
     for (const path of updated) console.log(`api-doctor: updated ${path}`);
-    console.log('api-doctor: agents will now read .api-doctor/report.json and fix findings on their own.');
+    for (const path of skipped) {
+      console.log(`api-doctor: skipped ${path} (already exists; use --force to refresh)`);
+    }
+    console.log(
+      'api-doctor: edit skills/api-doctor/SKILL.md — all agents reference that file.',
+    );
   });
 
 program.parse();

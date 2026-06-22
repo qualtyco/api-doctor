@@ -5,6 +5,7 @@
  * This is the default human terminal output and is intentionally kept stable.
  */
 import pc from 'picocolors';
+import { INSTALL_COMMAND } from '../install.js';
 import { providers } from '../providers/index.js';
 import type { DetectedProvider, ScanResult } from '../types.js';
 import { lineDelay, revealDelay } from './animate.js';
@@ -236,4 +237,11 @@ export async function renderTerminalReport(
 
 export function countErrors(results: ScanResult[]): number {
   return results.filter((r) => r.severity === 'error').length;
+}
+
+/** Suggest the one-time install step after a scan (default human output only). */
+export function renderInstallHint(): void {
+  console.log('');
+  console.log(pc.cyan('→ Hook up your coding agent (one-time):'));
+  console.log(pc.bold(`  ${INSTALL_COMMAND}`));
 }
