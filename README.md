@@ -1,4 +1,4 @@
-# api-doctor
+# <img src="assets/mascot-pass.svg" alt="api-doctor mascot" width="40" valign="middle" /> api-doctor
 
 [![npm version](https://img.shields.io/npm/v/@api-doctor/cli)](https://www.npmjs.com/package/@api-doctor/cli)
 [![npm downloads](https://img.shields.io/npm/dt/@api-doctor/cli?color=007ec6)](https://www.npmjs.com/package/@api-doctor/cli)
