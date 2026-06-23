@@ -31,6 +31,14 @@ import { auth0RequiredAudienceValidationRule } from '../providers/auth0/rules/re
 import { auth0NoAccountLinkWithoutVerifiedEmailRule } from '../providers/auth0/rules/no-account-link-without-verified-email.js';
 import { auth0DeadClaimVerificationCheckRule } from '../providers/auth0/rules/dead-claim-verification-check.js';
 import { auth0JwksRefreshOnUnknownKidRule } from '../providers/auth0/rules/jwks-refresh-on-unknown-kid.js';
+import { firebaseMissingAppCheckRule } from '../providers/firebase/rules/missing-app-check.js';
+import { firebaseUnhandledAuthPopupRejectionRule } from '../providers/firebase/rules/unhandled-auth-popup-rejection.js';
+import { firebaseRtdbListReadForSingleItemRule } from '../providers/firebase/rules/rtdb-list-read-for-single-item.js';
+import { firebaseUnvalidatedExternalDataToRtdbRule } from '../providers/firebase/rules/unvalidated-external-data-to-rtdb.js';
+import { firebaseRtdbBatchWriteNotAtomicRule } from '../providers/firebase/rules/rtdb-batch-write-not-atomic.js';
+import { firebaseRtdbListenerErrorNotHandledRule } from '../providers/firebase/rules/rtdb-listener-error-not-handled.js';
+import { firebaseEffectDepsWholeUserObjectRule } from '../providers/firebase/rules/effect-deps-whole-user-object.js';
+import { firebaseRtdbWritePromiseNotHandledRule } from '../providers/firebase/rules/rtdb-write-promise-not-handled.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -64,6 +72,14 @@ const plugin = {
     'auth0-no-account-link-without-verified-email': auth0NoAccountLinkWithoutVerifiedEmailRule,
     'auth0-dead-claim-verification-check': auth0DeadClaimVerificationCheckRule,
     'auth0-jwks-refresh-on-unknown-kid': auth0JwksRefreshOnUnknownKidRule,
+    'firebase-missing-app-check': firebaseMissingAppCheckRule,
+    'firebase-unhandled-auth-popup-rejection': firebaseUnhandledAuthPopupRejectionRule,
+    'firebase-rtdb-list-read-for-single-item': firebaseRtdbListReadForSingleItemRule,
+    'firebase-unvalidated-external-data-to-rtdb': firebaseUnvalidatedExternalDataToRtdbRule,
+    'firebase-rtdb-batch-write-not-atomic': firebaseRtdbBatchWriteNotAtomicRule,
+    'firebase-rtdb-listener-error-not-handled': firebaseRtdbListenerErrorNotHandledRule,
+    'firebase-effect-deps-whole-user-object': firebaseEffectDepsWholeUserObjectRule,
+    'firebase-rtdb-write-promise-not-handled': firebaseRtdbWritePromiseNotHandledRule,
   },
 } as const;
 

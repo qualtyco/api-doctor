@@ -1,0 +1,77 @@
+import type { ProviderManifest } from '../../types.js';
+
+export const firebaseManifest: ProviderManifest = {
+  name: 'firebase',
+  displayName: 'Firebase',
+  detect: {
+    packages: ['firebase'],
+    imports: ['firebase/app', 'firebase/auth', 'firebase/database', 'firebase/app-check'],
+    urlPatterns: ['firebaseio.com', 'firebaseapp.com'],
+  },
+  oxlintRules: [
+    {
+      key: 'firebase-missing-app-check',
+      resultRule: 'firebase/security/missing-app-check',
+      message: 'Firebase app is initialized with no App Check configured.',
+      fix: 'Call initializeAppCheck(app, { provider: new ReCaptchaV3Provider(SITE_KEY), isTokenAutoRefreshEnabled: true }) alongside initializeApp.',
+      docsUrl: 'https://firebase.google.com/docs/database/web/start',
+      severity: 'warning',
+    },
+    {
+      key: 'firebase-unhandled-auth-popup-rejection',
+      resultRule: 'firebase/correctness/unhandled-auth-popup-rejection',
+      message: 'signInWithPopup is called with no try/catch and no chained .catch.',
+      fix: 'Wrap the call in try/catch (and finally, to clear loading state) — popup-closed-by-user and popup-blocked are expected rejections.',
+      docsUrl: 'https://firebase.google.com/docs/auth/web/google-signin',
+      severity: 'error',
+    },
+    {
+      key: 'firebase-rtdb-list-read-for-single-item',
+      resultRule: 'firebase/correctness/rtdb-list-read-for-single-item',
+      message: 'A whole collection is subscribed to and then searched for one item by a route id param.',
+      fix: 'Read/subscribe to the single node directly, e.g. ref(db, `path/${id}`), instead of finding it in the full list.',
+      docsUrl: 'https://firebase.google.com/docs/database/web/read-and-write',
+      severity: 'warning',
+    },
+    {
+      key: 'firebase-unvalidated-external-data-to-rtdb',
+      resultRule: 'firebase/correctness/unvalidated-external-data-to-rtdb',
+      message: 'Parsed external data is written to the Realtime Database with no validation.',
+      fix: 'Validate shape/values (e.g. regex-check date fields) before calling set()/update()/push(), and surface a parse-quality warning for skipped items.',
+      docsUrl: 'https://firebase.google.com/docs/database/web/read-and-write',
+      severity: 'error',
+    },
+    {
+      key: 'firebase-rtdb-batch-write-not-atomic',
+      resultRule: 'firebase/correctness/rtdb-batch-write-not-atomic',
+      message: 'Promise.all over per-item push()+set() calls is not atomic.',
+      fix: 'Build one update() call against the parent ref with all generated keys as fields — Firebase commits multi-path updates atomically.',
+      docsUrl: 'https://firebase.google.com/docs/database/web/read-and-write',
+      severity: 'warning',
+    },
+    {
+      key: 'firebase-rtdb-listener-error-not-handled',
+      resultRule: 'firebase/reliability/rtdb-listener-error-not-handled',
+      message: 'onValue is called with no error/cancel callback.',
+      fix: 'Pass a 3rd argument to onValue (e.g. (error) => console.error(error)) so PERMISSION_DENIED and dropped connections surface.',
+      docsUrl: 'https://firebase.google.com/docs/reference/js/database.md#onvalue',
+      severity: 'warning',
+    },
+    {
+      key: 'firebase-effect-deps-whole-user-object',
+      resultRule: 'firebase/reliability/effect-deps-whole-user-object',
+      message: 'useEffect depends on the whole user object but only reads user.uid.',
+      fix: 'Depend on user?.uid instead of user — onAuthStateChanged delivers a new object reference on every token refresh even when uid is unchanged.',
+      docsUrl: 'https://firebase.google.com/docs/reference/js/auth.md#onauthstatechanged',
+      severity: 'warning',
+    },
+    {
+      key: 'firebase-rtdb-write-promise-not-handled',
+      resultRule: 'firebase/reliability/rtdb-write-promise-not-handled',
+      message: 'A Realtime Database write promise is neither awaited in a try/catch nor .catch-handled.',
+      fix: 'Wrap state-changing writes in try/catch and surface failures; do not navigate away on a write whose result was never checked.',
+      docsUrl: 'https://firebase.google.com/docs/database/web/read-and-write',
+      severity: 'error',
+    },
+  ],
+};
