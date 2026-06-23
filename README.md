@@ -19,15 +19,15 @@ npx @api-doctor/cli .
  
 ## Supported providers
  
-| | Provider | Rules |
-| --- | --- | --- |
-| <img src="https://cdn.simpleicons.org/resend/000000" width="28" height="28" alt="" /> | **[Resend](https://resend.com/docs)** | [13 rules](src/providers/resend/README.md) |
-| <img src="https://cdn.simpleicons.org/supabase/3FCF8E" width="28" height="28" alt="" /> | **[Supabase](https://supabase.com/docs)** | [12 rules](src/providers/supabase/README.md) |
-| <img src="https://cdn.simpleicons.org/auth0/EB5424" width="28" height="28" alt="" /> | **[Auth0](https://auth0.com/docs)** | [4 rules](src/providers/auth0/README.md) |
-| <img src="https://cdn.simpleicons.org/firebase/FFCA28" width="28" height="28" alt="" /> | **[Firebase](https://firebase.google.com/docs)** | [8 rules](src/providers/firebase/README.md) |
-| <img src="assets/providers/lovable.svg" width="28" height="28" alt="" /> | **[Lovable](https://docs.lovable.dev)** | [4 rules](src/providers/lovable/README.md) |
-| <img src="assets/providers/browserbase.png" width="28" height="28" alt="" /> | **[Browserbase](https://docs.browserbase.com)** | [11 rules](src/providers/browserbase/README.md) |
-| <img src="assets/providers/openai.svg" width="28" height="28" alt="" /> | **[OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use)** | [7 rules](src/providers/openai-cua/README.md) |
+| Provider | Rules |
+| --- | --- |
+| [Resend](https://resend.com/docs) | [13 rules](src/providers/resend/README.md) |
+| [Supabase](https://supabase.com/docs) | [12 rules](src/providers/supabase/README.md) |
+| [Auth0](https://auth0.com/docs) | [4 rules](src/providers/auth0/README.md) |
+| [Firebase](https://firebase.google.com/docs) | [8 rules](src/providers/firebase/README.md) |
+| [Lovable](https://docs.lovable.dev) | [4 rules](src/providers/lovable/README.md) |
+| [Browserbase](https://docs.browserbase.com) | [11 rules](src/providers/browserbase/README.md) |
+| [OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use) | [7 rules](src/providers/openai-cua/README.md) |
  
 ---
  
