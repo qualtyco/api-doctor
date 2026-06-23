@@ -54,6 +54,13 @@ import { browserbaseDontStackCustomRetryOnSdkRetryRule } from '../providers/brow
 import { browserbaseNoOverbroadErrorSubstringMatchRule } from '../providers/browserbase/rules/no-overbroad-error-substring-match.js';
 import { browserbaseUseSdkNotRawRequestsRule } from '../providers/browserbase/rules/use-sdk-not-raw-requests.js';
 import { browserbaseCentralizeRequestReleaseRule } from '../providers/browserbase/rules/centralize-request-release.js';
+import { openaiCuaNoDomainAllowlistRule } from '../providers/openai-cua/rules/no-domain-allowlist.js';
+import { openaiCuaScrollDeltaDefaultZeroRule } from '../providers/openai-cua/rules/scroll-delta-default-zero.js';
+import { openaiCuaStructuredStepMetadataNotTextJsonRule } from '../providers/openai-cua/rules/structured-step-metadata-not-text-json.js';
+import { openaiCuaNoBlindSafetyCheckAckRule } from '../providers/openai-cua/rules/no-blind-safety-check-ack.js';
+import { openaiCuaRetryTransientTurnErrorsRule } from '../providers/openai-cua/rules/retry-transient-turn-errors.js';
+import { openaiCuaCheckResponseStatusIncompleteRule } from '../providers/openai-cua/rules/check-response-status-incomplete.js';
+import { openaiCuaSetSafetyIdentifierRule } from '../providers/openai-cua/rules/set-safety-identifier.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -110,6 +117,13 @@ const plugin = {
     'browserbase-no-overbroad-error-substring-match': browserbaseNoOverbroadErrorSubstringMatchRule,
     'browserbase-use-sdk-not-raw-requests': browserbaseUseSdkNotRawRequestsRule,
     'browserbase-centralize-request-release': browserbaseCentralizeRequestReleaseRule,
+    'openai-cua-no-domain-allowlist': openaiCuaNoDomainAllowlistRule,
+    'openai-cua-scroll-delta-default-zero': openaiCuaScrollDeltaDefaultZeroRule,
+    'openai-cua-structured-step-metadata-not-text-json': openaiCuaStructuredStepMetadataNotTextJsonRule,
+    'openai-cua-no-blind-safety-check-ack': openaiCuaNoBlindSafetyCheckAckRule,
+    'openai-cua-retry-transient-turn-errors': openaiCuaRetryTransientTurnErrorsRule,
+    'openai-cua-check-response-status-incomplete': openaiCuaCheckResponseStatusIncompleteRule,
+    'openai-cua-set-safety-identifier': openaiCuaSetSafetyIdentifierRule,
   },
 } as const;
 

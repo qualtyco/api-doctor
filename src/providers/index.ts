@@ -9,6 +9,7 @@ import { auth0Manifest } from './auth0/manifest.js';
 import { firebaseManifest } from './firebase/manifest.js';
 import { lovableManifest } from './lovable/manifest.js';
 import { browserbaseManifest } from './browserbase/manifest.js';
+import { openaiCuaManifest } from './openai-cua/manifest.js';
 
 export const providers: ProviderManifest[] = [
   resendManifest,
@@ -17,4 +18,5 @@ export const providers: ProviderManifest[] = [
   firebaseManifest,
   lovableManifest,
   browserbaseManifest,
+  openaiCuaManifest,
 ];
