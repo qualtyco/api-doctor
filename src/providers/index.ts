@@ -7,10 +7,12 @@ import { resendManifest } from './resend/manifest.js';
 import { supabaseManifest } from './supabase/manifest.js';
 import { auth0Manifest } from './auth0/manifest.js';
 import { firebaseManifest } from './firebase/manifest.js';
+import { lovableManifest } from './lovable/manifest.js';
 
 export const providers: ProviderManifest[] = [
   resendManifest,
   supabaseManifest,
   auth0Manifest,
   firebaseManifest,
+  lovableManifest,
 ];

@@ -39,6 +39,10 @@ import { firebaseRtdbBatchWriteNotAtomicRule } from '../providers/firebase/rules
 import { firebaseRtdbListenerErrorNotHandledRule } from '../providers/firebase/rules/rtdb-listener-error-not-handled.js';
 import { firebaseEffectDepsWholeUserObjectRule } from '../providers/firebase/rules/effect-deps-whole-user-object.js';
 import { firebaseRtdbWritePromiseNotHandledRule } from '../providers/firebase/rules/rtdb-write-promise-not-handled.js';
+import { lovableNoClientSideSecretFetchRule } from '../providers/lovable/rules/no-client-side-secret-fetch.js';
+import { lovablePaidFlagWithoutEdgeFunctionRule } from '../providers/lovable/rules/paid-flag-without-edge-function.js';
+import { lovableExpiryColumnNeverCheckedRule } from '../providers/lovable/rules/expiry-column-never-checked.js';
+import { lovableSilentCatchOnProviderCallRule } from '../providers/lovable/rules/silent-catch-on-provider-call.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -80,6 +84,10 @@ const plugin = {
     'firebase-rtdb-listener-error-not-handled': firebaseRtdbListenerErrorNotHandledRule,
     'firebase-effect-deps-whole-user-object': firebaseEffectDepsWholeUserObjectRule,
     'firebase-rtdb-write-promise-not-handled': firebaseRtdbWritePromiseNotHandledRule,
+    'lovable-no-client-side-secret-fetch': lovableNoClientSideSecretFetchRule,
+    'lovable-paid-flag-without-edge-function': lovablePaidFlagWithoutEdgeFunctionRule,
+    'lovable-expiry-column-never-checked': lovableExpiryColumnNeverCheckedRule,
+    'lovable-silent-catch-on-provider-call': lovableSilentCatchOnProviderCallRule,
   },
 } as const;
 
