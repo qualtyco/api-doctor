@@ -242,6 +242,6 @@ export function countErrors(results: ScanResult[]): number {
 /** Suggest the one-time install step after a scan (default human output only). */
 export function renderInstallHint(): void {
   console.log('');
-  console.log(pc.cyan('→ Hook up your coding agent (one-time):'));
+  console.log(pc.cyan('→ Want to take it a step further? Hook up your coding agent (one-time):'));
   console.log(pc.bold(`  ${INSTALL_COMMAND}`));
 }

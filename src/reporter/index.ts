@@ -71,7 +71,7 @@ export async function emitReport(
     console.log(`→ Report written to ${options.reportDisplayPath}`);
   }
 
-  if (!isAgentSkillInstalled(report.scanMeta.directory)) {
+  if (detected.length > 0 && !isAgentSkillInstalled(report.scanMeta.directory)) {
     renderInstallHint();
   }
 }

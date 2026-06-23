@@ -6188,7 +6188,7 @@ function countErrors(results) {
 }
 function renderInstallHint() {
   console.log("");
-  console.log(import_picocolors.default.cyan("\u2192 Hook up your coding agent (one-time):"));
+  console.log(import_picocolors.default.cyan("\u2192 Want to take it a step further? Hook up your coding agent (one-time):"));
   console.log(import_picocolors.default.bold(`  ${INSTALL_COMMAND}`));
 }
 
@@ -6279,7 +6279,7 @@ async function emitReport(results, detected, report, options) {
   if (!options.noReport) {
     console.log(`\u2192 Report written to ${options.reportDisplayPath}`);
   }
-  if (!isAgentSkillInstalled(report.scanMeta.directory)) {
+  if (detected.length > 0 && !isAgentSkillInstalled(report.scanMeta.directory)) {
     renderInstallHint();
   }
 }
