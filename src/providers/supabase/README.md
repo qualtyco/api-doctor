@@ -9,11 +9,10 @@
 | **Shared AST helpers**   | [utils.ts](utils.ts)                 |
 | **Fixtures**             | `tests/fixtures/supabase/`           |
 | **Rule tests**           | `tests/rules/supabase-*.test.ts`     |
-| **Source audit**         | [docs/audits/supabase-audit-2026-06-21.md](../../../docs/audits/supabase-audit-2026-06-21.md) |
 
 Detection: `@supabase/supabase-js` in package.json, `import from '@supabase/supabase-js'`, or `supabase.co` in source.
 
-Six rules from the [2026-06-21 audit](../../../docs/audits/supabase-audit-2026-06-21.md) target the `{ data, error }` return contract, Realtime fan-out, storage upload handling, and `user_metadata` authorization mistakes common in agent-generated apps.
+Six of these rules target the `{ data, error }` return contract, Realtime fan-out, storage upload handling, and `user_metadata` authorization mistakes common in agent-generated apps.
 
 ---
 
@@ -129,13 +128,13 @@ Structured reports include each rule's `meta.docs.rationale` under **Why this ma
 
 ---
 
-## Out of scope (documented in audit, not AST rules)
+## Out of scope (not AST rules)
 
-These findings from the [2026-06-21 audit](../../../docs/audits/supabase-audit-2026-06-21.md) require migration SQL or config cross-reference — not detectable in JS/TS source alone:
+These patterns require migration SQL or config cross-reference — not detectable in JS/TS source alone:
 
-- Public storage buckets for PII documents (Finding B)
-- RLS `USING (true)` on participant tables (Finding C)
-- Client-writable payment status columns (Finding D)
-- Auth trigger exception handling (Finding J)
-- MCP `project_ref` not pinned (Finding L)
-- CLI link vs runtime project drift (Finding M)
+- Public storage buckets for PII documents
+- RLS `USING (true)` on participant tables
+- Client-writable payment status columns
+- Auth trigger exception handling
+- MCP `project_ref` not pinned
+- CLI link vs runtime project drift
