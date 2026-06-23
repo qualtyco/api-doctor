@@ -27,6 +27,10 @@ import { supabaseNonAtomicReplacePatternRule } from '../providers/supabase/rules
 import { supabaseUncheckedMutationErrorRule } from '../providers/supabase/rules/unchecked-mutation-error.js';
 import { supabaseRealtimeMissingFilterRule } from '../providers/supabase/rules/realtime-missing-filter.js';
 import { supabaseStorageErrorNotSurfacedRule } from '../providers/supabase/rules/storage-error-not-surfaced.js';
+import { auth0RequiredAudienceValidationRule } from '../providers/auth0/rules/required-audience-validation.js';
+import { auth0NoAccountLinkWithoutVerifiedEmailRule } from '../providers/auth0/rules/no-account-link-without-verified-email.js';
+import { auth0DeadClaimVerificationCheckRule } from '../providers/auth0/rules/dead-claim-verification-check.js';
+import { auth0JwksRefreshOnUnknownKidRule } from '../providers/auth0/rules/jwks-refresh-on-unknown-kid.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -56,6 +60,10 @@ const plugin = {
     'supabase-unchecked-mutation-error': supabaseUncheckedMutationErrorRule,
     'supabase-realtime-missing-filter': supabaseRealtimeMissingFilterRule,
     'supabase-storage-error-not-surfaced': supabaseStorageErrorNotSurfacedRule,
+    'auth0-required-audience-validation': auth0RequiredAudienceValidationRule,
+    'auth0-no-account-link-without-verified-email': auth0NoAccountLinkWithoutVerifiedEmailRule,
+    'auth0-dead-claim-verification-check': auth0DeadClaimVerificationCheckRule,
+    'auth0-jwks-refresh-on-unknown-kid': auth0JwksRefreshOnUnknownKidRule,
   },
 } as const;
 
