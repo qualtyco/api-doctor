@@ -43,6 +43,17 @@ import { lovableNoClientSideSecretFetchRule } from '../providers/lovable/rules/n
 import { lovablePaidFlagWithoutEdgeFunctionRule } from '../providers/lovable/rules/paid-flag-without-edge-function.js';
 import { lovableExpiryColumnNeverCheckedRule } from '../providers/lovable/rules/expiry-column-never-checked.js';
 import { lovableSilentCatchOnProviderCallRule } from '../providers/lovable/rules/silent-catch-on-provider-call.js';
+import { browserbaseNoConditionalAuthzOnAnonymousUserRule } from '../providers/browserbase/rules/no-conditional-authz-on-anonymous-user.js';
+import { browserbaseNoConnectUrlInApiResponseRule } from '../providers/browserbase/rules/no-connect-url-in-api-response.js';
+import { browserbaseSessionIdRequiresOwnershipCheckRule } from '../providers/browserbase/rules/session-id-requires-ownership-check.js';
+import { browserbaseNoConcurrentSharedContextRule } from '../providers/browserbase/rules/no-concurrent-shared-context.js';
+import { browserbaseMobileDeviceRequiresOsSettingRule } from '../providers/browserbase/rules/mobile-device-requires-os-setting.js';
+import { browserbaseUseTypedExceptionStatusNotSubstringRule } from '../providers/browserbase/rules/use-typed-exception-status-not-substring.js';
+import { browserbaseReleaseSessionOnConnectFailureRule } from '../providers/browserbase/rules/release-session-on-connect-failure.js';
+import { browserbaseDontStackCustomRetryOnSdkRetryRule } from '../providers/browserbase/rules/dont-stack-custom-retry-on-sdk-retry.js';
+import { browserbaseNoOverbroadErrorSubstringMatchRule } from '../providers/browserbase/rules/no-overbroad-error-substring-match.js';
+import { browserbaseUseSdkNotRawRequestsRule } from '../providers/browserbase/rules/use-sdk-not-raw-requests.js';
+import { browserbaseCentralizeRequestReleaseRule } from '../providers/browserbase/rules/centralize-request-release.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -88,6 +99,17 @@ const plugin = {
     'lovable-paid-flag-without-edge-function': lovablePaidFlagWithoutEdgeFunctionRule,
     'lovable-expiry-column-never-checked': lovableExpiryColumnNeverCheckedRule,
     'lovable-silent-catch-on-provider-call': lovableSilentCatchOnProviderCallRule,
+    'browserbase-no-conditional-authz-on-anonymous-user': browserbaseNoConditionalAuthzOnAnonymousUserRule,
+    'browserbase-no-connect-url-in-api-response': browserbaseNoConnectUrlInApiResponseRule,
+    'browserbase-session-id-requires-ownership-check': browserbaseSessionIdRequiresOwnershipCheckRule,
+    'browserbase-no-concurrent-shared-context': browserbaseNoConcurrentSharedContextRule,
+    'browserbase-mobile-device-requires-os-setting': browserbaseMobileDeviceRequiresOsSettingRule,
+    'browserbase-use-typed-exception-status-not-substring': browserbaseUseTypedExceptionStatusNotSubstringRule,
+    'browserbase-release-session-on-connect-failure': browserbaseReleaseSessionOnConnectFailureRule,
+    'browserbase-dont-stack-custom-retry-on-sdk-retry': browserbaseDontStackCustomRetryOnSdkRetryRule,
+    'browserbase-no-overbroad-error-substring-match': browserbaseNoOverbroadErrorSubstringMatchRule,
+    'browserbase-use-sdk-not-raw-requests': browserbaseUseSdkNotRawRequestsRule,
+    'browserbase-centralize-request-release': browserbaseCentralizeRequestReleaseRule,
   },
 } as const;
 
