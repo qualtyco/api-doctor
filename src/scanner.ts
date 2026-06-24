@@ -12,7 +12,7 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import { join, relative, resolve } from 'node:path';
 import { PLUGIN_NAME } from './constants.js';
-import { detectProviders } from './detector.js';
+import { detectProviders, type DetectResult } from './detector.js';
 import { providers } from './providers/index.js';
 import type { DetectedProvider, OxlintRuleMeta, ScanResult } from './types.js';
 
@@ -71,6 +71,8 @@ export interface ScanOptions {
 export interface ScanOutput {
   results: ScanResult[];
   detected: DetectedProvider[];
+  /** All package names from the project's package.json — used for telemetry prioritization. */
+  rawPackages: string[];
   /** Absolute path that was scanned. */
   directory: string;
   /** Number of source files walked. */
@@ -134,7 +136,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   }
 
   // Detect which API SDKs are present (package.json deps, imports, URL patterns).
-  let detected = await detectProviders(absRoot, filesContent);
+  let { detected, rawPackages } = await detectProviders(absRoot, filesContent);
 
   // If --provider was passed, narrow detection to only those providers.
   if (options.onlyProviders?.length) {
@@ -151,6 +153,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     return {
       results: [],
       detected,
+      rawPackages,
       directory: absRoot,
       filesScanned: paths.length,
       filesContent,
@@ -244,6 +247,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     return {
       results,
       detected,
+      rawPackages,
       directory: absRoot,
       filesScanned: paths.length,
       filesContent,

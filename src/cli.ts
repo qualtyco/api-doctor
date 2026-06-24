@@ -21,6 +21,7 @@ import {
 import { buildReport } from './reporter/report-builder.js';
 import { countErrors, emitReport, type OutputFormat } from './reporter/index.js';
 import { scan, ScanError } from './scanner.js';
+import { trackError, trackInstall, trackRun } from './telemetry.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -39,6 +40,8 @@ interface CliOptions {
   maxWarnings?: string;
   provider?: string;
   listProviders?: boolean;
+  /** commander sets this to false when --no-telemetry is passed. */
+  telemetry?: boolean;
 }
 
 function fail(message: string): never {
@@ -61,7 +64,10 @@ program
   .option('--max-warnings <n>', 'Exit with code 1 if warnings exceed this number')
   .option('--provider <names>', 'Comma-separated providers to scan (e.g. resend)')
   .option('--list-providers', 'List supported API providers')
+  .option('--no-telemetry', 'Disable anonymous usage telemetry')
   .action(async (directory: string, opts: CliOptions) => {
+    const noTelemetry = opts.telemetry === false;
+
     if (opts.listProviders) {
       for (const p of providers) {
         console.log(`${p.name} — ${p.displayName}`);
@@ -99,7 +105,7 @@ program
       } finally {
         spinner.stop();
       }
-      const { results, detected, directory: scannedDir, filesScanned, filesContent } = scanOutput;
+      const { results, detected, rawPackages, directory: scannedDir, filesScanned, filesContent } = scanOutput;
       const elapsedMs = performance.now() - start;
 
       const report = buildReport({
@@ -131,11 +137,25 @@ program
       const errors = countErrors(results);
       const warningsExceeded =
         maxWarnings !== undefined && report.summary.warnings > maxWarnings;
+
+      await trackRun({
+        version: pkg.version,
+        results,
+        detected,
+        rawPackages,
+        score: report.summary.score,
+        durationMs: elapsedMs,
+        noTelemetry,
+        projectDir: scannedDir,
+      });
+
       process.exit(errors > 0 || warningsExceeded ? 1 : 0);
     } catch (err) {
       if (err instanceof ScanError) {
+        await trackError(err, noTelemetry, pkg.version);
         fail(err.message);
       }
+      await trackError(err, noTelemetry, pkg.version);
       throw err;
     }
   });
@@ -145,7 +165,7 @@ program
   .description('Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents')
   .argument('[directory]', 'Project directory to install into', '.')
   .option('--force', 'Overwrite an existing skills/api-doctor/SKILL.md from the package')
-  .action((directory: string, options: { force?: boolean }) => {
+  .action(async (directory: string, options: { force?: boolean }) => {
     const { created, updated, skipped } = installAgentFiles(resolve(directory), {
       force: options.force,
     });
@@ -157,6 +177,14 @@ program
     console.log(
       'api-doctor: edit skills/api-doctor/SKILL.md — all agents reference that file.',
     );
+    await trackInstall({
+      version: pkg.version,
+      filesCreated: created.length,
+      filesUpdated: updated.length,
+      filesSkipped: skipped.length,
+      force: options.force ?? false,
+      noTelemetry: false,
+    });
   });
 
 program.parse();

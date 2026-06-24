@@ -17,10 +17,16 @@ function hasImportPattern(source: string, pkg: string): boolean {
   );
 }
 
+export interface DetectResult {
+  detected: DetectedProvider[];
+  /** All package names from package.json (deps + devDeps). Empty if no package.json. */
+  rawPackages: string[];
+}
+
 export async function detectProviders(
   directory: string,
   filesContent: Map<string, string>,
-): Promise<DetectedProvider[]> {
+): Promise<DetectResult> {
   // Dedupe by provider name — each SDK is only reported once.
   const detected = new Map<string, DetectedProvider>();
 
@@ -77,5 +83,5 @@ export async function detectProviders(
     }
   }
 
-  return [...detected.values()];
+  return { detected: [...detected.values()], rawPackages: Object.keys(deps) };
 }
