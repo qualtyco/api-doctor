@@ -1,6 +1,6 @@
 {
   "name": "@api-doctor/cli",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Deterministic verification rules for AI-generated API integrations",
   "keywords": [
     "api",
