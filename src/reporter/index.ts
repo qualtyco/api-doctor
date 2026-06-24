@@ -8,7 +8,7 @@ import { ScanError } from '../scanner.js';
 import { INSTALL_COMMAND, isAgentSkillInstalled } from '../install.js';
 import { writeReport } from './json-writer.js';
 import { renderMarkdown } from './markdown.js';
-import { countErrors, renderInstallHint, renderTerminalReport } from './terminal.js';
+import { countErrors, renderFooter, renderTerminalReport } from './terminal.js';
 import { renderVerboseReport } from './verbose.js';
 
 export type OutputFormat = 'json' | 'markdown' | 'sarif';
@@ -67,11 +67,13 @@ export async function emitReport(
   }
 
   writeFileReport();
-  if (!options.noReport) {
-    console.log(`→ Report written to ${options.reportDisplayPath}`);
-  }
 
-  if (detected.length > 0 && !isAgentSkillInstalled(report.scanMeta.directory)) {
-    renderInstallHint();
+  if (detected.length > 0) {
+    renderFooter({
+      reportPath: options.noReport ? undefined : options.reportDisplayPath,
+      showInstallHint: !isAgentSkillInstalled(report.scanMeta.directory),
+    });
+  } else if (!options.noReport) {
+    console.log(`→ Report written to ${options.reportDisplayPath}`);
   }
 }

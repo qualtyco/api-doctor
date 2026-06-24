@@ -239,9 +239,30 @@ export function countErrors(results: ScanResult[]): number {
   return results.filter((r) => r.severity === 'error').length;
 }
 
-/** Suggest the one-time install step after a scan (default human output only). */
-export function renderInstallHint(): void {
+const FOOTER_WIDTH = 54;
+
+export function renderFooter(opts: { reportPath?: string; showInstallHint: boolean }): void {
+  console.log(pc.dim('─'.repeat(FOOTER_WIDTH)));
+
+  if (opts.reportPath) {
+    console.log('');
+    console.log(pc.dim(`  Saved  →  ${opts.reportPath}`));
+  }
+
+  if (opts.showInstallHint) {
+    const innerWidth = FOOTER_WIDTH - 2; // exclude the two border chars
+    const label = 'Connect to your coding agent to fix now';
+    const cmd = `  ${INSTALL_COMMAND}`;
+    const top = pc.cyan('╭' + '─'.repeat(innerWidth) + '╮');
+    const bot = pc.cyan('╰' + '─'.repeat(innerWidth) + '╯');
+    const row = (s: string) =>
+      pc.cyan('│') + ' ' + padVisible(s, innerWidth - 1) + pc.cyan('│');
+    console.log('');
+    console.log(top);
+    console.log(row(pc.cyan(label)));
+    console.log(row(pc.bold(cmd)));
+    console.log(bot);
+  }
+
   console.log('');
-  console.log(pc.cyan('→ Want to take it a step further? Hook up your coding agent (one-time):'));
-  console.log(pc.bold(`  ${INSTALL_COMMAND}`));
 }
