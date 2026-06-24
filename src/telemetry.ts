@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { DetectedProvider, ScanResult } from './types.js';
 import { readProjectHistory, writeProjectHistory } from './run-history.js';
 
@@ -12,6 +12,10 @@ const POSTHOG_CAPTURE_URL = 'https://us.i.posthog.com/capture/';
 // install-id stays global (per-user); run history moves to each project dir.
 const INSTALL_ID_PATH = join(homedir(), '.api-doctor', 'install-id');
 
+/** Privacy-safe stable identifier for a scanned project directory. */
+export function hashProjectDir(projectDir: string): string {
+  return createHash('sha256').update(resolve(projectDir)).digest('hex');
+}
 
 function isTelemetryDisabled(noTelemetry: boolean): boolean {
   if (noTelemetry) return true;
@@ -54,11 +58,20 @@ async function capture(event: string, distinctId: string, properties: Record<str
   });
 }
 
+function sanitizeErrorText(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const home = homedir();
+  let sanitized = text;
+  if (home) sanitized = sanitized.split(home).join('[home]');
+  sanitized = sanitized.replace(/\/[\w.@+~-]+(?:\/[\w.@+~-]+)+/g, '[path]');
+  sanitized = sanitized.replace(/[A-Za-z]:\\(?:[^\\\n]+\\)*[^\\\n]*/g, '[path]');
+  return sanitized;
+}
+
 export interface TrackRunOptions {
   version: string;
   results: ScanResult[];
   detected: DetectedProvider[];
-  rawPackages: string[];
   score: number;
   durationMs: number;
   noTelemetry: boolean;
@@ -83,6 +96,7 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
     // 1. Summary event.
     await capture('cli_run', distinctId, {
       ...sharedProps,
+      project_hash: hashProjectDir(opts.projectDir),
       score: opts.score,
       score_delta: scoreDelta,
       errors: opts.results.filter((r) => r.severity === 'error').length,
@@ -108,13 +122,6 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
           rules_triggered,
         });
       }),
-    );
-
-    // 3. One event per package in the project.
-    await Promise.all(
-      opts.rawPackages.map((pkg) =>
-        capture('package_seen', distinctId, { ...sharedProps, package: pkg }),
-      ),
     );
 
     writeProjectHistory(opts.projectDir, {
@@ -164,8 +171,8 @@ export async function trackError(err: unknown, noTelemetry: boolean, version: st
       cli_version: version,
       node_version: process.version,
       platform: process.platform,
-      error_message: err instanceof Error ? err.message : String(err),
-      stack_trace: err instanceof Error ? err.stack : undefined,
+      error_message: sanitizeErrorText(err instanceof Error ? err.message : String(err)),
+      stack_trace: sanitizeErrorText(err instanceof Error ? err.stack : undefined),
     });
   } catch {
     // Never surface telemetry errors to the user.
