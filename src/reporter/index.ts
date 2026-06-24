@@ -8,10 +8,11 @@ import { ScanError } from '../scanner.js';
 import { INSTALL_COMMAND, isAgentSkillInstalled } from '../install.js';
 import { writeReport } from './json-writer.js';
 import { renderMarkdown } from './markdown.js';
-import { countErrors, renderFooter, renderTerminalReport } from './terminal.js';
+import { countErrors, renderFooter, renderTerminalReport, renderUnsupportedPackagesHint } from './terminal.js';
 import { renderVerboseReport } from './verbose.js';
+import { getUnsupportedPackages } from '../unsupported-packages.js';
 
-export type OutputFormat = 'json' | 'markdown' | 'sarif';
+export type OutputFormat = 'json' | 'markdown';
 
 export interface EmitOptions {
   quiet?: boolean;
@@ -31,7 +32,7 @@ export async function emitReport(
   results: ScanResult[],
   detected: DetectedProvider[],
   report: Report,
-  options: EmitOptions,
+  options: EmitOptions & { rawPackages?: string[] },
 ): Promise<void> {
   const writeFileReport = (): void => {
     if (!options.noReport) writeReport(report, options.outputPath);
@@ -43,8 +44,6 @@ export async function emitReport(
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     } else if (options.format === 'markdown') {
       process.stdout.write(renderMarkdown(report));
-    } else if (options.format === 'sarif') {
-      throw new ScanError('SARIF output is not implemented yet');
     } else {
       throw new ScanError(`Unsupported format: ${options.format}`);
     }
@@ -67,6 +66,10 @@ export async function emitReport(
   }
 
   writeFileReport();
+
+  if (!options.format && !options.quiet && getUnsupportedPackages(options.rawPackages ?? []).length > 0) {
+    renderUnsupportedPackagesHint();
+  }
 
   if (detected.length > 0) {
     renderFooter({

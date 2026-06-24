@@ -1,7 +1,6 @@
 /**
- * Turns raw scan output into the versioned Report consumed by the JSON,
- * markdown, and SARIF writers. Owns score computation, finding sort order,
- * and stable finding ids.
+ * Turns raw scan output into the versioned Report consumed by the JSON and
+ * markdown writers. Owns score computation, finding sort order, and stable finding ids.
  */
 import { getRuleDocsMeta } from '../plugin/rule-registry.js';
 import { providers } from '../providers/index.js';

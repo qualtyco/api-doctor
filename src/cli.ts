@@ -28,7 +28,7 @@ const pkg = JSON.parse(
   readFileSync(join(__dirname, '../package.json'), 'utf-8'),
 ) as { version: string };
 
-const VALID_FORMATS: OutputFormat[] = ['json', 'markdown', 'sarif'];
+const VALID_FORMATS: OutputFormat[] = ['json', 'markdown'];
 
 interface CliOptions {
   quiet?: boolean;
@@ -58,12 +58,12 @@ program
   .argument('[directory]', 'Project directory to scan', '.')
   .option('--quiet', 'Print only the score and report path')
   .option('--verbose', 'Print every finding inline with code snippets')
-  .option('--format <format>', 'Emit structured output to stdout (json|markdown|sarif)')
+  .option('--format <format>', 'Emit structured output to stdout (json|markdown)')
   .option('--output <path>', `Report file location (default: ${DEFAULT_REPORT_DIR}/${DEFAULT_REPORT_FILE})`)
   .option('--no-report', 'Do not write the report file')
   .option('--max-warnings <n>', 'Exit with code 1 if warnings exceed this number')
   .option('--provider <names>', 'Comma-separated providers to scan (e.g. resend)')
-  .option('--list-providers', 'List supported API providers')
+  .option('--list-providers', 'List supported Node.js API providers')
   .option('--no-telemetry', 'Disable anonymous usage telemetry')
   .action(async (directory: string, opts: CliOptions) => {
     const noTelemetry = opts.telemetry === false;
@@ -78,7 +78,7 @@ program
     let format: OutputFormat | undefined;
     if (opts.format) {
       if (!VALID_FORMATS.includes(opts.format as OutputFormat)) {
-        fail(`unknown --format "${opts.format}" (expected json, markdown, or sarif)`);
+        fail(`unknown --format "${opts.format}" (expected json or markdown)`);
       }
       format = opts.format as OutputFormat;
     }
@@ -132,6 +132,7 @@ program
         outputPath,
         reportDisplayPath,
         elapsedMs,
+        rawPackages,
       });
 
       const errors = countErrors(results);
@@ -142,7 +143,6 @@ program
         version: pkg.version,
         results,
         detected,
-        rawPackages,
         score: report.summary.score,
         durationMs: elapsedMs,
         noTelemetry,
@@ -165,7 +165,9 @@ program
   .description('Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents')
   .argument('[directory]', 'Project directory to install into', '.')
   .option('--force', 'Overwrite an existing skills/api-doctor/SKILL.md from the package')
-  .action(async (directory: string, options: { force?: boolean }) => {
+  .option('--no-telemetry', 'Disable anonymous usage telemetry')
+  .action(async (directory: string, options: { force?: boolean; telemetry?: boolean }) => {
+    const noTelemetry = options.telemetry === false;
     const { created, updated, skipped } = installAgentFiles(resolve(directory), {
       force: options.force,
     });
@@ -183,7 +185,7 @@ program
       filesUpdated: updated.length,
       filesSkipped: skipped.length,
       force: options.force ?? false,
-      noTelemetry: false,
+      noTelemetry,
     });
   });
 

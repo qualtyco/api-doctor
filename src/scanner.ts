@@ -71,7 +71,7 @@ export interface ScanOptions {
 export interface ScanOutput {
   results: ScanResult[];
   detected: DetectedProvider[];
-  /** All package names from the project's package.json — used for telemetry prioritization. */
+  /** All package names from the project's package.json — used for unsupported-package hints. */
   rawPackages: string[];
   /** Absolute path that was scanned. */
   directory: string;

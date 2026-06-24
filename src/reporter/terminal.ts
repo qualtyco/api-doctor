@@ -1,6 +1,6 @@
 /**
  * Formats and prints scan results: detected providers, 0–100 score,
- * react-doctor-style header (icon, progress bar), and grouped issue list.
+ * terminal header (icon, progress bar), and grouped issue list.
  *
  * This is the default human terminal output and is intentionally kept stable.
  */
@@ -198,8 +198,8 @@ export async function renderTerminalReport(
 ): Promise<void> {
   if (detected.length === 0) {
     const names = providers.map((p) => p.displayName).join(', ');
-    console.log(pc.dim('No API providers detected in this project.'));
-    console.log(`Supported providers: ${names}`);
+    console.log(pc.dim('No supported Node.js API providers detected in this project.'));
+    console.log(`Supported Node.js providers: ${names}`);
     console.log(`Request a provider: ${ISSUES_URL}`);
     return;
   }
@@ -240,6 +240,21 @@ export function countErrors(results: ScanResult[]): number {
 }
 
 const FOOTER_WIDTH = 54;
+
+export function renderUnsupportedPackagesHint(): void {
+  const innerWidth = FOOTER_WIDTH - 2;
+  const border = (s: string) => pc.yellow(s);
+  const top = border('╭' + '─'.repeat(innerWidth) + '╮');
+  const bot = border('╰' + '─'.repeat(innerWidth) + '╯');
+  const row = (s: string) => border('│') + ' ' + padVisible(s, innerWidth - 1) + border('│');
+
+  console.log('');
+  console.log(top);
+  console.log(row(pc.yellow("This scan saw packages we don't support yet.")));
+  console.log(row(pc.yellow('Submit an issue to request support:')));
+  console.log(row(pc.bold(pc.yellow(ISSUES_URL))));
+  console.log(bot);
+}
 
 export function renderFooter(opts: { reportPath?: string; showInstallHint: boolean }): void {
   console.log(pc.dim('─'.repeat(FOOTER_WIDTH)));
