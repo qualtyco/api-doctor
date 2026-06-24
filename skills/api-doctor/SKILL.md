@@ -11,7 +11,7 @@ missing webhook verification, unchecked `{ data, error }` Supabase mutations,
 missing Realtime filters, and similar issues that compile fine but fail silently
 in production.
 
-Provider rule catalogs: `src/providers/resend/README.md` (13 rules), `src/providers/supabase/README.md` (12 rules).
+Provider rule catalogs are listed in the [api-doctor GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 
 ## Run a scan
 

@@ -1,14 +1,11 @@
-#  api-doctor
+# api-doctor
 
 [![node version](https://img.shields.io/npm/v/@api-doctor/cli)](https://www.npmjs.com/package/@api-doctor/cli)
 [![npm downloads](https://img.shields.io/npm/dt/@api-doctor/cli?color=007ec6)](https://www.npmjs.com/package/@api-doctor/cli)
 
+**AI writes code that compiles and passes review — but still hallucinates API integrations.** api-doctor catches those mistakes before you ship.
 
-**AI compiles hallucinated code that pass. This fixes it before accepting it.**
-
-Claude, Cursor, and Codex write code that compiles and looks finished. But it hallucinates integrations that got lost in documentation context.
-
-Make your coding agents catch errors before review. Run this during runtime. CLI as a SKILL
+Claude, Cursor, and Codex generate integrations that look finished. api-doctor runs deterministic checks against provider docs so missing webhook verification, hardcoded keys, and silent mutation failures surface before merge.
 
 ## Install
 
@@ -18,99 +15,96 @@ npx @api-doctor/cli .
 
 https://github.com/user-attachments/assets/53dab24f-528b-4f1b-87a9-8870002053d8
 
-
 ## Supported providers
 
+| Provider | Rules |
+| --- | --- |
+| [Resend](https://resend.com/docs) | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/resend/README.md) |
+| [Supabase](https://supabase.com/docs) | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md) |
+| [Auth0](https://auth0.com/docs) | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md) |
+| [Firebase](https://firebase.google.com/docs) | [8 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md) |
+| [Lovable](https://docs.lovable.dev) | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/lovable/README.md) |
+| [Browserbase](https://docs.browserbase.com) | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) |
+| [OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-cua/README.md) |
 
-| Provider                                                                                | Rules                                           |
-| --------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [Resend](https://resend.com/docs)                                                       | [13 rules](src/providers/resend/README.md)      |
-| [Supabase](https://supabase.com/docs)                                                   | [12 rules](src/providers/supabase/README.md)    |
-| [Auth0](https://auth0.com/docs)                                                         | [4 rules](src/providers/auth0/README.md)        |
-| [Firebase](https://firebase.google.com/docs)                                            | [8 rules](src/providers/firebase/README.md)     |
-| [Lovable](https://docs.lovable.dev)                                                     | [4 rules](src/providers/lovable/README.md)      |
-| [Browserbase](https://docs.browserbase.com)                                             | [11 rules](src/providers/browserbase/README.md) |
-| [OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use) | [7 rules](src/providers/openai-cua/README.md)   |
-
+Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 
 ---
 
 ## What it catches
 
-
-| Category        | What it means                                                                                                                        | Examples                                                                                      |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| **Security**    | Things that will get you hacked. Mapped to CWE and OWASP aduits                                                                      | Hardcoded API keys, secrets in the client bundle, webhooks read before signature verification |
-| **Correctness** | You're calling the wrong endpoint for what you're doing. Providers have specific APIs for specific use cases your agent is not using | Wrong send method for marketing, missing unsubscribe links, test domain in production         |
-| **Reliability** | Will this hold up in production? Checks what the provider docs explicitly warn about.                                                | Missing idempotency keys, batch size limits not enforced, error codes not mapped              |
-| **Integration** | Is this wired into your own system correctly? Things your agent doesn't know to add.                                                 | No tags, no request ID logging, bare `from` address instead of `"Name <email>"`               |
-
-
-Full rule list: `src/providers/<name>/README.md`
+| Category | What it means | Examples |
+| --- | --- | --- |
+| **Security** | Issues that expose you to compromise. Mapped to CWE and OWASP audits. | Hardcoded API keys, secrets in the client bundle, webhooks read before signature verification |
+| **Correctness** | Wrong endpoint or API for the job. | Marketing email via batch send, missing unsubscribe links, test domain in production |
+| **Reliability** | Production failure modes the provider docs warn about. | Missing idempotency keys, batch limits not enforced, error codes not mapped |
+| **Integration** | Wiring gaps your agent won't add on its own. | No tags, no request ID logging, bare `from` address instead of `"Name <email>"` |
 
 ---
 
 ## Getting results to your agent
 
-Run it. Get a report. Feed it back.
+Run a scan. Read the report. Fix findings.
 
 ```bash
 npx @api-doctor/cli .
 ```
 
-prints score, writes `.api-doctor/report.json`
+Prints a score to the terminal and writes `.api-doctor/report.json` in the project you scanned.
 
-Install once into your agent to pick up the report and fixes findings on its own:
+Install the agent skill once so your coding agent knows how to read the report and fix issues:
 
 ```bash
 npx @api-doctor/cli install
 ```
 
-Works with Claude Code, Cursor, Codex, OpenCode, and others. No tokens burned. No model calls. **100% Deterministic Reports**
+Works with Claude Code, Cursor, Codex, OpenCode, and other agents that read project skills. No model calls. **100% deterministic rules.**
 
 ---
 
 ## Not a confidence score
 
-Asking a model how confident it is doesn't work. 
-
-api-doctor runs 100% determinisitic rule checks across all providers.
+Asking a model how confident it is doesn't work. api-doctor runs fixed AST rules against your code — same input, same output, every time.
 
 ---
 
 ## Telemetry
 
-api-doctor sends anonymous usage data to PostHog to help us understand how the tool is being used and whether it's helping developers catch real bugs.
+api-doctor sends anonymous usage data to PostHog so we can see whether the tool is helping developers catch real bugs.
 
 **What we collect:**
 
 - CLI version, Node.js version, platform
 - Run context: local, CI, or agent
-- Which API SDKs were detected (e.g. `resend`, `supabase`) — no file paths
-- Which rules fired and how many times — rule names only, no code
+- Which API SDKs were detected (e.g. `resend`, `supabase`) — provider names only
+- Which rules fired — rule names only, no code
 - Score and finding counts
-- Score delta between runs on the same project (tracked locally by a hash of your detected providers)
-- Stack traces on unexpected crashes
+- Score delta between runs on the same project (stored locally in that project's `.api-doctor/run-history.json`)
+- A hashed project identifier (`project_hash`) — SHA-256 of the scanned directory path, not the path itself
+- Sanitized error messages and stack traces on unexpected crashes (paths redacted)
 
 **What we never collect:**
 
 - Your code or file contents
-- File paths or project names
+- Raw file paths or project names
 - Email, name, or any personally identifying information
 
-A random anonymous ID is stored at `~/.api-doctor/install-id`. Per-project run history is stored at `~/.api-doctor/run-history.json`. Both files stay on your machine — only the event data above is sent to PostHog.
+A random anonymous ID is stored at `~/.api-doctor/install-id`. Per-project run history is stored at `<project>/.api-doctor/run-history.json`. Both stay on your machine — only the event data above is sent to PostHog.
 
 **Opt out:**
 
 ```bash
 npx @api-doctor/cli . --no-telemetry
+npx @api-doctor/cli install --no-telemetry
 ```
+
+Or set `API_DOCTOR_TELEMETRY=0` or `DO_NOT_TRACK=1` in your environment.
 
 ---
 
 ## Contributing
 
-Found a bug or want a new provider? Open an issue or start a discussion.
+Found a bug or want a new provider? [Open an issue](https://github.com/qualtyco/api-doctor/issues).
 
 ## License
 
