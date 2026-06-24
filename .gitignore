@@ -1,4 +1,5 @@
 node_modules/
+.api-doctor/
 
 .pnpm/
 .pnpm-store/
@@ -13,3 +14,12 @@ tests/
 !.env.example
 
 *.tgz
+
+# npm auth token
+.npmrc
+
+# macOS
+.DS_Store
+
+# Build output (publish via npm, not git)
+dist/
