@@ -1,7 +1,8 @@
 #  api-doctor
 
-[node version](https://www.npmjs.com/package/@api-doctor/cli)
-[npm downloads](https://www.npmjs.com/package/@api-doctor/cli)
+[![node version](https://img.shields.io/npm/v/@api-doctor/cli)](https://www.npmjs.com/package/@api-doctor/cli)
+[![npm downloads](https://img.shields.io/npm/dt/@api-doctor/cli?color=007ec6)](https://www.npmjs.com/package/@api-doctor/cli)
+
 
 **AI compiles hallucinated code that pass. This fixes it before accepting it.**
 
@@ -15,7 +16,8 @@ Make your coding agents catch errors before review. Run this during runtime. CLI
 npx @api-doctor/cli .
 ```
 
-### VIDEO HERE
+https://github.com/user-attachments/assets/53dab24f-528b-4f1b-87a9-8870002053d8
+
 
 ## Supported providers
 

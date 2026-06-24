@@ -12,82 +12,6 @@ const POSTHOG_CAPTURE_URL = 'https://us.i.posthog.com/capture/';
 // install-id stays global (per-user); run history moves to each project dir.
 const INSTALL_ID_PATH = join(homedir(), '.api-doctor', 'install-id');
 
-/**
- * Packages excluded from package_seen telemetry — these are utility/framework/dev-tool
- * packages that tell us nothing about what API providers to build next.
- * Anything NOT on this list fires a package_seen event, so new or emerging SDKs
- * are captured automatically without needing to maintain a whitelist.
- *
- * Derived from audited sample projects + common npm ecosystem knowledge.
- */
-const EXCLUDED_PACKAGES = new Set([
-  // React ecosystem
-  'react', 'react-dom', 'react-router', 'react-router-dom', 'react-is',
-  'react-refresh', 'react-hook-form', 'react-day-picker', 'react-resizable-panels',
-  'react-bootstrap', 'react-error-boundary',
-  // Meta-frameworks
-  'next', 'nuxt', 'gatsby', 'remix', '@remix-run/node', '@remix-run/react',
-  'astro', '@sveltejs/kit', 'vitepress', 'vuepress',
-  // Build tools
-  'vite', 'webpack', 'rollup', 'esbuild', 'parcel', 'turbo', 'tsup',
-  '@vitejs/plugin-react', '@vitejs/plugin-react-swc', '@vitejs/plugin-vue',
-  'create-react-app', 'react-scripts',
-  // TypeScript
-  'typescript', 'ts-node', 'tsx',
-  // Type stubs — entire @types/* namespace handled via prefix check in code
-  // CSS & styling
-  'bootstrap', 'tailwindcss', 'postcss', 'autoprefixer', '@tailwindcss/typography',
-  '@tailwindcss/forms', '@tailwindcss/aspect-ratio', 'tailwind-merge',
-  'tailwindcss-animate', 'class-variance-authority', 'clsx', 'classnames',
-  'styled-components', '@emotion/react', '@emotion/styled', 'sass', 'less',
-  // UI component libraries
-  '@radix-ui/react-accordion', '@radix-ui/react-alert-dialog', '@radix-ui/react-aspect-ratio',
-  '@radix-ui/react-avatar', '@radix-ui/react-checkbox', '@radix-ui/react-collapsible',
-  '@radix-ui/react-context-menu', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu',
-  '@radix-ui/react-hover-card', '@radix-ui/react-label', '@radix-ui/react-menubar',
-  '@radix-ui/react-navigation-menu', '@radix-ui/react-popover', '@radix-ui/react-progress',
-  '@radix-ui/react-radio-group', '@radix-ui/react-scroll-area', '@radix-ui/react-select',
-  '@radix-ui/react-separator', '@radix-ui/react-slider', '@radix-ui/react-slot',
-  '@radix-ui/react-switch', '@radix-ui/react-tabs', '@radix-ui/react-toast',
-  '@radix-ui/react-toggle', '@radix-ui/react-toggle-group', '@radix-ui/react-tooltip',
-  '@headlessui/react', '@headlessui/vue', 'shadcn', 'daisyui',
-  'lucide-react', 'react-icons', '@heroicons/react', 'phosphor-react',
-  'recharts', 'chart.js', 'react-chartjs-2', 'd3', 'd3-selection',
-  'embla-carousel-react', 'swiper', 'keen-slider',
-  'vaul', 'sonner', 'cmdk', 'next-themes', 'framer-motion',
-  'react-spring', 'react-transition-group', 'react-resizable-panels',
-  // Form & validation
-  '@hookform/resolvers', 'zod', 'yup', 'joi', 'formik', 'vee-validate',
-  'input-otp', 'react-number-format',
-  // State management
-  'zustand', 'jotai', 'recoil', 'redux', '@reduxjs/toolkit', 'react-redux',
-  'mobx', 'mobx-react', 'xstate', 'valtio', 'nanostores',
-  // Data fetching & query
-  '@tanstack/react-query', '@tanstack/vue-query', 'swr', 'axios',
-  // Date & time utils
-  'date-fns', 'dayjs', 'moment', 'luxon', 'temporal-polyfill',
-  // General utilities
-  'lodash', 'lodash-es', 'underscore', 'ramda', 'immer', 'uuid', 'nanoid',
-  'classnames', 'clsx', 'dotenv', 'cross-env', 'env-cmd',
-  // Testing
-  'vitest', 'jest', 'mocha', 'jasmine', 'ava', 'tap',
-  '@testing-library/react', '@testing-library/vue', '@testing-library/jest-dom',
-  '@testing-library/user-event', 'jsdom', 'happy-dom',
-  'cypress', 'playwright', '@playwright/test', 'puppeteer',
-  // Linting & formatting
-  'eslint', 'prettier', 'oxlint', 'biome',
-  '@eslint/js', 'eslint-plugin-react', 'eslint-plugin-react-hooks',
-  'eslint-plugin-react-refresh', 'eslint-plugin-import', 'eslint-config-prettier',
-  '@typescript-eslint/parser', '@typescript-eslint/eslint-plugin', 'typescript-eslint',
-  'globals', 'husky', 'lint-staged',
-  // PDF & file processing
-  'pdfjs-dist', 'pdf-lib', 'xlsx', 'csv-parse', 'papaparse',
-  // Misc dev tools
-  'concurrently', 'nodemon', 'chokidar', 'rimraf', 'npm-run-all',
-  'lovable-tagger',
-  '@anthropic-ai/claude-code', // Anthropic's own CLI, not an API client
-  '@api-doctor/cli', // ourselves
-]);
 
 function isTelemetryDisabled(noTelemetry: boolean): boolean {
   if (noTelemetry) return true;
@@ -156,17 +80,9 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       run_context: detectRunContext(),
     };
 
-    // Count how many times each rule fired and whether it produced errors.
-    const rulesFiredCounts: Record<string, number> = {};
-    for (const r of opts.results) {
-      rulesFiredCounts[r.ruleKey] = (rulesFiredCounts[r.ruleKey] ?? 0) + 1;
-    }
-
-    // 1. One summary event per scan.
+    // 1. Summary event.
     await capture('cli_run', distinctId, {
       ...sharedProps,
-      providers_detected: opts.detected.map((d) => d.name),
-      rules_fired_counts: rulesFiredCounts,
       score: opts.score,
       score_delta: scoreDelta,
       errors: opts.results.filter((r) => r.severity === 'error').length,
@@ -175,31 +91,28 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       run_count: (prev?.run_count ?? 0) + 1,
     });
 
-    // 2. One event per supported provider found — tells you which provider is scanned most.
-    // Bounded by the number of providers we support (~7), never explodes.
+    // 2. One event per detected provider.
     await Promise.all(
-      opts.detected.map((d) =>
-        capture('provider_scanned', distinctId, {
+      opts.detected.map((d) => {
+        const rules_triggered = [
+          ...new Set(
+            opts.results
+              .filter((r) => r.ruleKey.startsWith(d.name) && (r.severity === 'error' || r.severity === 'warning'))
+              .map((r) => r.ruleKey),
+          ),
+        ];
+        return capture('provider_scanned', distinctId, {
           ...sharedProps,
           provider: d.name,
           score: opts.score,
-        }),
-      ),
+          rules_triggered,
+        });
+      }),
     );
 
-    // 3. One event per package not in the exclusion list and not already a supported provider.
-    // Captures any API/SDK regardless of whether we've seen it before — new tech included.
-    // @types/*, @radix-ui/*, and other noisy namespaces are excluded by prefix.
-    const supportedNames = new Set(opts.detected.map((d) => d.name));
-    const EXCLUDED_PREFIXES = ['@types/', '@radix-ui/', '@testing-library/', '@eslint/'];
-    const unseenPackages = opts.rawPackages.filter(
-      (p) =>
-        !EXCLUDED_PACKAGES.has(p) &&
-        !supportedNames.has(p) &&
-        !EXCLUDED_PREFIXES.some((prefix) => p.startsWith(prefix)),
-    );
+    // 3. One event per package in the project.
     await Promise.all(
-      unseenPackages.map((pkg) =>
+      opts.rawPackages.map((pkg) =>
         capture('package_seen', distinctId, { ...sharedProps, package: pkg }),
       ),
     );
