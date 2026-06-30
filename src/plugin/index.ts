@@ -39,6 +39,19 @@ import { firebaseRtdbBatchWriteNotAtomicRule } from '../providers/firebase/rules
 import { firebaseRtdbListenerErrorNotHandledRule } from '../providers/firebase/rules/rtdb-listener-error-not-handled.js';
 import { firebaseEffectDepsWholeUserObjectRule } from '../providers/firebase/rules/effect-deps-whole-user-object.js';
 import { firebaseRtdbWritePromiseNotHandledRule } from '../providers/firebase/rules/rtdb-write-promise-not-handled.js';
+import { firebaseFirestoreRulesExpiredRule } from '../providers/firebase/rules/firestore-rules-expired.js';
+import { firebaseIdTokenCookieFlagsRule } from '../providers/firebase/rules/id-token-cookie-flags.js';
+import { firebaseMiddlewareTokenNotVerifiedRule } from '../providers/firebase/rules/middleware-token-not-verified.js';
+import { firebaseHardcodedUserIdRule } from '../providers/firebase/rules/hardcoded-user-id.js';
+import { firebaseAuthUserNotFoundDisclosureRule } from '../providers/firebase/rules/auth-user-not-found-disclosure.js';
+import { firebaseSignupPasswordConfirmRule } from '../providers/firebase/rules/signup-password-confirm.js';
+import { firebaseUseArrayUnionRemoveRule } from '../providers/firebase/rules/use-array-union-remove.js';
+import { firebaseDuplicateInitializeAppRule } from '../providers/firebase/rules/duplicate-initialize-app.js';
+import { firebaseOnSnapshotAsyncThrowRule } from '../providers/firebase/rules/onSnapshot-async-throw.js';
+import { firebaseOnSnapshotMissingErrorCallbackRule } from '../providers/firebase/rules/onSnapshot-missing-error-callback.js';
+import { firebaseFirestoreDocumentSizeGuardRule } from '../providers/firebase/rules/firestore-document-size-guard.js';
+import { firebaseUseTimestampNowRule } from '../providers/firebase/rules/use-timestamp-now.js';
+
 import { lovableNoClientSideSecretFetchRule } from '../providers/lovable/rules/no-client-side-secret-fetch.js';
 import { lovablePaidFlagWithoutEdgeFunctionRule } from '../providers/lovable/rules/paid-flag-without-edge-function.js';
 import { lovableExpiryColumnNeverCheckedRule } from '../providers/lovable/rules/expiry-column-never-checked.js';
@@ -61,6 +74,17 @@ import { openaiCuaNoBlindSafetyCheckAckRule } from '../providers/openai-cua/rule
 import { openaiCuaRetryTransientTurnErrorsRule } from '../providers/openai-cua/rules/retry-transient-turn-errors.js';
 import { openaiCuaCheckResponseStatusIncompleteRule } from '../providers/openai-cua/rules/check-response-status-incomplete.js';
 import { openaiCuaSetSafetyIdentifierRule } from '../providers/openai-cua/rules/set-safety-identifier.js';
+import { tiptapUploadValidateFnVoidRule } from '../providers/tiptap/rules/upload-validate-fn-void.js';
+import { tiptapScriptSrcHardcodedApiKeyRule } from '../providers/tiptap/rules/script-src-hardcoded-api-key.js';
+import { tiptapDynamicScriptNoSriRule } from '../providers/tiptap/rules/dynamic-script-no-sri.js';
+import { tiptapAddAttributesMissingRenderHTMLRule } from '../providers/tiptap/rules/addAttributes-missing-renderHTML.js';
+import { tiptapAppendTransactionAddToHistoryRule } from '../providers/tiptap/rules/appendTransaction-add-to-history.js';
+import { tiptapAppendTransactionFullScanRule } from '../providers/tiptap/rules/appendTransaction-full-scan.js';
+import { tiptapAtomNodeWrapInRule } from '../providers/tiptap/rules/atom-node-wrap-in.js';
+import { tiptapTwitterUrlRegexRule } from '../providers/tiptap/rules/twitter-url-regex.js';
+import { tiptapDropHandlerPosPrecedenceRule } from '../providers/tiptap/rules/drop-handler-pos-precedence.js';
+import { tiptapPreferTableKitRule } from '../providers/tiptap/rules/prefer-table-kit.js';
+import { tiptapTiptapMarkdownMissingNodeSpecRule } from '../providers/tiptap/rules/tiptap-markdown-missing-node-spec.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -102,6 +126,19 @@ const plugin = {
     'firebase-rtdb-listener-error-not-handled': firebaseRtdbListenerErrorNotHandledRule,
     'firebase-effect-deps-whole-user-object': firebaseEffectDepsWholeUserObjectRule,
     'firebase-rtdb-write-promise-not-handled': firebaseRtdbWritePromiseNotHandledRule,
+    'firebase-firestore-rules-expired': firebaseFirestoreRulesExpiredRule,
+    'firebase-id-token-cookie-flags': firebaseIdTokenCookieFlagsRule,
+    'firebase-middleware-token-not-verified': firebaseMiddlewareTokenNotVerifiedRule,
+    'firebase-hardcoded-user-id': firebaseHardcodedUserIdRule,
+    'firebase-auth-user-not-found-disclosure': firebaseAuthUserNotFoundDisclosureRule,
+    'firebase-signup-password-confirm': firebaseSignupPasswordConfirmRule,
+    'firebase-use-array-union-remove': firebaseUseArrayUnionRemoveRule,
+    'firebase-duplicate-initialize-app': firebaseDuplicateInitializeAppRule,
+    'firebase-onSnapshot-async-throw': firebaseOnSnapshotAsyncThrowRule,
+    'firebase-onSnapshot-missing-error-callback': firebaseOnSnapshotMissingErrorCallbackRule,
+    'firebase-firestore-document-size-guard': firebaseFirestoreDocumentSizeGuardRule,
+    'firebase-use-timestamp-now': firebaseUseTimestampNowRule,
+
     'lovable-no-client-side-secret-fetch': lovableNoClientSideSecretFetchRule,
     'lovable-paid-flag-without-edge-function': lovablePaidFlagWithoutEdgeFunctionRule,
     'lovable-expiry-column-never-checked': lovableExpiryColumnNeverCheckedRule,
@@ -124,6 +161,17 @@ const plugin = {
     'openai-cua-retry-transient-turn-errors': openaiCuaRetryTransientTurnErrorsRule,
     'openai-cua-check-response-status-incomplete': openaiCuaCheckResponseStatusIncompleteRule,
     'openai-cua-set-safety-identifier': openaiCuaSetSafetyIdentifierRule,
+    'tiptap-upload-validate-fn-void': tiptapUploadValidateFnVoidRule,
+    'tiptap-script-src-hardcoded-api-key': tiptapScriptSrcHardcodedApiKeyRule,
+    'tiptap-dynamic-script-no-sri': tiptapDynamicScriptNoSriRule,
+    'tiptap-addAttributes-missing-renderHTML': tiptapAddAttributesMissingRenderHTMLRule,
+    'tiptap-appendTransaction-add-to-history': tiptapAppendTransactionAddToHistoryRule,
+    'tiptap-appendTransaction-full-scan': tiptapAppendTransactionFullScanRule,
+    'tiptap-atom-node-wrap-in': tiptapAtomNodeWrapInRule,
+    'tiptap-twitter-url-regex': tiptapTwitterUrlRegexRule,
+    'tiptap-drop-handler-pos-precedence': tiptapDropHandlerPosPrecedenceRule,
+    'tiptap-prefer-table-kit': tiptapPreferTableKitRule,
+    'tiptap-tiptap-markdown-missing-node-spec': tiptapTiptapMarkdownMissingNodeSpecRule,
   },
 } as const;
 

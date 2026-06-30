@@ -10,6 +10,7 @@ import { firebaseManifest } from './firebase/manifest.js';
 import { lovableManifest } from './lovable/manifest.js';
 import { browserbaseManifest } from './browserbase/manifest.js';
 import { openaiCuaManifest } from './openai-cua/manifest.js';
+import { tiptapManifest } from './tiptap/manifest.js';
 
 export const providers: ProviderManifest[] = [
   resendManifest,
@@ -19,4 +20,5 @@ export const providers: ProviderManifest[] = [
   lovableManifest,
   browserbaseManifest,
   openaiCuaManifest,
+  tiptapManifest,
 ];
