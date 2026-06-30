@@ -1,6 +1,6 @@
 {
   "name": "@api-doctor/cli",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Deterministic verification rules for AI-generated API integrations",
   "keywords": [
     "api",
@@ -18,7 +18,7 @@
   "private": false,
   "license": "MIT",
   "bin": {
-    "api-doctor": "./dist/cli.mjs"
+    "api-doctor": "dist/cli.mjs"
   },
   "main": "./dist/cli.cjs",
   "module": "./dist/cli.mjs",
