@@ -36,6 +36,7 @@ npx @api-doctor/cli install
 | [Browserbase](https://docs.browserbase.com)                                             | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) |
 | [OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-cua/README.md)   |
 | [TipTap](https://tiptap.dev/docs)                                                       | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md)      |
+| [ElevenLabs](https://elevenlabs.io/docs)                                                | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md)  |
 
 Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 

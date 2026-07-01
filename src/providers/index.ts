@@ -11,6 +11,7 @@ import { lovableManifest } from './lovable/manifest.js';
 import { browserbaseManifest } from './browserbase/manifest.js';
 import { openaiCuaManifest } from './openai-cua/manifest.js';
 import { tiptapManifest } from './tiptap/manifest.js';
+import { elevenlabsManifest } from './elevenlabs/manifest.js';
 
 export const providers: ProviderManifest[] = [
   resendManifest,
@@ -21,4 +22,5 @@ export const providers: ProviderManifest[] = [
   browserbaseManifest,
   openaiCuaManifest,
   tiptapManifest,
+  elevenlabsManifest,
 ];

@@ -85,6 +85,16 @@ import { tiptapTwitterUrlRegexRule } from '../providers/tiptap/rules/twitter-url
 import { tiptapDropHandlerPosPrecedenceRule } from '../providers/tiptap/rules/drop-handler-pos-precedence.js';
 import { tiptapPreferTableKitRule } from '../providers/tiptap/rules/prefer-table-kit.js';
 import { tiptapTiptapMarkdownMissingNodeSpecRule } from '../providers/tiptap/rules/tiptap-markdown-missing-node-spec.js';
+import { elevenlabsValidateSignedUrlResponseRule } from '../providers/elevenlabs/rules/validate-signed-url-response.js';
+import { elevenlabsNoErrorObjectLoggingRule } from '../providers/elevenlabs/rules/no-error-object-logging.js';
+import { elevenlabsFetchTimeoutRequiredRule } from '../providers/elevenlabs/rules/fetch-timeout-required.js';
+import { elevenlabsValidateAgentIdFormatRule } from '../providers/elevenlabs/rules/validate-agent-id-format.js';
+import { elevenlabsSecureSessionIdGenerationRule } from '../providers/elevenlabs/rules/secure-session-id-generation.js';
+import { elevenlabsConversationErrorRecoveryRule } from '../providers/elevenlabs/rules/conversation-error-recovery.js';
+import { elevenlabsApiVersionPinningRule } from '../providers/elevenlabs/rules/api-version-pinning.js';
+import { elevenlabsCheckHttpStatusBeforeJsonRule } from '../providers/elevenlabs/rules/check-http-status-before-json.js';
+import { elevenlabsConversationCleanupOnErrorRule } from '../providers/elevenlabs/rules/conversation-cleanup-on-error.js';
+import { elevenlabsEnvVarValidationRule } from '../providers/elevenlabs/rules/env-var-validation.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -172,6 +182,17 @@ const plugin = {
     'tiptap-drop-handler-pos-precedence': tiptapDropHandlerPosPrecedenceRule,
     'tiptap-prefer-table-kit': tiptapPreferTableKitRule,
     'tiptap-tiptap-markdown-missing-node-spec': tiptapTiptapMarkdownMissingNodeSpecRule,
+
+    'elevenlabs-validate-signed-url-response': elevenlabsValidateSignedUrlResponseRule,
+    'elevenlabs-no-error-object-logging': elevenlabsNoErrorObjectLoggingRule,
+    'elevenlabs-fetch-timeout-required': elevenlabsFetchTimeoutRequiredRule,
+    'elevenlabs-validate-agent-id-format': elevenlabsValidateAgentIdFormatRule,
+    'elevenlabs-secure-session-id-generation': elevenlabsSecureSessionIdGenerationRule,
+    'elevenlabs-conversation-error-recovery': elevenlabsConversationErrorRecoveryRule,
+    'elevenlabs-api-version-pinning': elevenlabsApiVersionPinningRule,
+    'elevenlabs-check-http-status-before-json': elevenlabsCheckHttpStatusBeforeJsonRule,
+    'elevenlabs-conversation-cleanup-on-error': elevenlabsConversationCleanupOnErrorRule,
+    'elevenlabs-env-var-validation': elevenlabsEnvVarValidationRule,
   },
 } as const;
 
