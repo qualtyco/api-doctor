@@ -22,11 +22,11 @@ Detection: `@tiptap/core`, `@tiptap/react`, or `@tiptap/pm` in package.json, or 
 
 Input validation (upload handlers), hardcoded API keys in dynamically injected scripts, and missing SRI/integrity attributes.
 
-| Rule | Severity | CWE / OWASP | Docs | Rule file | Test |
-| ---- | -------- | ----------- | ---- | --------- | ---- |
-| upload-validate-fn-void | error | CWE-20 | [Node views](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views) | [upload-validate-fn-void.ts](rules/upload-validate-fn-void.ts) | [test](../../../tests/rules/tiptap-upload-validate-fn-void.test.ts) |
-| script-src-hardcoded-api-key | error | CWE-798, API8:2023 | [Node views](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views) | [script-src-hardcoded-api-key.ts](rules/script-src-hardcoded-api-key.ts) | [test](../../../tests/rules/tiptap-script-src-hardcoded-api-key.test.ts) |
-| dynamic-script-no-sri | warning | CWE-829, API8:2023 | [MDN SRI](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity) | [dynamic-script-no-sri.ts](rules/dynamic-script-no-sri.ts) | [test](../../../tests/rules/tiptap-dynamic-script-no-sri.test.ts) |
+| Rule | Severity | CWE / OWASP | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | ----------- | --- | ---- | --------- | ---- |
+| upload-validate-fn-void | error | CWE-20 | validateFn return value is discarded, so file type and size checks never actually block uploads. | [Node views](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views) | [upload-validate-fn-void.ts](rules/upload-validate-fn-void.ts) | [test](../../../tests/rules/tiptap-upload-validate-fn-void.test.ts) |
+| script-src-hardcoded-api-key | error | CWE-798, API8:2023 | Hardcoded demo API keys in production violate the provider's ToS and will break if the key is rate-limited or revoked. | [Node views](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views) | [script-src-hardcoded-api-key.ts](rules/script-src-hardcoded-api-key.ts) | [test](../../../tests/rules/tiptap-script-src-hardcoded-api-key.test.ts) |
+| dynamic-script-no-sri | warning | CWE-829, API8:2023 | Dynamically injected scripts without SRI hash can be exploited if the CDN is compromised, allowing arbitrary code execution. | [MDN SRI](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity) | [dynamic-script-no-sri.ts](rules/dynamic-script-no-sri.ts) | [test](../../../tests/rules/tiptap-dynamic-script-no-sri.test.ts) |
 
 #### Security fixtures
 
@@ -42,12 +42,12 @@ Input validation (upload handlers), hardcoded API keys in dynamically injected s
 
 HTML serialization round-trips, ProseMirror undo-stack integrity, operator precedence bugs, and atomic command semantics.
 
-| Rule | Severity | Docs | Rule file | Test |
-| ---- | -------- | ---- | --------- | ---- |
-| addAttributes-missing-renderHTML | error | [Attributes](https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node#attributes) | [addAttributes-missing-renderHTML.ts](rules/addAttributes-missing-renderHTML.ts) | [test](../../../tests/rules/tiptap-addAttributes-missing-renderHTML.test.ts) |
-| appendTransaction-add-to-history | warning | [setMeta](https://prosemirror.net/docs/ref/#state.Transaction.setMeta) | [appendTransaction-add-to-history.ts](rules/appendTransaction-add-to-history.ts) | [test](../../../tests/rules/tiptap-appendTransaction-add-to-history.test.ts) |
-| atom-node-wrap-in | warning | [Node types](https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node) | [atom-node-wrap-in.ts](rules/atom-node-wrap-in.ts) | [test](../../../tests/rules/tiptap-atom-node-wrap-in.test.ts) |
-| drop-handler-pos-precedence | warning | [posAtCoords](https://prosemirror.net/docs/ref/#view.EditorView.posAtCoords) | [drop-handler-pos-precedence.ts](rules/drop-handler-pos-precedence.ts) | [test](../../../tests/rules/tiptap-drop-handler-pos-precedence.test.ts) |
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| addAttributes-missing-renderHTML | error | Custom attribute values are silently lost when HTML is exported and re-parsed, corrupting the document. | [Attributes](https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node#attributes) | [addAttributes-missing-renderHTML.ts](rules/addAttributes-missing-renderHTML.ts) | [test](../../../tests/rules/tiptap-addAttributes-missing-renderHTML.test.ts) |
+| appendTransaction-add-to-history | warning | appendTransaction modifications that add to undo history should use setMeta to prevent undo loops and duplicate entries. | [setMeta](https://prosemirror.net/docs/ref/#state.Transaction.setMeta) | [appendTransaction-add-to-history.ts](rules/appendTransaction-add-to-history.ts) | [test](../../../tests/rules/tiptap-appendTransaction-add-to-history.test.ts) |
+| atom-node-wrap-in | warning | Atomic nodes that can contain other nodes break the invariant of atomicity and lead to unexpected editor behavior. | [Node types](https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node) | [atom-node-wrap-in.ts](rules/atom-node-wrap-in.ts) | [test](../../../tests/rules/tiptap-atom-node-wrap-in.test.ts) |
+| drop-handler-pos-precedence | warning | Incorrect operator precedence in posAtCoords lookup can place content at the wrong position or fail silently on large documents. | [posAtCoords](https://prosemirror.net/docs/ref/#view.EditorView.posAtCoords) | [drop-handler-pos-precedence.ts](rules/drop-handler-pos-precedence.ts) | [test](../../../tests/rules/tiptap-drop-handler-pos-precedence.test.ts) |
 
 #### Correctness fixtures
 
@@ -64,9 +64,9 @@ HTML serialization round-trips, ProseMirror undo-stack integrity, operator prece
 
 Performance issues from quadratic-time document scans on every keystroke.
 
-| Rule | Severity | Docs | Rule file | Test |
-| ---- | -------- | ---- | --------- | ---- |
-| appendTransaction-full-scan | warning | [appendTransaction](https://prosemirror.net/docs/ref/#state.PluginSpec.appendTransaction) | [appendTransaction-full-scan.ts](rules/appendTransaction-full-scan.ts) | [test](../../../tests/rules/tiptap-appendTransaction-full-scan.test.ts) |
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| appendTransaction-full-scan | warning | Scanning the entire document in appendTransaction (called on every keystroke) causes quadratic performance that makes the editor sluggish on large documents. | [appendTransaction](https://prosemirror.net/docs/ref/#state.PluginSpec.appendTransaction) | [appendTransaction-full-scan.ts](rules/appendTransaction-full-scan.ts) | [test](../../../tests/rules/tiptap-appendTransaction-full-scan.test.ts) |
 
 #### Reliability fixtures
 
@@ -80,11 +80,11 @@ Performance issues from quadratic-time document scans on every keystroke.
 
 Regex completeness (social embeds), extension bundling best practices, and markdown serialization specs.
 
-| Rule | Severity | Docs | Rule file | Test |
-| ---- | -------- | ---- | --------- | ---- |
-| twitter-url-regex | warning | [Extensions](https://tiptap.dev/docs/editor/extensions/nodes) | [twitter-url-regex.ts](rules/twitter-url-regex.ts) | [test](../../../tests/rules/tiptap-twitter-url-regex.test.ts) |
-| prefer-table-kit | info | [Table kit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit) | [prefer-table-kit.ts](rules/prefer-table-kit.ts) | [test](../../../tests/rules/tiptap-prefer-table-kit.test.ts) |
-| tiptap-markdown-missing-node-spec | warning | [tiptap-markdown](https://github.com/ueberdosis/tiptap-markdown) | [tiptap-markdown-missing-node-spec.ts](rules/tiptap-markdown-missing-node-spec.ts) | [test](../../../tests/rules/tiptap-tiptap-markdown-missing-node-spec.test.ts) |
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| twitter-url-regex | warning | Incomplete Twitter URL regex fails to match valid URLs or matches false positives, breaking social embed functionality. | [Extensions](https://tiptap.dev/docs/editor/extensions/nodes) | [twitter-url-regex.ts](rules/twitter-url-regex.ts) | [test](../../../tests/rules/tiptap-twitter-url-regex.test.ts) |
+| prefer-table-kit | info | The older table extension is deprecated in favor of table-kit, which has better performance and modern features. | [Table kit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit) | [prefer-table-kit.ts](rules/prefer-table-kit.ts) | [test](../../../tests/rules/tiptap-prefer-table-kit.test.ts) |
+| tiptap-markdown-missing-node-spec | warning | Custom nodes without markdown specs are silently dropped during markdown conversion, corrupting document content. | [tiptap-markdown](https://github.com/ueberdosis/tiptap-markdown) | [tiptap-markdown-missing-node-spec.ts](rules/tiptap-markdown-missing-node-spec.ts) | [test](../../../tests/rules/tiptap-tiptap-markdown-missing-node-spec.test.ts) |
 
 #### Integration fixtures
 

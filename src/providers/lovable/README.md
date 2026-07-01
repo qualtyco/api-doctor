@@ -22,10 +22,10 @@ These rules target the gap between what Lovable's docs say should be server-side
 
 Client-side secret exposure and payment-handling architecture.
 
-| Rule | Severity | CWE / OWASP | Lovable docs | Rule file | Test |
-| --- | --- | --- | --- | --- | --- |
-| No client-side secret fetch | error | CWE-798, A02:2021 | [Edge Functions](https://lovable.dev/docs/edge-functions) | [no-client-side-secret-fetch.ts](rules/no-client-side-secret-fetch.ts) | [test](../../../tests/rules/lovable-no-client-side-secret-fetch.test.ts) |
-| Paid flag without edge function | error | CWE-284, A01:2021 | [Billing](https://lovable.dev/docs/billing) | [paid-flag-without-edge-function.ts](rules/paid-flag-without-edge-function.ts) | [test](../../../tests/rules/lovable-paid-flag-without-edge-function.test.ts) |
+| Rule | Severity | CWE / OWASP | Why it matters | Lovable docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- | --- |
+| No client-side secret fetch | error | CWE-798, A02:2021 | LLM API keys shipped in the browser JS bundle are visible to all site visitors via dev tools or by reading the bundle source. | [Edge Functions](https://lovable.dev/docs/edge-functions) | [no-client-side-secret-fetch.ts](rules/no-client-side-secret-fetch.ts) | [test](../../../tests/rules/lovable-no-client-side-secret-fetch.test.ts) |
+| Paid flag without edge function | error | CWE-284, A01:2021 | Paid features are updated directly from the client with no payment-provider call or server-side validation, allowing free self-granting of paid features. | [Billing](https://lovable.dev/docs/billing) | [paid-flag-without-edge-function.ts](rules/paid-flag-without-edge-function.ts) | [test](../../../tests/rules/lovable-paid-flag-without-edge-function.test.ts) |
 
 #### Security fixtures
 
@@ -40,10 +40,10 @@ Client-side secret exposure and payment-handling architecture.
 
 Data validation and expiry/cost tracking.
 
-| Rule | Severity | Lovable docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| Expiry column never checked | warning | [Billing](https://lovable.dev/docs/billing) | [expiry-column-never-checked.ts](rules/expiry-column-never-checked.ts) | [test](../../../tests/rules/lovable-expiry-column-never-checked.test.ts) |
-| Silent catch on provider call | warning | [Handling errors](https://lovable.dev/docs/error-handling) | [silent-catch-on-provider-call.ts](rules/silent-catch-on-provider-call.ts) | [test](../../../tests/rules/lovable-silent-catch-on-provider-call.test.ts) |
+| Rule | Severity | Why it matters | Lovable docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| Expiry column never checked | warning | Expiry columns are written (e.g., boosted_until) but never read to enforce expiry, allowing features to remain active forever even after their time limit. | [Billing](https://lovable.dev/docs/billing) | [expiry-column-never-checked.ts](rules/expiry-column-never-checked.ts) | [test](../../../tests/rules/lovable-expiry-column-never-checked.test.ts) |
+| Silent catch on provider call | warning | Third-party API errors (rate limits, authentication, network failures) are caught but not logged, making outages invisible and indistinguishable from missing configuration. | [Handling errors](https://lovable.dev/docs/error-handling) | [silent-catch-on-provider-call.ts](rules/silent-catch-on-provider-call.ts) | [test](../../../tests/rules/lovable-silent-catch-on-provider-call.test.ts) |
 
 #### Correctness fixtures
 

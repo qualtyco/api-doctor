@@ -22,10 +22,10 @@ These rules target integration mistakes specific to building a computer-use agen
 
 Boundary control and attestation for browser automation actions.
 
-| Rule | Severity | CWE / OWASP | OpenAI docs | Rule file | Test |
-| --- | --- | --- | --- | --- | --- |
-| No domain allowlist | error | CWE-345, A01:2021 | [Computer use](https://platform.openai.com/docs/guides/computer-use) | [no-domain-allowlist.ts](rules/no-domain-allowlist.ts) | [test](../../../tests/rules/openai-cua-no-domain-allowlist.test.ts) |
-| No blind safety-check ack | warning | CWE-345, A08:2023 | [Safety considerations](https://platform.openai.com/docs/guides/computer-use#safety) | [no-blind-safety-check-ack.ts](rules/no-blind-safety-check-ack.ts) | [test](../../../tests/rules/openai-cua-no-blind-safety-check-ack.test.ts) |
+| Rule | Severity | CWE / OWASP | Why it matters | OpenAI docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- | --- |
+| No domain allowlist | error | CWE-345, A01:2021 | Without domain allowlist, the agent can navigate to and execute actions on any page, including off-domain redirects or injected content. | [Computer use](https://platform.openai.com/docs/guides/computer-use) | [no-domain-allowlist.ts](rules/no-domain-allowlist.ts) | [test](../../../tests/rules/openai-cua-no-domain-allowlist.test.ts) |
+| No blind safety-check ack | warning | CWE-345, A08:2023 | System prompt lacks documented confirmation/consent framework, allowing the agent to silently execute risky actions like deleting data, changing permissions, or solving CAPTCHAs. | [Safety considerations](https://platform.openai.com/docs/guides/computer-use#safety) | [no-blind-safety-check-ack.ts](rules/no-blind-safety-check-ack.ts) | [test](../../../tests/rules/openai-cua-no-blind-safety-check-ack.test.ts) |
 
 #### Security fixtures
 
@@ -40,11 +40,11 @@ Boundary control and attestation for browser automation actions.
 
 Action parsing, normalization, and response validation.
 
-| Rule | Severity | OpenAI docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| Scroll delta default zero | error | [Computer use](https://platform.openai.com/docs/guides/computer-use) | [scroll-delta-default-zero.ts](rules/scroll-delta-default-zero.ts) | [test](../../../tests/rules/openai-cua-scroll-delta-default-zero.test.ts) |
-| Structured step metadata not text/json | warning | [Response format](https://platform.openai.com/docs/api-reference/responses-api) | [structured-step-metadata-not-text-json.ts](rules/structured-step-metadata-not-text-json.ts) | [test](../../../tests/rules/openai-cua-structured-step-metadata-not-text-json.test.ts) |
-| Set safety identifier | warning | [Computer use](https://platform.openai.com/docs/guides/computer-use) | [set-safety-identifier.ts](rules/set-safety-identifier.ts) | [test](../../../tests/rules/openai-cua-set-safety-identifier.test.ts) |
+| Rule | Severity | Why it matters | OpenAI docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| Scroll delta default zero | error | Missing vertical scroll delta defaults to 700px instead of 0, causing unintended scrolls that desynchronize the agent's mental model of page state. | [Computer use](https://platform.openai.com/docs/guides/computer-use) | [scroll-delta-default-zero.ts](rules/scroll-delta-default-zero.ts) | [test](../../../tests/rules/openai-cua-scroll-delta-default-zero.test.ts) |
+| Structured step metadata not text/json | warning | Step metadata in the wrong format cannot be properly validated or logged, making debugging and audit trails unreliable. | [Response format](https://platform.openai.com/docs/api-reference/responses-api) | [structured-step-metadata-not-text-json.ts](rules/structured-step-metadata-not-text-json.ts) | [test](../../../tests/rules/openai-cua-structured-step-metadata-not-text-json.test.ts) |
+| Set safety identifier | warning | Without a safety identifier, it's impossible to trace which agent instance initiated a dangerous action or correlate it with user intent. | [Computer use](https://platform.openai.com/docs/guides/computer-use) | [set-safety-identifier.ts](rules/set-safety-identifier.ts) | [test](../../../tests/rules/openai-cua-set-safety-identifier.test.ts) |
 
 #### Correctness fixtures
 
@@ -60,10 +60,10 @@ Action parsing, normalization, and response validation.
 
 Retry logic and truncation detection on the turn loop.
 
-| Rule | Severity | OpenAI docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| Retry transient turn errors | error | [Error handling](https://platform.openai.com/docs/api-reference/responses-api#error-handling) | [retry-transient-turn-errors.ts](rules/retry-transient-turn-errors.ts) | [test](../../../tests/rules/openai-cua-retry-transient-turn-errors.test.ts) |
-| Check response status incomplete | error | [Response status](https://platform.openai.com/docs/api-reference/responses-api#response-object) | [check-response-status-incomplete.ts](rules/check-response-status-incomplete.ts) | [test](../../../tests/rules/openai-cua-check-response-status-incomplete.test.ts) |
+| Rule | Severity | Why it matters | OpenAI docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| Retry transient turn errors | error | Transient errors (timeouts, rate limits, 5xx) cause the turn loop to crash instead of retry, making the agent unreliable on unstable networks. | [Error handling](https://platform.openai.com/docs/api-reference/responses-api#error-handling) | [retry-transient-turn-errors.ts](rules/retry-transient-turn-errors.ts) | [test](../../../tests/rules/openai-cua-retry-transient-turn-errors.test.ts) |
+| Check response status incomplete | error | Response with status `incomplete` (token budget exceeded) is treated as success, but the model's action was truncated and never executed, corrupting the task. | [Response status](https://platform.openai.com/docs/api-reference/responses-api#response-object) | [check-response-status-incomplete.ts](rules/check-response-status-incomplete.ts) | [test](../../../tests/rules/openai-cua-check-response-status-incomplete.test.ts) |
 
 #### Reliability fixtures
 

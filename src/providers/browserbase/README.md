@@ -32,11 +32,11 @@ No Browserbase sample project was available to CLI-smoke-test these rules agains
 
 Session management, API response leakage, and authorization checks.
 
-| Rule | Severity | CWE / OWASP | Browserbase docs | Rule file | Test |
-| --- | --- | --- | --- | --- | --- |
-| No conditional authz on anonymous user | error | CWE-862, A01:2021 | [Connect API](https://docs.browserbase.com/api-reference/api-client/create) | [no-conditional-authz-on-anonymous-user.ts](rules/no-conditional-authz-on-anonymous-user.ts) | [test](../../../tests/rules/browserbase-no-conditional-authz-on-anonymous-user.test.ts) |
-| No connectUrl in API response | error | CWE-200, A04:2021 | [Session response](https://docs.browserbase.com/api-reference/sessions/retrieve) | [no-connect-url-in-api-response.ts](rules/no-connect-url-in-api-response.ts) | [test](../../../tests/rules/browserbase-no-connect-url-in-api-response.test.ts) |
-| Session id requires ownership check | warning | CWE-862 | [Create session](https://docs.browserbase.com/api-reference/sessions/create) | [session-id-requires-ownership-check.ts](rules/session-id-requires-ownership-check.ts) | [test](../../../tests/rules/browserbase-session-id-requires-ownership-check.test.ts) |
+| Rule | Severity | CWE / OWASP | Why it matters | Browserbase docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- | --- |
+| No conditional authz on anonymous user | error | CWE-862, A01:2021 | Authorization check is gated behind is_authenticated, which fails for AnonymousUser, exposing session data and recordings to unauthenticated access. | [Connect API](https://docs.browserbase.com/api-reference/api-client/create) | [no-conditional-authz-on-anonymous-user.ts](rules/no-conditional-authz-on-anonymous-user.ts) | [test](../../../tests/rules/browserbase-no-conditional-authz-on-anonymous-user.test.ts) |
+| No connectUrl in API response | error | CWE-200, A04:2021 | connect_url is a self-authenticating bearer token for full CDP control; returning it in the HTTP response body exposes it to logs, network tabs, and error trackers. | [Session response](https://docs.browserbase.com/api-reference/sessions/retrieve) | [no-connect-url-in-api-response.ts](rules/no-connect-url-in-api-response.ts) | [test](../../../tests/rules/browserbase-no-connect-url-in-api-response.test.ts) |
+| Session id requires ownership check | warning | CWE-862 | Session ID parameter is accepted with no ownership check, allowing any authenticated user to access live debugger URLs for other users' sessions (IDOR). | [Create session](https://docs.browserbase.com/api-reference/sessions/create) | [session-id-requires-ownership-check.ts](rules/session-id-requires-ownership-check.ts) | [test](../../../tests/rules/browserbase-session-id-requires-ownership-check.test.ts) |
 
 #### Security fixtures
 
@@ -52,11 +52,11 @@ Session management, API response leakage, and authorization checks.
 
 Context atomicity and device configuration requirements.
 
-| Rule | Severity | Browserbase docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| No concurrent shared context | error | [Shared context](https://docs.browserbase.com/guides/shared-context) | [no-concurrent-shared-context.ts](rules/no-concurrent-shared-context.ts) | [test](../../../tests/rules/browserbase-no-concurrent-shared-context.test.ts) |
-| Mobile device requires os setting | error | [Mobile emulation](https://docs.browserbase.com/guides/mobile-emulation) | [mobile-device-requires-os-setting.ts](rules/mobile-device-requires-os-setting.ts) | [test](../../../tests/rules/browserbase-mobile-device-requires-os-setting.test.ts) |
-| Use typed exception status, not substring | info | [Error handling](https://docs.browserbase.com/guides/error-handling) | [use-typed-exception-status-not-substring.ts](rules/use-typed-exception-status-not-substring.ts) | [test](../../../tests/rules/browserbase-use-typed-exception-status-not-substring.test.ts) |
+| Rule | Severity | Why it matters | Browserbase docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| No concurrent shared context | error | Same Browserbase Context reused across concurrent sessions breaks the product's functionality; Browserbase docs explicitly warn that "Sites may force a log out." | [Shared context](https://docs.browserbase.com/guides/shared-context) | [no-concurrent-shared-context.ts](rules/no-concurrent-shared-context.ts) | [test](../../../tests/rules/browserbase-no-concurrent-shared-context.test.ts) |
+| Mobile device requires os setting | error | Mobile device combos never configure Browserbase's fingerprint/device emulation, so sites receive desktop user-agent and miss exercising their mobile code paths. | [Mobile emulation](https://docs.browserbase.com/guides/mobile-emulation) | [mobile-device-requires-os-setting.ts](rules/mobile-device-requires-os-setting.ts) | [test](../../../tests/rules/browserbase-mobile-device-requires-os-setting.test.ts) |
+| Use typed exception status, not substring | info | Error detection relies on fragile substring matching instead of typed status codes, breaking when the API's error messages change. | [Error handling](https://docs.browserbase.com/guides/error-handling) | [use-typed-exception-status-not-substring.ts](rules/use-typed-exception-status-not-substring.ts) | [test](../../../tests/rules/browserbase-use-typed-exception-status-not-substring.test.ts) |
 
 #### Correctness fixtures
 
@@ -72,11 +72,11 @@ Context atomicity and device configuration requirements.
 
 Session lifecycle management and error handling strategy.
 
-| Rule | Severity | Browserbase docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| Release session on connect failure | error | [Error handling](https://docs.browserbase.com/guides/error-handling) | [release-session-on-connect-failure.ts](rules/release-session-on-connect-failure.ts) | [test](../../../tests/rules/browserbase-release-session-on-connect-failure.test.ts) |
-| No overbroad error substring match | error | [API errors](https://docs.browserbase.com/api-reference/errors) | [no-overbroad-error-substring-match.ts](rules/no-overbroad-error-substring-match.ts) | [test](../../../tests/rules/browserbase-no-overbroad-error-substring-match.test.ts) |
-| Don't stack custom retry on SDK retry | warning | [Retry logic](https://docs.browserbase.com/guides/error-handling#retry-logic) | [dont-stack-custom-retry-on-sdk-retry.ts](rules/dont-stack-custom-retry-on-sdk-retry.ts) | [test](../../../tests/rules/browserbase-dont-stack-custom-retry-on-sdk-retry.test.ts) |
+| Rule | Severity | Why it matters | Browserbase docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| Release session on connect failure | error | If CDP handshake fails after session creation, the session is never released and accumulates charges until the timeout elapses (up to 6 hours). | [Error handling](https://docs.browserbase.com/guides/error-handling) | [release-session-on-connect-failure.ts](rules/release-session-on-connect-failure.ts) | [test](../../../tests/rules/browserbase-release-session-on-connect-failure.test.ts) |
+| No overbroad error substring match | error | Broad substring matching like "session" in error messages kills healthy recordings on transient network errors, causing false positives. | [API errors](https://docs.browserbase.com/api-reference/errors) | [no-overbroad-error-substring-match.ts](rules/no-overbroad-error-substring-match.ts) | [test](../../../tests/rules/browserbase-no-overbroad-error-substring-match.test.ts) |
+| Don't stack custom retry on SDK retry | warning | Layering custom retry on top of SDK's built-in retry (2 retries) can trigger up to 9 actual HTTP attempts, compounding latency and consuming quota. | [Retry logic](https://docs.browserbase.com/guides/error-handling#retry-logic) | [dont-stack-custom-retry-on-sdk-retry.ts](rules/dont-stack-custom-retry-on-sdk-retry.ts) | [test](../../../tests/rules/browserbase-dont-stack-custom-retry-on-sdk-retry.test.ts) |
 
 #### Reliability fixtures
 

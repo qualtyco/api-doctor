@@ -21,10 +21,10 @@ These rules target manual JWT verification with `jsonwebtoken`/`jwks-rsa`/`expre
 
 JWT verification correctness and payload trust in account linking.
 
-| Rule | Severity | CWE / OWASP | Auth0 docs | Rule file | Test |
-| --- | --- | --- | --- | --- | --- |
-| Required audience validation | error | CWE-347, A07:2021 | [JWT for server-to-server](https://auth0.com/docs/get-started/authentication-and-authorization/client-credentials-flow) | [required-audience-validation.ts](rules/required-audience-validation.ts) | [test](../../../tests/rules/auth0-required-audience-validation.test.ts) |
-| No account link without verified email | error | CWE-640, A01:2021 | [Link user accounts](https://auth0.com/docs/manage-users/user-accounts/user-account-linking) | [no-account-link-without-verified-email.ts](rules/no-account-link-without-verified-email.ts) | [test](../../../tests/rules/auth0-no-account-link-without-verified-email.test.ts) |
+| Rule | Severity | CWE / OWASP | Why it matters | Auth0 docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- | --- |
+| Required audience validation | error | CWE-347, A07:2021 | Audience validation is silently skipped if AUTH0_AUDIENCE is unset in the environment, allowing tokens issued for other APIs to pass authentication. | [JWT for server-to-server](https://auth0.com/docs/get-started/authentication-and-authorization/client-credentials-flow) | [required-audience-validation.ts](rules/required-audience-validation.ts) | [test](../../../tests/rules/auth0-required-audience-validation.test.ts) |
+| No account link without verified email | error | CWE-640, A01:2021 | User accounts are silently linked by matching an unverified email claim to an existing account, enabling account takeover if the email comes from an untrusted source. | [Link user accounts](https://auth0.com/docs/manage-users/user-accounts/user-account-linking) | [no-account-link-without-verified-email.ts](rules/no-account-link-without-verified-email.ts) | [test](../../../tests/rules/auth0-no-account-link-without-verified-email.test.ts) |
 
 #### Security fixtures
 
@@ -39,9 +39,9 @@ JWT verification correctness and payload trust in account linking.
 
 Token parsing logic and claim inspection.
 
-| Rule | Severity | Auth0 docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| Dead claim verification check | error | [Decode tokens](https://auth0.com/docs/get-started/authentication-and-authorization/validate-tokens/jwt-based-access-control) | [dead-claim-verification-check.ts](rules/dead-claim-verification-check.ts) | [test](../../../tests/rules/auth0-dead-claim-verification-check.test.ts) |
+| Rule | Severity | Why it matters | Auth0 docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| Dead claim verification check | error | The email_verified claim check is syntactically dead code and can never be true, masking the gate that prevents account takeover via unverified email (see Security section). | [Decode tokens](https://auth0.com/docs/get-started/authentication-and-authorization/validate-tokens/jwt-based-access-control) | [dead-claim-verification-check.ts](rules/dead-claim-verification-check.ts) | [test](../../../tests/rules/auth0-dead-claim-verification-check.test.ts) |
 
 #### Correctness fixtures
 
@@ -55,9 +55,9 @@ Token parsing logic and claim inspection.
 
 JWKS cache refresh on key rotation.
 
-| Rule | Severity | Auth0 docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| JWKS refresh on unknown kid | warning | [JWKS endpoint](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-set-properties) | [jwks-refresh-on-unknown-kid.ts](rules/jwks-refresh-on-unknown-kid.ts) | [test](../../../tests/rules/auth0-jwks-refresh-on-unknown-kid.test.ts) |
+| Rule | Severity | Why it matters | Auth0 docs | Rule file | Test |
+| --- | --- | --- | --- | --- | --- |
+| JWKS refresh on unknown kid | warning | JWKS is cached for 24 hours with no fallback when a token's key ID is unknown; after Auth0 rotates signing keys, new tokens fail to validate for up to 24h until the cache naturally expires. | [JWKS endpoint](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-set-properties) | [jwks-refresh-on-unknown-kid.ts](rules/jwks-refresh-on-unknown-kid.ts) | [test](../../../tests/rules/auth0-jwks-refresh-on-unknown-kid.test.ts) |
 
 #### Reliability fixtures
 
