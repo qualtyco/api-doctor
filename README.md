@@ -38,6 +38,7 @@ npx @api-doctor/cli install
 | [TipTap](https://tiptap.dev/docs)                                                       | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md)      |
 | [ElevenLabs](https://elevenlabs.io/docs)                                                | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md)  |
 | [Twilio](https://www.twilio.com/docs)                                                   | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md)       |
+| [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime)               | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-realtime/README.md) |
 
 Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 

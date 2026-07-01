@@ -104,6 +104,15 @@ import { twilioUseTwimlBuilderNotStringTemplatesRule } from '../providers/twilio
 import { twilioMediaStreamsMarkPacingRule } from '../providers/twilio/rules/media-streams-mark-pacing.js';
 import { twilioValidateAllRequestInputsRule } from '../providers/twilio/rules/validate-all-request-inputs.js';
 import { twilioMediaStreamsMarkNameStringRule } from '../providers/twilio/rules/media-streams-mark-name-string.js';
+import { openaiRealtimeMigrateBetaToGaRule } from '../providers/openai-realtime/rules/migrate-beta-to-ga.js';
+import { openaiRealtimeNoLogRawMessagePayloadsRule } from '../providers/openai-realtime/rules/no-log-raw-message-payloads.js';
+import { openaiRealtimeHandleErrorServerEventRule } from '../providers/openai-realtime/rules/handle-error-server-event.js';
+import { openaiRealtimeReconnectOnDropRule } from '../providers/openai-realtime/rules/reconnect-on-drop.js';
+import { openaiRealtimeAvoidDatedPreviewSnapshotsRule } from '../providers/openai-realtime/rules/avoid-dated-preview-snapshots.js';
+import { openaiRealtimeVerifyDeprecatedSessionFieldsRule } from '../providers/openai-realtime/rules/verify-deprecated-session-fields.js';
+import { openaiRealtimeBufferAudioUntilSessionReadyRule } from '../providers/openai-realtime/rules/buffer-audio-until-session-ready.js';
+import { openaiRealtimeSendSafetyIdentifierRule } from '../providers/openai-realtime/rules/send-safety-identifier.js';
+import { openaiRealtimeTranscriptionModelChoiceRule } from '../providers/openai-realtime/rules/transcription-model-choice.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -212,6 +221,16 @@ const plugin = {
     'twilio-media-streams-mark-pacing': twilioMediaStreamsMarkPacingRule,
     'twilio-validate-all-request-inputs': twilioValidateAllRequestInputsRule,
     'twilio-media-streams-mark-name-string': twilioMediaStreamsMarkNameStringRule,
+
+    'openai-realtime-migrate-beta-to-ga': openaiRealtimeMigrateBetaToGaRule,
+    'openai-realtime-no-log-raw-message-payloads': openaiRealtimeNoLogRawMessagePayloadsRule,
+    'openai-realtime-handle-error-server-event': openaiRealtimeHandleErrorServerEventRule,
+    'openai-realtime-reconnect-on-drop': openaiRealtimeReconnectOnDropRule,
+    'openai-realtime-avoid-dated-preview-snapshots': openaiRealtimeAvoidDatedPreviewSnapshotsRule,
+    'openai-realtime-verify-deprecated-session-fields': openaiRealtimeVerifyDeprecatedSessionFieldsRule,
+    'openai-realtime-buffer-audio-until-session-ready': openaiRealtimeBufferAudioUntilSessionReadyRule,
+    'openai-realtime-send-safety-identifier': openaiRealtimeSendSafetyIdentifierRule,
+    'openai-realtime-transcription-model-choice': openaiRealtimeTranscriptionModelChoiceRule,
   },
 } as const;
 

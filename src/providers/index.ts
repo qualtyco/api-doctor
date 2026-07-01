@@ -13,6 +13,7 @@ import { openaiCuaManifest } from './openai-cua/manifest.js';
 import { tiptapManifest } from './tiptap/manifest.js';
 import { elevenlabsManifest } from './elevenlabs/manifest.js';
 import { twilioManifest } from './twilio/manifest.js';
+import { openaiRealtimeManifest } from './openai-realtime/manifest.js';
 
 export const providers: ProviderManifest[] = [
   resendManifest,
@@ -25,4 +26,5 @@ export const providers: ProviderManifest[] = [
   tiptapManifest,
   elevenlabsManifest,
   twilioManifest,
+  openaiRealtimeManifest,
 ];

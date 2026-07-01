@@ -1,0 +1,83 @@
+import type { ProviderManifest } from '../../types.js';
+
+export const openaiRealtimeManifest: ProviderManifest = {
+  name: 'openai-realtime',
+  displayName: 'OpenAI Realtime API',
+  detect: {
+    urlPatterns: ['api.openai.com/v1/realtime'],
+  },
+  oxlintRules: [
+    {
+      key: 'openai-realtime-migrate-beta-to-ga',
+      resultRule: 'openai-realtime/correctness/migrate-beta-to-ga',
+      message: 'This Realtime connection sends the deprecated OpenAI-Beta: realtime=v1 header.',
+      fix: 'Remove the OpenAI-Beta header and migrate the session/event shapes to the GA interface (session.type, audio.output nesting, response.output_audio.delta event names).',
+      docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
+      severity: 'error',
+    },
+    {
+      key: 'openai-realtime-no-log-raw-message-payloads',
+      resultRule: 'openai-realtime/security/no-log-raw-message-payloads',
+      message: 'A raw OpenAI Realtime message is logged verbatim, which can include live call audio or transcript content.',
+      fix: 'Log only derived fields (e.g. { type: message.type }) at info level; log full payloads only at trace level behind an explicit opt-in.',
+      docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
+      severity: 'error',
+    },
+    {
+      key: 'openai-realtime-handle-error-server-event',
+      resultRule: 'openai-realtime/reliability/handle-error-server-event',
+      message: 'This Realtime message handler branches on event types but never checks for the API-level "error" event.',
+      fix: "Add an explicit branch for message.type === 'error' that logs the error and surfaces/fails over, instead of letting it fall through silently.",
+      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime_server_events',
+      severity: 'error',
+    },
+    {
+      key: 'openai-realtime-reconnect-on-drop',
+      resultRule: 'openai-realtime/reliability/reconnect-on-drop',
+      message: 'This Realtime socket\'s close handler only logs and never attempts to reconnect.',
+      fix: 'On close, attempt a bounded number of reconnects with a fresh session.update, and proactively end/flag the call if reconnection ultimately fails.',
+      docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
+      severity: 'error',
+    },
+    {
+      key: 'openai-realtime-avoid-dated-preview-snapshots',
+      resultRule: 'openai-realtime/correctness/avoid-dated-preview-snapshots',
+      message: 'The Realtime connection is pinned to a dated preview model snapshot instead of the GA alias.',
+      fix: "Use the GA model id (e.g. 'gpt-realtime') or a current dated snapshot tracked against OpenAI's deprecation notices.",
+      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime-sessions',
+      severity: 'warning',
+    },
+    {
+      key: 'openai-realtime-verify-deprecated-session-fields',
+      resultRule: 'openai-realtime/correctness/verify-deprecated-session-fields',
+      message: "The session config sets 'temperature', a field not documented in the current GA Realtime sessions schema.",
+      fix: 'Re-verify this field against the current sessions reference before relying on it, or drop it and control determinism via turn_detection/instructions instead.',
+      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime-sessions',
+      severity: 'warning',
+    },
+    {
+      key: 'openai-realtime-buffer-audio-until-session-ready',
+      resultRule: 'openai-realtime/reliability/buffer-audio-until-session-ready',
+      message: 'Audio sent before the Realtime socket reaches the open state is dropped instead of buffered.',
+      fix: 'Queue outbound input_audio_buffer.append messages until the open event fires, then flush them in order.',
+      docsUrl: 'https://developers.openai.com/api/docs/voice/media-streams/websocket-messages',
+      severity: 'warning',
+    },
+    {
+      key: 'openai-realtime-send-safety-identifier',
+      resultRule: 'openai-realtime/security/send-safety-identifier',
+      message: 'This Realtime WebSocket connection does not send an OpenAI-Safety-Identifier header.',
+      fix: 'Add an OpenAI-Safety-Identifier header with a stable, privacy-preserving value (e.g. a hashed account/call id) to support abuse/safety monitoring.',
+      docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
+      severity: 'info',
+    },
+    {
+      key: 'openai-realtime-transcription-model-choice',
+      resultRule: 'openai-realtime/correctness/transcription-model-choice',
+      message: "input_audio_transcription is configured with 'whisper-1', which is not natively streaming and not optimized for realtime sessions.",
+      fix: "Switch to 'gpt-realtime-whisper' if transcription output is consumed, or drop input_audio_transcription entirely if it isn't.",
+      docsUrl: 'https://developers.openai.com/api/docs/guides/realtime-transcription',
+      severity: 'info',
+    },
+  ],
+};
