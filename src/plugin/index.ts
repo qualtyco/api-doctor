@@ -95,6 +95,15 @@ import { elevenlabsApiVersionPinningRule } from '../providers/elevenlabs/rules/a
 import { elevenlabsCheckHttpStatusBeforeJsonRule } from '../providers/elevenlabs/rules/check-http-status-before-json.js';
 import { elevenlabsConversationCleanupOnErrorRule } from '../providers/elevenlabs/rules/conversation-cleanup-on-error.js';
 import { elevenlabsEnvVarValidationRule } from '../providers/elevenlabs/rules/env-var-validation.js';
+import { twilioValidateWebhookSignatureRule } from '../providers/twilio/rules/validate-webhook-signature.js';
+import { twilioTaskrouterAttributesMatchConsumerRule } from '../providers/twilio/rules/taskrouter-attributes-match-consumer.js';
+import { twilioEnqueueTaskJsonStringifyRule } from '../providers/twilio/rules/enqueue-task-json-stringify.js';
+import { twilioMediaStreamsKeyByCallSidRule } from '../providers/twilio/rules/media-streams-key-by-call-sid.js';
+import { twilioAwaitOrCatchRestCallsInEventHandlersRule } from '../providers/twilio/rules/await-or-catch-rest-calls-in-event-handlers.js';
+import { twilioUseTwimlBuilderNotStringTemplatesRule } from '../providers/twilio/rules/use-twiml-builder-not-string-templates.js';
+import { twilioMediaStreamsMarkPacingRule } from '../providers/twilio/rules/media-streams-mark-pacing.js';
+import { twilioValidateAllRequestInputsRule } from '../providers/twilio/rules/validate-all-request-inputs.js';
+import { twilioMediaStreamsMarkNameStringRule } from '../providers/twilio/rules/media-streams-mark-name-string.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -193,6 +202,16 @@ const plugin = {
     'elevenlabs-check-http-status-before-json': elevenlabsCheckHttpStatusBeforeJsonRule,
     'elevenlabs-conversation-cleanup-on-error': elevenlabsConversationCleanupOnErrorRule,
     'elevenlabs-env-var-validation': elevenlabsEnvVarValidationRule,
+
+    'twilio-validate-webhook-signature': twilioValidateWebhookSignatureRule,
+    'twilio-taskrouter-attributes-match-consumer': twilioTaskrouterAttributesMatchConsumerRule,
+    'twilio-enqueue-task-json-stringify': twilioEnqueueTaskJsonStringifyRule,
+    'twilio-media-streams-key-by-call-sid': twilioMediaStreamsKeyByCallSidRule,
+    'twilio-await-or-catch-rest-calls-in-event-handlers': twilioAwaitOrCatchRestCallsInEventHandlersRule,
+    'twilio-use-twiml-builder-not-string-templates': twilioUseTwimlBuilderNotStringTemplatesRule,
+    'twilio-media-streams-mark-pacing': twilioMediaStreamsMarkPacingRule,
+    'twilio-validate-all-request-inputs': twilioValidateAllRequestInputsRule,
+    'twilio-media-streams-mark-name-string': twilioMediaStreamsMarkNameStringRule,
   },
 } as const;
 
