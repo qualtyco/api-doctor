@@ -31,7 +31,7 @@ npx @api-doctor/cli install
 | [Resend](https://resend.com/docs)                                                       | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/resend/README.md)      |
 | [Supabase](https://supabase.com/docs)                                                   | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md)    |
 | [Auth0](https://auth0.com/docs)                                                         | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md)        |
-| [Firebase](https://firebase.google.com/docs)                                            | [8 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md)     |
+| [Firebase](https://firebase.google.com/docs)                                            | [20 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md)    |
 | [Lovable](https://docs.lovable.dev)                                                     | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/lovable/README.md)      |
 | [Browserbase](https://docs.browserbase.com)                                             | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) |
 | [OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-cua/README.md)   |
