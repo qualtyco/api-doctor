@@ -73,8 +73,23 @@ export async function detectProviders(
     }
 
     // Stage 3: match API URL substrings anywhere in source (e.g. api.resend.com).
+    // A pattern only counts if no OTHER registered provider has a strictly
+    // more specific pattern (one that contains this one as a substring) that
+    // also matches — otherwise a broad host-only pattern (e.g. api.openai.com)
+    // would falsely claim sources that actually match a more specific sibling
+    // provider's path-qualified pattern (e.g. api.openai.com/v1/realtime).
     const urls = provider.detect.urlPatterns ?? [];
-    if (urls.some((u) => allSources.includes(u))) {
+    const matchedUrl = urls.find((u) => {
+      if (!allSources.includes(u)) return false;
+      const isShadowedByMoreSpecificProvider = providers.some((other) => {
+        if (other === provider) return false;
+        return (other.detect.urlPatterns ?? []).some(
+          (otherUrl) => otherUrl !== u && otherUrl.includes(u) && allSources.includes(otherUrl),
+        );
+      });
+      return !isShadowedByMoreSpecificProvider;
+    });
+    if (matchedUrl) {
       detected.set(provider.name, {
         name: provider.name,
         source: 'url-patterns',
