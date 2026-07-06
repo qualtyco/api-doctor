@@ -143,6 +143,22 @@ const rule = {
       return obj?.type === 'Identifier' && svixImports.has(obj.name);
     }
 
+    function isResendWebhooksVerifyCall(n: any): boolean {
+      // Matches `<resend>.webhooks.verify(...)` — Resend's own documented
+      // verification method (https://resend.com/docs/receive-emails).
+      // Accepts any object base (not just an identifier named `resend`) to
+      // reduce false negatives, same tradeoff as isCryptoCreateHmacCall.
+      if (n?.type !== 'CallExpression') return false;
+      const callee = n.callee;
+      if (callee?.type !== 'MemberExpression') return false;
+      const prop = callee.property;
+      if (prop?.type !== 'Identifier' || prop.name !== 'verify') return false;
+      const obj = callee.object;
+      if (obj?.type !== 'MemberExpression') return false;
+      const webhooksProp = obj.property;
+      return webhooksProp?.type === 'Identifier' && webhooksProp.name === 'webhooks';
+    }
+
     function recordFirst(posKey: keyof Handler, handler: Handler, pos: Pos): void {
       // `firstBodyPos` and `firstVerifyPos` use Pos objects.
       const existing = handler[posKey as 'firstBodyPos' | 'firstVerifyPos'] as Pos | undefined;
@@ -159,6 +175,20 @@ const rule = {
       ImportDeclaration(node: any) {
         const importSource = node?.source?.value;
         if (importSource === 'resend') importsResend = true;
+
+        // Also recognize wrapper modules that re-export a Resend client,
+        // e.g. `import { resend } from '@/lib/resend'` — Resend's own docs
+        // use this pattern, and the file never imports the 'resend'
+        // package directly.
+        for (const s of node.specifiers ?? []) {
+          if (
+            (s?.type === 'ImportSpecifier' || s?.type === 'ImportDefaultSpecifier') &&
+            s.local?.type === 'Identifier' &&
+            /^resend$/i.test(s.local.name)
+          ) {
+            importsResend = true;
+          }
+        }
 
         if (importSource === 'svix') {
           for (const s of node.specifiers ?? []) {
@@ -190,6 +220,7 @@ const rule = {
           if (isReqJsonCall(node)) recordFirst('firstBodyPos', handler, pos);
           if (isSvixVerifyCall(node)) recordFirst('firstVerifyPos', handler, pos);
           if (isCryptoCreateHmacCall(node)) recordFirst('firstVerifyPos', handler, pos);
+          if (isResendWebhooksVerifyCall(node)) recordFirst('firstVerifyPos', handler, pos);
         }
       },
 
