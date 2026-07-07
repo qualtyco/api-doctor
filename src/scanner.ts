@@ -23,12 +23,16 @@ const SOURCE_EXT = /\.(tsx?|jsx?)$/;
  * Runs oxlint asynchronously (rather than spawnSync) so the event loop stays
  * free — this is what lets the CLI's spinner actually animate while it waits.
  */
+const NPX_CMD = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+
 function runOxlint(
   args: string[],
   cwd: string,
 ): Promise<{ stdout: string; stderr: string; error?: Error }> {
   return new Promise((resolveRun) => {
-    const child = spawn('npx', args, { cwd });
+    // Windows resolves shims (npx.cmd) only via a shell; spawn's own PATH
+    // lookup doesn't append extensions, so passing 'npx' bare throws ENOENT.
+    const child = spawn(NPX_CMD, args, { cwd });
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (chunk) => {
