@@ -55,6 +55,7 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
+    "check:links": "node scripts/check-docs-links.mjs",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {

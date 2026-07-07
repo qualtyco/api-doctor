@@ -9,6 +9,7 @@ pnpm install        # install deps
 pnpm build          # compile src/ → dist/ (tsup bundles cli.ts + plugin/index.ts)
 pnpm dev            # watch mode
 pnpm test           # vitest run (builds once via globalSetup before workers)
+pnpm check:links    # validate every docs URL in src/providers (404s, soft 404s, stale redirects) — network-bound, run before releases
 ```
 
 Run a single rule's tests (requires a prior build):
@@ -82,8 +83,10 @@ oxlint rule id              →  api-doctor/resend-missing-idempotency-key
 tests/
 ├── fixtures/<provider>/<rule-key>-broken/   should flag (2+ files each)
 ├── fixtures/<provider>/<rule-key>-fixed/    should not flag
+├── fixtures/<provider>/docs-examples/       verbatim official doc samples; scan must match each file's declared expectations
 ├── rules/<rule-key>.test.ts                 one vitest file per rule
 ├── scanner.test.ts                          end-to-end scan()
+├── docs-examples.test.ts                    guards against flagging providers' own doc examples
 ├── reporter/                                snippet, report-builder, cli-output
 └── helpers/lint-rule.ts                     shared oxlint harness
 ```
@@ -112,7 +115,8 @@ Fixture files may be named `*.test.ts` to exercise test-file detection; vitest e
 5. Register manifest in `src/providers/index.ts`
 6. Register rules in `src/plugin/index.ts`
 7. Fixtures and tests under `tests/`
-8. `pnpm build && pnpm test`
+8. `tests/fixtures/<name>/docs-examples/` — verbatim code samples from the official docs, each headed by `// docs-example-source: <url>` and, when advisory rules fire on the minimal sample by design, `// docs-example-expected: <rule-id>, ...` (see `tests/fixtures/resend/docs-examples/`)
+9. `pnpm build && pnpm test` and `pnpm check:links`
 
 ## Rule implementation notes
 
