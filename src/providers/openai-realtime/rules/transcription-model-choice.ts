@@ -13,7 +13,7 @@ const rule = {
     },
     messages: {
       nonStreamingTranscriptionModel:
-        "input_audio_transcription is configured with 'whisper-1', which is not natively streaming and not optimized for realtime sessions.",
+        "This session's input transcription is configured with 'whisper-1', which is not natively streaming and not optimized for realtime sessions.",
     },
     schema: [],
   },
@@ -29,7 +29,15 @@ const rule = {
         const sessionProp = findProperty(node, 'session');
         if (sessionProp?.value?.type !== 'ObjectExpression') return;
 
-        const transcriptionProp = findProperty(sessionProp.value, 'input_audio_transcription');
+        // Legacy/beta shape: session.input_audio_transcription
+        let transcriptionProp = findProperty(sessionProp.value, 'input_audio_transcription');
+        if (!transcriptionProp) {
+          // GA shape: session.audio.input.transcription
+          const audioProp = findProperty(sessionProp.value, 'audio');
+          const inputProp = audioProp?.value?.type === 'ObjectExpression' ? findProperty(audioProp.value, 'input') : null;
+          transcriptionProp =
+            inputProp?.value?.type === 'ObjectExpression' ? findProperty(inputProp.value, 'transcription') : null;
+        }
         if (transcriptionProp?.value?.type !== 'ObjectExpression') return;
 
         const modelProp = findProperty(transcriptionProp.value, 'model');

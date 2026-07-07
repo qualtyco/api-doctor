@@ -13,7 +13,7 @@ const rule = {
     docs: {
       description: 'OpenAI Realtime connections should not pin to a dated preview model snapshot',
       category: 'correctness',
-      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime-sessions',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets',
       rationale:
         "Dated preview snapshots are the category of model id OpenAI has historically retired with advance-notice sunset windows. Pinning to a dated preview snapshot rather than the floating GA alias (or a current dated GA snapshot) maximizes exposure to an eventual retirement, with no code path to detect or gracefully react to a model_not_found-style error if/when that happens.",
       recommended: true,

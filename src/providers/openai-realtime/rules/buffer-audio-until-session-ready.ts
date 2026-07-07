@@ -1,7 +1,14 @@
 const QUEUE_CALL_NAME_PATTERN = /^(push|unshift|enqueue|queue)$/i;
 
-function isReadyStateOpenCheck(test: any): boolean {
-  if (test?.type !== 'BinaryExpression' || (test.operator !== '===' && test.operator !== '==')) return false;
+/**
+ * Classifies a test comparing `readyState` against OPEN: 'is-open' for
+ * `readyState === OPEN`, 'is-not-open' for `readyState !== OPEN`, else null.
+ */
+function readyStateOpenCheckKind(test: any): 'is-open' | 'is-not-open' | null {
+  if (test?.type !== 'BinaryExpression') return null;
+  const isEq = test.operator === '===' || test.operator === '==';
+  const isNeq = test.operator === '!==' || test.operator === '!=';
+  if (!isEq && !isNeq) return null;
 
   const isReadyStateMember = (n: any) =>
     n?.type === 'MemberExpression' && n.property?.type === 'Identifier' && n.property.name === 'readyState';
@@ -10,8 +17,11 @@ function isReadyStateOpenCheck(test: any): boolean {
     (n?.type === 'MemberExpression' && n.property?.type === 'Identifier' && n.property.name === 'OPEN') ||
     (n?.type === 'Literal' && n.value === 1);
 
-  return (isReadyStateMember(test.left) && isOpenValue(test.right)) ||
+  const matches =
+    (isReadyStateMember(test.left) && isOpenValue(test.right)) ||
     (isReadyStateMember(test.right) && isOpenValue(test.left));
+  if (!matches) return null;
+  return isEq ? 'is-open' : 'is-not-open';
 }
 
 /** True if `node` contains a call that looks like enqueueing onto a buffer (push/unshift/enqueue/queue). */
@@ -44,7 +54,7 @@ const rule = {
     docs: {
       description: 'Audio sent before an OpenAI Realtime socket is open must be buffered, not dropped',
       category: 'reliability',
-      docsUrl: 'https://developers.openai.com/api/docs/voice/media-streams/websocket-messages',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/client-events',
       rationale:
         'Caller audio can arrive before the Realtime WebSocket finishes its connect + session.update round-trip. A readyState !== OPEN branch that only logs and returns silently drops every audio chunk that arrives in that window, meaning the first fragment of speech is lost to translation/processing on every call.',
       recommended: true,
@@ -58,11 +68,16 @@ const rule = {
   create(context: any) {
     return {
       IfStatement(node: any) {
-        if (!isReadyStateOpenCheck(node.test)) return;
-        if (!node.alternate) return;
-        if (hasQueueCall(node.alternate)) return;
+        const kind = readyStateOpenCheckKind(node.test);
+        if (!kind) return;
 
-        context.report({ node: node.alternate, messageId: 'audioDroppedNotBuffered' });
+        // The branch taken while the socket is not yet open: the else branch
+        // of `=== OPEN`, or the consequent of `!== OPEN` (early-return drop).
+        const notOpenBranch = kind === 'is-open' ? node.alternate : node.consequent;
+        if (!notOpenBranch) return;
+        if (hasQueueCall(notOpenBranch)) return;
+
+        context.report({ node: notOpenBranch, messageId: 'audioDroppedNotBuffered' });
       },
     };
   },

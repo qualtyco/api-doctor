@@ -28,7 +28,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       resultRule: 'openai-realtime/reliability/handle-error-server-event',
       message: 'This Realtime message handler branches on event types but never checks for the API-level "error" event.',
       fix: "Add an explicit branch for message.type === 'error' that logs the error and surfaces/fails over, instead of letting it fall through silently.",
-      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime_server_events',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/server-events',
       severity: 'error',
     },
     {
@@ -44,7 +44,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       resultRule: 'openai-realtime/correctness/avoid-dated-preview-snapshots',
       message: 'The Realtime connection is pinned to a dated preview model snapshot instead of the GA alias.',
       fix: "Use the GA model id (e.g. 'gpt-realtime') or a current dated snapshot tracked against OpenAI's deprecation notices.",
-      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime-sessions',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets',
       severity: 'warning',
     },
     {
@@ -52,7 +52,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       resultRule: 'openai-realtime/correctness/verify-deprecated-session-fields',
       message: "The session config sets 'temperature', a field not documented in the current GA Realtime sessions schema.",
       fix: 'Re-verify this field against the current sessions reference before relying on it, or drop it and control determinism via turn_detection/instructions instead.',
-      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime-sessions',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets',
       severity: 'warning',
     },
     {
@@ -60,7 +60,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       resultRule: 'openai-realtime/reliability/buffer-audio-until-session-ready',
       message: 'Audio sent before the Realtime socket reaches the open state is dropped instead of buffered.',
       fix: 'Queue outbound input_audio_buffer.append messages until the open event fires, then flush them in order.',
-      docsUrl: 'https://developers.openai.com/api/docs/voice/media-streams/websocket-messages',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/client-events',
       severity: 'warning',
     },
     {
@@ -74,7 +74,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
     {
       key: 'openai-realtime-transcription-model-choice',
       resultRule: 'openai-realtime/correctness/transcription-model-choice',
-      message: "input_audio_transcription is configured with 'whisper-1', which is not natively streaming and not optimized for realtime sessions.",
+      message: "The session's input transcription is configured with 'whisper-1', which is not natively streaming and not optimized for realtime sessions.",
       fix: "Switch to 'gpt-realtime-whisper' if transcription output is consumed, or drop input_audio_transcription entirely if it isn't.",
       docsUrl: 'https://developers.openai.com/api/docs/guides/realtime-transcription',
       severity: 'info',

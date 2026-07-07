@@ -6,7 +6,7 @@ const rule = {
     docs: {
       description: "OpenAI Realtime session.update payloads should not rely on an unverified 'temperature' field",
       category: 'correctness',
-      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime-sessions',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets',
       rationale:
         "Two independent fetches of the current Realtime sessions API reference did not surface 'temperature' as a documented session field. Sending an undocumented field is typically harmless (silently ignored), but code that depends on an assumed constraint (e.g. 'a hard floor of 0.6') for behavior like deterministic output is relying on a claim that is no longer traceable to any current, citable source.",
       recommended: true,

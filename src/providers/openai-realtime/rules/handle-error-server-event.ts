@@ -43,7 +43,7 @@ const rule = {
     docs: {
       description: 'OpenAI Realtime message handlers must check for the API-level "error" server event',
       category: 'reliability',
-      docsUrl: 'https://developers.openai.com/api/docs/api-reference/realtime_server_events',
+      docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/server-events',
       rationale:
         "The Realtime API's own error server event — distinct from the WebSocket transport-level error event — covers rate limits, invalid session.update payloads, content-moderation blocks, and retired/invalid model ids. A message handler that branches on event types but never checks for 'error' lets the call continue silently with translation/processing permanently dead for that leg, with no operator-visible signal of why.",
       recommended: true,

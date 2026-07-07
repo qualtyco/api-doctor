@@ -13,7 +13,7 @@ const rule = {
       category: 'integration',
       rationale:
         'OpenAI documents that a stable per-end-user safety_identifier lets policy violations be attributed and acted on per end user. Without one on a multi-tenant integration routing many customers through a single shared API key, a single customer triggering a high-confidence policy-violation heuristic can result in access being temporarily revoked for the entire organization, not just the offending identifier.',
-      docsUrl: 'https://help.openai.com/en/articles/5428082-how-to-incorporate-a-safety-identifier',
+      docsUrl: 'https://developers.openai.com/api/docs/guides/safety-best-practices',
       recommended: true,
     },
     messages: {
