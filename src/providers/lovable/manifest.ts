@@ -24,7 +24,7 @@ export const lovableManifest: ProviderManifest = {
       message:
         'A paid-looking flag is set via a direct database update with no payment-provider or Edge Function call.',
       fix: 'Move the purchase behind an Edge Function that creates a payment-provider checkout session, and only flip the flag from a server-side webhook after payment is confirmed.',
-      docsUrl: 'https://docs.lovable.dev/features/cloud',
+      docsUrl: 'https://docs.lovable.dev/integrations/stripe',
       severity: 'error',
     },
     {
@@ -32,7 +32,7 @@ export const lovableManifest: ProviderManifest = {
       resultRule: 'lovable/correctness/expiry-column-never-checked',
       message: 'An expiry column is written but never compared against the current time anywhere in this file.',
       fix: 'Filter or sort by the expiry column against the current time, or add a scheduled Edge Function / pg_cron job that clears the flag once it passes.',
-      docsUrl: 'https://docs.lovable.dev/features/cloud',
+      docsUrl: 'https://docs.lovable.dev/integrations/stripe',
       severity: 'warning',
     },
     {
@@ -40,7 +40,7 @@ export const lovableManifest: ProviderManifest = {
       resultRule: 'lovable/correctness/silent-catch-on-provider-call',
       message: 'A catch block around an LLM provider call has no logging, so failures look like "no key configured."',
       fix: 'console.error (or log to your error tracker) the failure reason — status code and error body — before falling through.',
-      docsUrl: 'https://docs.lovable.dev/features/cloud',
+      docsUrl: 'https://docs.lovable.dev/integrations/cloud',
       severity: 'warning',
     },
   ],

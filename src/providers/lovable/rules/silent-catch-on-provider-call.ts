@@ -15,7 +15,7 @@ const rule = {
       category: 'correctness',
       rationale:
         'Returning null/undefined from a bare catch with no logging makes every failure mode — missing key, expired key, rate limit, malformed response, network error — look identical to "no key configured." If a deployment\'s provider key starts failing in production, this is invisible: there is nothing in the browser or error-tracking logs to distinguish a real outage from an intentionally-unconfigured feature.',
-      docsUrl: 'https://docs.lovable.dev/features/cloud',
+      docsUrl: 'https://docs.lovable.dev/integrations/cloud',
       recommended: true,
     },
     messages: {

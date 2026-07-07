@@ -15,7 +15,7 @@ const rule = {
       category: 'correctness',
       rationale:
         "Writing a *_until/*_expires_at column without ever comparing it to the current time anywhere in the codebase means the expiry is purely cosmetic — whatever it was meant to gate (a boost, a trial, a temporary unlock) never actually expires once granted, whether it was granted legitimately or through an unrelated bug.",
-      docsUrl: 'https://docs.lovable.dev/features/cloud',
+      docsUrl: 'https://docs.lovable.dev/integrations/stripe',
       recommended: true,
     },
     messages: {

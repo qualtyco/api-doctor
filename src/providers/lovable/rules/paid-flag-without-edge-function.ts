@@ -18,7 +18,7 @@ const rule = {
       owasp: 'A04:2021 – Insecure Design',
       rationale:
         'Lovable documents payment processing as Edge Function territory specifically so purchase/premium-access flags are only ever set after a payment provider confirms payment server-side. A handler that writes a paid-looking flag straight from the client with no payment call in between either never actually charges anyone, or — even if a charge happens elsewhere — leaves the flag itself freely settable by any caller with write access to the row.',
-      docsUrl: 'https://docs.lovable.dev/features/cloud',
+      docsUrl: 'https://docs.lovable.dev/integrations/stripe',
       recommended: true,
     },
     messages: {
