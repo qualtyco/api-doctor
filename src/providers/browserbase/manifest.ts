@@ -30,7 +30,7 @@ export const browserbaseManifest: ProviderManifest = {
       resultRule: 'browserbase/security/session-id-requires-ownership-check',
       message: 'sessionId flows into a live-view/recording call with no ownership check.',
       fix: 'Look up the owning project/org by sessionId and verify the requesting user has access before calling sessions.debug()/recording.retrieve().',
-      docsUrl: 'https://docs.browserbase.com/features/session-live-view',
+      docsUrl: 'https://docs.browserbase.com/platform/browser/observability/session-live-view',
       severity: 'warning',
     },
     {
@@ -38,7 +38,7 @@ export const browserbaseManifest: ProviderManifest = {
       resultRule: 'browserbase/correctness/no-concurrent-shared-context',
       message: 'The same Context id is passed into every session in a concurrent Promise.all batch.',
       fix: 'Serialize sessions that share a context id, or create a fresh Context per concurrent run.',
-      docsUrl: 'https://docs.browserbase.com/features/contexts',
+      docsUrl: 'https://docs.browserbase.com/platform/browser/core-features/contexts',
       severity: 'error',
     },
     {
@@ -46,7 +46,7 @@ export const browserbaseManifest: ProviderManifest = {
       resultRule: 'browserbase/correctness/mobile-device-requires-os-setting',
       message: 'A "mobile" device branch resizes the viewport but never sets browserSettings.os.',
       fix: "Set browserSettings.os = 'mobile' (or 'tablet') alongside the viewport resize — the Node SDK's device-emulation lever is `os`, not a fingerprint object.",
-      docsUrl: 'https://docs.browserbase.com/features/stealth-mode',
+      docsUrl: 'https://docs.browserbase.com/platform/identity/verified-customization',
       severity: 'error',
     },
     {

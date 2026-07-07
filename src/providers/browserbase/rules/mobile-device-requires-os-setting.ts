@@ -63,7 +63,7 @@ const rule = {
       category: 'correctness',
       rationale:
         "The Node SDK's device emulation lever is browserSettings.os: 'mobile' | 'tablet' — there is no fingerprint API in this SDK. A \"mobile\" session that only resizes the Playwright viewport is still a desktop Chrome browser with a desktop user-agent string in a small window. Sites that branch behavior on UA/touch capability (the majority of responsive sites) never actually exercise their mobile code path, silently undermining \"test on mobile\" results.",
-      docsUrl: 'https://docs.browserbase.com/features/stealth-mode',
+      docsUrl: 'https://docs.browserbase.com/platform/identity/verified-customization',
       recommended: true,
     },
     messages: {

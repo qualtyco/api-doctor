@@ -89,7 +89,7 @@ const rule = {
       category: 'correctness',
       rationale:
         'Browserbase\'s docs state explicitly: "Avoid having multiple sessions using the same Context at once. Sites may force a log out." Passing the same browserSettings.context.id into every iteration of a Promise.all(items.map(...)) batch creates 2+ Browserbase sessions simultaneously attached to one Context, producing non-deterministic, flaky failures when a site force-logs-out one session because another concurrently authenticated against the same context.',
-      docsUrl: 'https://docs.browserbase.com/features/contexts',
+      docsUrl: 'https://docs.browserbase.com/platform/browser/core-features/contexts',
       recommended: true,
     },
     messages: {

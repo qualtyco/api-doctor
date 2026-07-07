@@ -40,7 +40,7 @@ const rule = {
       cwe: 'CWE-862',
       rationale:
         'A session id alone is not an authorization token — it is an opaque identifier that can leak via links, logs, screenshots, or support tickets. A handler that resolves a sessionId straight into sessions.debug()/sessions.recording.retrieve() with no ownership/org-membership check lets any authenticated caller view or replay a session that belongs to someone else.',
-      docsUrl: 'https://docs.browserbase.com/features/session-live-view',
+      docsUrl: 'https://docs.browserbase.com/platform/browser/observability/session-live-view',
       recommended: true,
     },
     messages: {
