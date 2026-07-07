@@ -15,7 +15,7 @@ export const resendManifest: ProviderManifest = {
       message:
         'This webhook handler appears to process Resend events without verifying the webhook signature.',
       fix: 'Verify incoming webhooks with Svix (Resend uses Svix signatures). Validate headers and payload before handling events.',
-      docsUrl: 'https://resend.com/docs/dashboard/webhooks/introduction#verify-webhook-signatures',
+      docsUrl: 'https://resend.com/docs/webhooks/verify-webhooks-requests',
       severity: 'error',
     },
     {
@@ -95,7 +95,7 @@ export const resendManifest: ProviderManifest = {
       resultRule: 'resend/reliability/webhook-no-idempotency',
       message: 'Resend webhook handler does not deduplicate retried events.',
       fix: 'Track processed event ids (e.g. event.data.email_id) in a store or set, since Resend retries for 24h.',
-      docsUrl: 'https://resend.com/docs/dashboard/webhooks/introduction',
+      docsUrl: 'https://resend.com/docs/webhooks/introduction',
       severity: 'warning',
     },
     {

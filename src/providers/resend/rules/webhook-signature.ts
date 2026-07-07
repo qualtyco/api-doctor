@@ -13,7 +13,7 @@ const rule = {
       owasp: 'API2:2023 Broken Authentication',
       rationale:
         'Webhook endpoints are public URLs, so anyone who learns the path can POST a forged payload. Without verifying the Svix signature first, an attacker can fake delivery, bounce, or complaint events and drive your application into the wrong state. Validating the signature against your webhook secret before reading the body ensures the event genuinely came from Resend.',
-      docsUrl: 'https://resend.com/docs/dashboard/webhooks/introduction#verify-webhook-signatures',
+      docsUrl: 'https://resend.com/docs/webhooks/verify-webhooks-requests',
       recommended: true,
     },
     messages: {
@@ -33,6 +33,7 @@ const rule = {
       end: Pos;
       firstBodyPos?: Pos;
       firstVerifyPos?: Pos;
+      firstRawBodyPos?: Pos;
     };
 
     const postHandlers: Handler[] = [];
@@ -115,6 +116,20 @@ const rule = {
       return obj?.type === 'Identifier' && (obj.name === 'req' || obj.name === 'request');
     }
 
+    // `req.text()` — reading the raw body. Tracked separately from
+    // firstBodyPos because the documented verification flow is precisely
+    // "read the raw text, then verify it", so a raw read before verify is
+    // fine; it only marks the handler as one that consumes the request.
+    function isReqTextCall(n: any): boolean {
+      if (n?.type !== 'CallExpression') return false;
+      const callee = n.callee;
+      if (callee?.type !== 'MemberExpression') return false;
+      const prop = callee.property;
+      if (prop?.type !== 'Identifier' || prop.name !== 'text') return false;
+      const obj = callee.object;
+      return obj?.type === 'Identifier' && (obj.name === 'req' || obj.name === 'request');
+    }
+
     function isBodyMember(n: any): boolean {
       if (n?.type !== 'MemberExpression') return false;
       const prop = n.property;
@@ -145,7 +160,7 @@ const rule = {
 
     function isResendWebhooksVerifyCall(n: any): boolean {
       // Matches `<resend>.webhooks.verify(...)` — Resend's own documented
-      // verification method (https://resend.com/docs/receive-emails).
+      // verification method (https://resend.com/docs/dashboard/receiving/introduction).
       // Accepts any object base (not just an identifier named `resend`) to
       // reduce false negatives, same tradeoff as isCryptoCreateHmacCall.
       if (n?.type !== 'CallExpression') return false;
@@ -218,6 +233,7 @@ const rule = {
           if (!within(handler, node)) continue;
 
           if (isReqJsonCall(node)) recordFirst('firstBodyPos', handler, pos);
+          if (isReqTextCall(node)) recordFirst('firstRawBodyPos', handler, pos);
           if (isSvixVerifyCall(node)) recordFirst('firstVerifyPos', handler, pos);
           if (isCryptoCreateHmacCall(node)) recordFirst('firstVerifyPos', handler, pos);
           if (isResendWebhooksVerifyCall(node)) recordFirst('firstVerifyPos', handler, pos);
@@ -237,6 +253,12 @@ const rule = {
       'Program:exit'() {
         if (!importsResend) return;
         for (const handler of postHandlers) {
+          // A POST route that never consumes the request (e.g. the official
+          // "send email" quickstart route) is not a webhook handler — only
+          // handlers that read the request body process webhook payloads.
+          const consumesRequest = handler.firstBodyPos || handler.firstRawBodyPos;
+          if (!consumesRequest) continue;
+
           if (!handler.firstVerifyPos) {
             context.report({ node: handler.node, messageId: 'missingVerification' });
             continue;
