@@ -42,7 +42,15 @@ function isValidationLikeCall(node: any): boolean {
         ? callee.property.name
         : undefined;
   if (!name) return false;
-  return /valid|^test$|check|assert|schema/i.test(name);
+  if (/valid|^test$|check|assert|schema/i.test(name)) return true;
+  // zod-style schema validation: schema.parse(data) / safeParse(data).
+  // `.parse` on JSON is the external-parse marker, not validation — exclude it.
+  if (callee?.type === 'MemberExpression') {
+    if (/^(safeParse|safeParseAsync|parseAsync)$/.test(name)) return true;
+    const objName = callee.object?.type === 'Identifier' ? callee.object.name : undefined;
+    if (name === 'parse' && objName !== 'JSON') return true;
+  }
+  return false;
 }
 
 type FnScope = { node: any; start: number; end: number; parsePos?: number; validatePos?: number; writePos?: number; writeNode?: any };

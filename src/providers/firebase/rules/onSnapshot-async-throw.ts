@@ -1,5 +1,3 @@
-import { someDescendant } from '../utils.js';
-
 const rule = {
   meta: {
     type: 'suggestion',
@@ -7,13 +5,13 @@ const rule = {
       description: 'throw inside async onSnapshot callback creates an unhandled promise rejection',
       category: 'reliability',
       rationale:
-        'onSnapshot does not handle Promise rejections from its callback. A throw inside an async callback becomes an unhandled rejection, silently terminating the listener and leaving the UI in a broken state with no error feedback.',
+        'onSnapshot ignores the promise returned by an async callback, so a throw inside one becomes an unhandled promise rejection: the error never reaches the UI or the onSnapshot error callback (which only fires for stream errors), and in Node it can crash the process. The listener keeps delivering snapshots, but every one that hits the throw fails invisibly.',
       docsUrl: 'https://firebase.google.com/docs/firestore/query-data/listen#handle_listen_errors',
       recommended: true,
     },
     messages: {
       asyncThrowInSnapshot:
-        'throw inside an async onSnapshot callback creates an unhandled promise rejection. The listener silently stops. Use return with error logging or the onSnapshot error callback instead.',
+        'throw inside an async onSnapshot callback creates an unhandled promise rejection — the error surfaces nowhere. Catch it in the callback and set error state instead of throwing.',
     },
     schema: [],
   },

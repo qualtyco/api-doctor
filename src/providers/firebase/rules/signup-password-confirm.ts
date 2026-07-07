@@ -39,8 +39,13 @@ const rule = {
 
       BinaryExpression(node: any) {
         if (node.operator !== '===' && node.operator !== '==' && node.operator !== '!==' && node.operator !== '!=') return;
+        // Bare `confirmPassword` or a member access like `form.confirmPassword`
         const mentionsConfirm = (n: any) =>
-          n?.type === 'Identifier' && n.name === 'confirmPassword';
+          (n?.type === 'Identifier' && n.name === 'confirmPassword') ||
+          (n?.type === 'MemberExpression' &&
+            !n.computed &&
+            n.property?.type === 'Identifier' &&
+            n.property.name === 'confirmPassword');
         if (mentionsConfirm(node.left) || mentionsConfirm(node.right)) {
           hasPasswordComparison = true;
         }

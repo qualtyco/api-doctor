@@ -5,7 +5,7 @@ const rule = {
       description: 'Firestore array field updated with read-modify-write spread/filter instead of arrayUnion/arrayRemove',
       category: 'correctness',
       rationale:
-        'Spreading an array or using filter() inside updateDoc() performs a non-atomic read-modify-write that loses concurrent updates. Firestore provides arrayUnion() and arrayRemove() specifically for atomic array updates that do not require reading the document first.',
+        'Spreading an array or using filter() inside updateDoc() performs a non-atomic read-modify-write that loses concurrent updates. Firestore provides arrayUnion() and arrayRemove() specifically for atomic array updates that do not require reading the document first. Caveat: arrayRemove() matches whole element values — to remove object items by a predicate (e.g. by id), use runTransaction() instead so the read-modify-write is atomic.',
       docsUrl: 'https://firebase.google.com/docs/firestore/manage-data/add-data#update_elements_in_an_array',
       recommended: true,
     },

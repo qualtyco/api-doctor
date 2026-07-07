@@ -7,13 +7,13 @@ const rule = {
       description: 'Firestore write includes editor.getJSON() without a document size guard',
       category: 'reliability',
       rationale:
-        'Firestore documents have a 1 MiB limit. When a rich-text editor stores base64 images inline, a single paste can push the document over the limit. The write silently fails with INVALID_ARGUMENT. Always check document size before calling updateDoc/setDoc when the payload includes editor JSON.',
+        'Firestore documents have a 1 MiB limit. When a rich-text editor stores base64 images inline, a single paste can push the document over the limit. The write is rejected with INVALID_ARGUMENT — and if that rejection is not handled, nothing surfaces to the user. Check document size (e.g. new Blob([JSON.stringify(payload)]).size) before calling updateDoc/setDoc when the payload includes editor JSON.',
       docsUrl: 'https://firebase.google.com/docs/firestore/quotas#limits',
       recommended: true,
     },
     messages: {
       missingDocumentSizeGuard:
-        'Firestore write includes editor.getJSON() without a document size check. Base64 images can exceed the 1 MiB Firestore limit, silently failing the write. Add a Blob size guard before calling updateDoc/setDoc.',
+        'Firestore write includes editor.getJSON() without a document size check. Base64 images can exceed the 1 MiB Firestore limit and the write is rejected. Add a size guard (new Blob([JSON.stringify(payload)]).size) before calling updateDoc/setDoc.',
     },
     schema: [],
   },

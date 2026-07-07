@@ -39,10 +39,14 @@ const rule = {
         if (callee?.type !== 'Identifier') return;
 
         if (initializeAppLocalName && callee.name === initializeAppLocalName) {
-          initializeAppCalls.push(node);
+          // initializeApp(config, 'name') creates a named secondary app — no collision with [DEFAULT]
+          if ((node.arguments ?? []).length < 2) {
+            initializeAppCalls.push(node);
+          }
         }
 
-        if (callee.name === 'getApps') {
+        // getApp() inside try/catch is the other idempotency pattern — treat both as guards
+        if (callee.name === 'getApps' || callee.name === 'getApp') {
           hasGetAppsCall = true;
         }
       },

@@ -1,5 +1,3 @@
-import { someDescendant } from '../utils.js';
-
 const rule = {
   meta: {
     type: 'problem',
@@ -20,14 +18,13 @@ const rule = {
     schema: [],
   },
   create(context: any) {
-    const EXPIRED_YEAR = 2025;
-
     function checkStringForExpiredDate(value: string, reportNode: any) {
-      const re = /timestamp\.date\(\s*(\d{4})\s*,/g;
+      const re = /timestamp\.date\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)/g;
       let match: RegExpExecArray | null;
       while ((match = re.exec(value)) !== null) {
-        const year = parseInt(match[1], 10);
-        if (year <= EXPIRED_YEAR) {
+        const [, year, month, day] = match;
+        const expiry = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+        if (expiry.getTime() <= Date.now()) {
           context.report({ node: reportNode, messageId: 'firestoreRulesExpired' });
           return;
         }

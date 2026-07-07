@@ -2,16 +2,16 @@ const rule = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: 'new Date() used for Firestore timestamp instead of Timestamp.now() or serverTimestamp()',
+      description: 'new Date() used for Firestore timestamp instead of serverTimestamp()',
       category: 'correctness',
       rationale:
-        'While Firestore auto-converts Date objects on write, mixing new Date() with Timestamp.now() creates type inconsistencies. Firestore security rules that compare request.resource.data.createdAt against request.time expect a Timestamp on both sides; a bare Date object can cause silent rule evaluation failures.',
+        'Firestore auto-converts Date objects to Timestamps on write, so new Date() and Timestamp.now() are equivalent — both use the client clock, which cannot be trusted (skewed or deliberately changed clocks produce wrong orderings). serverTimestamp() stamps the value on the server instead, and it is the only option that satisfies security rules comparing a field against request.time (e.g. createdAt == request.time), which reject both new Date() and Timestamp.now().',
       docsUrl: 'https://firebase.google.com/docs/reference/js/firestore_.timestamp',
       recommended: true,
     },
     messages: {
       useTimestampNow:
-        'Use Timestamp.now() or serverTimestamp() instead of new Date() for Firestore timestamp fields. new Date() creates type inconsistencies with security rules that compare against request.time.',
+        'Use serverTimestamp() instead of new Date() for Firestore timestamp fields. new Date() uses the untrusted client clock and fails rules that compare against request.time.',
     },
     schema: [],
   },
@@ -21,7 +21,7 @@ const rule = {
     return {
       ImportDeclaration(node: any) {
         const src = node.source?.value;
-        if (typeof src === 'string' && (src.startsWith('firebase/') || src === 'firebase-admin/firestore')) {
+        if (typeof src === 'string' && (src.startsWith('firebase/firestore') || src === 'firebase-admin/firestore')) {
           importsFromFirestore = true;
         }
       },

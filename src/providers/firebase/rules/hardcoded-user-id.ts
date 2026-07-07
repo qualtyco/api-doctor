@@ -1,3 +1,5 @@
+import { isInsideTestFile } from '../utils.js';
+
 const rule = {
   meta: {
     type: 'problem',
@@ -18,6 +20,10 @@ const rule = {
     schema: [],
   },
   create(context: any) {
+    if (isInsideTestFile(String(context.filename ?? ''))) {
+      return {};
+    }
+
     const USER_ID_NAMES = new Set(['userId', 'uid', 'userID', 'user_id']);
 
     return {

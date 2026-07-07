@@ -19,8 +19,8 @@ const rule = {
       cwe: 'CWE-285',
       owasp: 'A04:2021 Insecure Design',
       rationale:
-        'Firebase web API keys are public by design and only identify the project to Google\'s backend — they are not a secret. The only things standing between an attacker who clones the client config and your database/auth quota are Security Rules and App Check. A file that calls initializeApp but never initializeAppCheck leaves App Check unconfigured, so any client presenting a valid project config (not necessarily yours) can reach Firebase Auth and, subject to rules, the database.',
-      docsUrl: 'https://firebase.google.com/docs/database/web/start',
+        'Firebase web API keys are public by design and only identify the project to Google\'s backend — they are not a secret. The only things standing between an attacker who clones the client config and your database/auth quota are Security Rules and App Check. A file that calls initializeApp but never initializeAppCheck leaves App Check unconfigured, so any client presenting a valid project config (not necessarily yours) can reach Firebase Auth and, subject to rules, the database. Note the client-side call alone is not enough: App Check only blocks traffic once enforcement is turned on per-product in the Firebase console.',
+      docsUrl: 'https://firebase.google.com/docs/app-check/web/recaptcha-provider',
       recommended: true,
     },
     messages: {
