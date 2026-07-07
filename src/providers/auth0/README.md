@@ -23,14 +23,14 @@ JWT verification correctness and payload trust in account linking.
 
 | Rule | Severity | CWE / OWASP | Why it matters | Auth0 docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- | --- |
-| Required audience validation | error | CWE-347, A07:2021 | Audience validation is silently skipped if AUTH0_AUDIENCE is unset in the environment, allowing tokens issued for other APIs to pass authentication. | [JWT for server-to-server](https://auth0.com/docs/get-started/authentication-and-authorization/client-credentials-flow) | [required-audience-validation.ts](rules/required-audience-validation.ts) | [test](../../../tests/rules/auth0-required-audience-validation.test.ts) |
+| Required audience validation | error | CWE-347, A07:2021 | Audience validation is silently skipped if AUTH0_AUDIENCE is unset in the environment, allowing tokens issued for other APIs to pass authentication. Applies equally to direct `jwt.verify()` and `express-jwt` middleware — either is a valid verification path, as long as `audience` is unconditional in it. | [Validate JSON Web Tokens](https://auth0.com/docs/secure/tokens/json-web-tokens/validate-json-web-tokens) | [required-audience-validation.ts](rules/required-audience-validation.ts) | [test](../../../tests/rules/auth0-required-audience-validation.test.ts) |
 | No account link without verified email | error | CWE-640, A01:2021 | User accounts are silently linked by matching an unverified email claim to an existing account, enabling account takeover if the email comes from an untrusted source. | [Link user accounts](https://auth0.com/docs/manage-users/user-accounts/user-account-linking) | [no-account-link-without-verified-email.ts](rules/no-account-link-without-verified-email.ts) | [test](../../../tests/rules/auth0-no-account-link-without-verified-email.test.ts) |
 
 #### Security fixtures
 
 | Rule | Broken (`should flag`) | Fixed (`should not flag`) |
 | --- | --- | --- |
-| Required audience validation | `auth0-required-audience-validation-broken/no-audience-check.ts`, `substring-includes-audience.ts` | `auth0-required-audience-validation-fixed/eq-audience-check.ts`, `literal-true-string-check-adversarial.ts` |
+| Required audience validation | `auth0-required-audience-validation-broken/jwt-verify-missing-audience.ts` (direct `jwt.verify()`), `express-jwt-conditional-audience.ts` (middleware) | `auth0-required-audience-validation-fixed/jwt-verify-with-audience.ts` (direct `jwt.verify()`), `express-jwt-fail-closed-audience.ts` (middleware) |
 | No account link without verified email | `auth0-no-account-link-without-verified-email-broken/prisma-findunique-relink.ts`, `userinfo-fallback-findfirst.ts` | `auth0-no-account-link-without-verified-email-fixed/namespaced-verified-claim-gate.ts`, `verified-gate-before-lookup-adversarial.ts` |
 
 ---
@@ -41,7 +41,9 @@ Token parsing logic and claim inspection.
 
 | Rule | Severity | Why it matters | Auth0 docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
-| Dead claim verification check | error | The email_verified claim check is syntactically dead code and can never be true, masking the gate that prevents account takeover via unverified email (see Security section). | [Decode tokens](https://auth0.com/docs/get-started/authentication-and-authorization/validate-tokens/jwt-based-access-control) | [dead-claim-verification-check.ts](rules/dead-claim-verification-check.ts) | [test](../../../tests/rules/auth0-dead-claim-verification-check.test.ts) |
+| Dead claim verification check | error | The email_verified claim check is syntactically dead code and can never be true, masking the gate that prevents account takeover via unverified email (see Security section). | [Decode tokens](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims) | [dead-claim-verification-check.ts](rules/dead-claim-verification-check.ts) | [test](../../../tests/rules/auth0-dead-claim-verification-check.test.ts) |
+
+> **Dead claim verification check — the `true`/`false` exception:** `.includes('true')` / `.includes('false')` against a stringified boolean claim is allowed — those are the only two strings a stringified boolean can produce, so the check is functional (if unidiomatic). Anything else (`'yes'`, `'1'`, wrong casing, etc.) is unreachable, which is exactly the copy-paste/typo mistake this rule catches.
 
 #### Correctness fixtures
 
@@ -58,6 +60,8 @@ JWKS cache refresh on key rotation.
 | Rule | Severity | Why it matters | Auth0 docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
 | JWKS refresh on unknown kid | warning | JWKS is cached for 24 hours with no fallback when a token's key ID is unknown; after Auth0 rotates signing keys, new tokens fail to validate for up to 24h until the cache naturally expires. | [JWKS endpoint](https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-key-set-properties) | [jwks-refresh-on-unknown-kid.ts](rules/jwks-refresh-on-unknown-kid.ts) | [test](../../../tests/rules/auth0-jwks-refresh-on-unknown-kid.test.ts) |
+
+> **In plain terms:** Auth0 occasionally swaps its signing keys, like changing a lock. Apps cache the key set instead of fetching it on every request. If Auth0 swaps keys while that cache is still "fresh," a new token's key ID (`kid`) won't be found — and unless the code goes and fetches a fresh copy right then, every legitimate token fails until the cache times out on its own (up to 24h). This rule flags key-lookup code with no such fallback.
 
 #### Reliability fixtures
 

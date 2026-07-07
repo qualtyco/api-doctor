@@ -3,6 +3,19 @@
  * checks against a boolean OIDC claim — stringifying a boolean produces
  * only "true" or "false", so any substring check other than those two
  * literal strings can never match and the guard is dead code.
+ *
+ * Typical origin: defensive code written in case a claim arrives as a real
+ * boolean or a stringified one, e.g.
+ *   const isVerified = String(claims.email_verified).includes('yes');
+ * `String(true)` is exactly `"true"`, so `.includes('yes')` is always false —
+ * `isVerified` can never become true and the branch it guards never runs.
+ * `.includes('true')` / `.includes('false')` are exempted since those are the
+ * only two strings a stringified boolean can ever produce.
+ *
+ * This is also the failure mode that lets no-account-link-without-verified-email
+ * miss a real gap: that rule only checks whether `email_verified` is
+ * *referenced* somewhere in the function, not whether the reference actually
+ * does anything — a dead check like this one still counts as "seen".
  */
 const rule = {
   meta: {

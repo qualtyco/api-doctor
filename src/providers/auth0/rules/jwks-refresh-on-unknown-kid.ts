@@ -3,6 +3,19 @@
  * === header.kid)`) that never retries with a forced refresh when the kid
  * lookup misses — Auth0 key rotation then causes failures until the cache
  * naturally expires.
+ *
+ * In plain terms: Auth0's signing keys aren't permanent — it swaps them out
+ * (rotation) from time to time, like changing a lock. To avoid re-fetching
+ * the key set on every single request, apps cache it for a while (e.g. 24h).
+ * If Auth0 rotates keys while that cache is still "fresh," an incoming token
+ * arrives signed with a key the app has never fetched — the `kid` lookup
+ * comes up empty. The only fix at that point is to go get a new copy of the
+ * key set right then, instead of waiting for the cache to expire on its own.
+ * 
+ * This rule looks for exactly that: a function that resolves a key by `kid`
+ * but has no "go fetch a fresh copy" fallback when the lookup misses — so
+ * during the window between a real-world rotation and the cache's natural
+ * expiry, every legitimate new token fails to verify for no good reason.
  */
 const rule = {
   meta: {

@@ -1,6 +1,14 @@
 /**
  * Flags manual Auth0 JWT verification (jsonwebtoken + jwks-rsa, or express-jwt)
  * configured with RS256 + issuer but no unconditional `audience` check.
+ *
+ * Either verification path is accepted as equally valid — this rule does not
+ * prefer middleware over direct verification or vice versa. Auth0's Node.js
+ * guidance (https://auth0.com/docs/secure/tokens/json-web-tokens/validate-json-web-tokens)
+ * covers both: calling `jwt.verify()` directly from `jsonwebtoken`, or using
+ * `express-jwt` middleware (which wraps the same verification). Whichever
+ * pattern a project uses, the only thing that matters is that `audience` is
+ * always present, not just when some env var happens to be set.
  */
 const rule = {
   meta: {
@@ -97,7 +105,9 @@ const rule = {
       CallExpression(node: any) {
         const callee = node?.callee;
 
-        // jwt.verify(token, key, options)
+        // Path 1: direct `jwt.verify(token, key, options)` from jsonwebtoken.
+        // Accepted as a fully valid verification path in its own right — not
+        // just a fallback for when middleware isn't used.
         if (
           callee?.type === 'MemberExpression' &&
           callee.property?.type === 'Identifier' &&
@@ -110,7 +120,10 @@ const rule = {
           return;
         }
 
-        // expressjwt({ ... }) / jwt({ ... }) imported from express-jwt
+        // Path 2: `expressjwt({ ... })` / `jwt({ ... })` middleware imported
+        // from express-jwt. Equally valid to Path 1 — same audience check
+        // applies, just against the middleware's config object instead of
+        // jwt.verify()'s options argument.
         if (callee?.type === 'Identifier' && expressJwtImportNames.has(callee.name)) {
           const optionsArg = node.arguments?.[0];
           if (optionsArg) reportIfBad(optionsArg, node);
