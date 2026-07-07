@@ -21,7 +21,7 @@ const rule = {
       description: 'x ?? 0 - 1 is parsed as x ?? (0 - 1) = x ?? -1 due to operator precedence',
       category: 'correctness',
       rationale:
-        'The nullish coalescing operator (??) has lower precedence than arithmetic operators. Writing `pos ?? 0 - 1` evaluates as `pos ?? -1`, not `(pos ?? 0) - 1`. When pos is null or undefined, the fallback is -1 instead of the intended -1 offset from 0. In ProseMirror drop handlers this produces a decoration at position -1, which corrupts the placeholder position map and can insert content at the document start.',
+        'The nullish coalescing operator (??) has lower precedence than arithmetic operators. Writing `pos ?? 0 - 1` evaluates as `pos ?? -1`, not `(pos ?? 0) - 1`. Whenever pos is defined, the expression yields pos instead of the intended pos - 1 — an off-by-one on every real drop. In ProseMirror drop handlers this misplaces the decoration/insert position, and the -1 fallback (when pos is nullish) is an invalid document position.',
       docsUrl: 'https://prosemirror.net/docs/ref/#view.EditorView.posAtCoords',
       recommended: true,
     },

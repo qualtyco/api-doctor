@@ -1,6 +1,6 @@
 # TipTap
 
-11 oxlint rules for [TipTap](https://tiptap.dev) editor extensions and ProseMirror plugins.
+10 oxlint rules for [TipTap](https://tiptap.dev) editor extensions and ProseMirror plugins.
 
 
 |                          |                                      |
@@ -26,7 +26,7 @@ Input validation (upload handlers), hardcoded API keys in dynamically injected s
 | ---- | -------- | ----------- | --- | ---- | --------- | ---- |
 | upload-validate-fn-void | error | CWE-20 | validateFn return value is discarded, so file type and size checks never actually block uploads. | [Node views](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views) | [upload-validate-fn-void.ts](rules/upload-validate-fn-void.ts) | [test](../../../tests/rules/tiptap-upload-validate-fn-void.test.ts) |
 | script-src-hardcoded-api-key | error | CWE-798, API8:2023 | Hardcoded demo API keys in production violate the provider's ToS and will break if the key is rate-limited or revoked. | [Node views](https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views) | [script-src-hardcoded-api-key.ts](rules/script-src-hardcoded-api-key.ts) | [test](../../../tests/rules/tiptap-script-src-hardcoded-api-key.test.ts) |
-| dynamic-script-no-sri | warning | CWE-829, API8:2023 | Dynamically injected scripts without SRI hash can be exploited if the CDN is compromised, allowing arbitrary code execution. | [MDN SRI](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity) | [dynamic-script-no-sri.ts](rules/dynamic-script-no-sri.ts) | [test](../../../tests/rules/tiptap-dynamic-script-no-sri.test.ts) |
+| dynamic-script-no-sri | warning | CWE-829, API8:2023 | Dynamically injected scripts without SRI hash can be exploited if the CDN is compromised, allowing arbitrary code execution. | [MDN SRI](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity) | [dynamic-script-no-sri.ts](rules/dynamic-script-no-sri.ts) | [test](../../../tests/rules/tiptap-dynamic-script-no-sri.test.ts) |
 
 #### Security fixtures
 
@@ -78,19 +78,17 @@ Performance issues from quadratic-time document scans on every keystroke.
 
 ### Integration
 
-Regex completeness (social embeds), extension bundling best practices, and markdown serialization specs.
+Extension bundling best practices and markdown serialization specs.
 
 | Rule | Severity | Why it matters | Docs | Rule file | Test |
 | ---- | -------- | --- | ---- | --------- | ---- |
-| twitter-url-regex | warning | Incomplete Twitter URL regex fails to match valid URLs or matches false positives, breaking social embed functionality. | [Extensions](https://tiptap.dev/docs/editor/extensions/nodes) | [twitter-url-regex.ts](rules/twitter-url-regex.ts) | [test](../../../tests/rules/tiptap-twitter-url-regex.test.ts) |
-| prefer-table-kit | info | The older table extension is deprecated in favor of table-kit, which has better performance and modern features. | [Table kit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit) | [prefer-table-kit.ts](rules/prefer-table-kit.ts) | [test](../../../tests/rules/tiptap-prefer-table-kit.test.ts) |
-| tiptap-markdown-missing-node-spec | warning | Custom nodes without markdown specs are silently dropped during markdown conversion, corrupting document content. | [tiptap-markdown](https://github.com/ueberdosis/tiptap-markdown) | [tiptap-markdown-missing-node-spec.ts](rules/tiptap-markdown-missing-node-spec.ts) | [test](../../../tests/rules/tiptap-tiptap-markdown-missing-node-spec.test.ts) |
+| prefer-table-kit | info | Importing table sub-packages individually bypasses TableKit, the documented way to configure all table elements together with shared HTMLAttributes. | [Table kit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit) | [prefer-table-kit.ts](rules/prefer-table-kit.ts) | [test](../../../tests/rules/tiptap-prefer-table-kit.test.ts) |
+| tiptap-markdown-missing-node-spec | warning | Custom nodes without markdown specs are silently dropped during markdown conversion, corrupting document content. | [tiptap-markdown](https://github.com/aguingand/tiptap-markdown) | [tiptap-markdown-missing-node-spec.ts](rules/tiptap-markdown-missing-node-spec.ts) | [test](../../../tests/rules/tiptap-tiptap-markdown-missing-node-spec.test.ts) |
 
 #### Integration fixtures
 
 | Rule | Broken (`should flag`) | Fixed (`should not flag`) |
 | ---- | ---------------------- | ------------------------- |
-| twitter-url-regex | `tiptap-twitter-url-regex-broken/twitter-extension-broken.tsx`, `slash-command-broken.tsx` | `tiptap-twitter-url-regex-fixed/twitter-extension-fixed.tsx`, `github-regex-adversarial.tsx` |
 | prefer-table-kit | `tiptap-prefer-table-kit-broken/extensions-broken.ts`, `editor-setup-broken.tsx` | `tiptap-prefer-table-kit-fixed/extensions-fixed.ts`, `table-only-adversarial.ts` |
 | tiptap-markdown-missing-node-spec | `tiptap-tiptap-markdown-missing-node-spec-broken/mathematics-broken.ts`, `custom-node-broken.ts` | `tiptap-tiptap-markdown-missing-node-spec-fixed/mathematics-fixed.ts`, `markdown-already-set-adversarial.ts` |
 

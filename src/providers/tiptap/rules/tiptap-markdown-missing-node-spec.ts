@@ -14,13 +14,13 @@ const rule = {
       description: 'TipTap nodes used with tiptap-markdown must define a markdown serialization spec',
       category: 'integration',
       rationale:
-        'When tiptap-markdown serializes a document, nodes without a markdown spec are silently dropped or emitted as empty strings. Custom node types must register a serialize/parse pair via MarkdownNodeSpec (in addStorage or addOptions) so content survives markdown export/import cycles.',
-      docsUrl: 'https://github.com/ueberdosis/tiptap-markdown',
+        'When tiptap-markdown serializes a document, nodes without a markdown spec are silently dropped or emitted as empty strings. Custom node types must register a serialize/parse pair (MarkdownNodeSpec) under a `markdown` key returned from addStorage — the library reads only extension.storage.markdown — so content survives markdown export/import cycles.',
+      docsUrl: 'https://github.com/aguingand/tiptap-markdown',
       recommended: true,
     },
     messages: {
       missingMarkdownNodeSpec:
-        'This TipTap node is used alongside tiptap-markdown but defines no markdown serialization. Nodes without a markdown spec are silently dropped on export. Add a MarkdownNodeSpec to addStorage or addOptions.',
+        'This TipTap node is used alongside tiptap-markdown but defines no markdown serialization. Nodes without a markdown spec are silently dropped on export. Return a markdown spec (MarkdownNodeSpec) from addStorage.',
     },
     schema: [],
   },

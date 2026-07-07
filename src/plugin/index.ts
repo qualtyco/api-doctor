@@ -41,7 +41,6 @@ import { firebaseEffectDepsWholeUserObjectRule } from '../providers/firebase/rul
 import { firebaseRtdbWritePromiseNotHandledRule } from '../providers/firebase/rules/rtdb-write-promise-not-handled.js';
 import { firebaseFirestoreRulesExpiredRule } from '../providers/firebase/rules/firestore-rules-expired.js';
 import { firebaseIdTokenCookieFlagsRule } from '../providers/firebase/rules/id-token-cookie-flags.js';
-import { firebaseMiddlewareTokenNotVerifiedRule } from '../providers/firebase/rules/middleware-token-not-verified.js';
 import { firebaseHardcodedUserIdRule } from '../providers/firebase/rules/hardcoded-user-id.js';
 import { firebaseAuthUserNotFoundDisclosureRule } from '../providers/firebase/rules/auth-user-not-found-disclosure.js';
 import { firebaseSignupPasswordConfirmRule } from '../providers/firebase/rules/signup-password-confirm.js';
@@ -81,7 +80,6 @@ import { tiptapAddAttributesMissingRenderHTMLRule } from '../providers/tiptap/ru
 import { tiptapAppendTransactionAddToHistoryRule } from '../providers/tiptap/rules/appendTransaction-add-to-history.js';
 import { tiptapAppendTransactionFullScanRule } from '../providers/tiptap/rules/appendTransaction-full-scan.js';
 import { tiptapAtomNodeWrapInRule } from '../providers/tiptap/rules/atom-node-wrap-in.js';
-import { tiptapTwitterUrlRegexRule } from '../providers/tiptap/rules/twitter-url-regex.js';
 import { tiptapDropHandlerPosPrecedenceRule } from '../providers/tiptap/rules/drop-handler-pos-precedence.js';
 import { tiptapPreferTableKitRule } from '../providers/tiptap/rules/prefer-table-kit.js';
 import { tiptapTiptapMarkdownMissingNodeSpecRule } from '../providers/tiptap/rules/tiptap-markdown-missing-node-spec.js';
@@ -130,6 +128,7 @@ const plugin = {
     'resend-webhook-no-idempotency': resendWebhookNoIdempotencyRule,
     'resend-missing-tags': resendMissingTagsRule,
     'resend-request-id-not-logged': resendRequestIdNotLoggedRule,
+
     'supabase-scope-queries-by-tenant-column': supabaseScopeQueriesByTenantColumnRule,
     'supabase-validate-uuid-columns': supabaseValidateUuidColumnsRule,
     'supabase-order-by-timestamp-not-identity': supabaseOrderByTimestampNotIdentityRule,
@@ -142,10 +141,12 @@ const plugin = {
     'supabase-unchecked-mutation-error': supabaseUncheckedMutationErrorRule,
     'supabase-realtime-missing-filter': supabaseRealtimeMissingFilterRule,
     'supabase-storage-error-not-surfaced': supabaseStorageErrorNotSurfacedRule,
+
     'auth0-required-audience-validation': auth0RequiredAudienceValidationRule,
     'auth0-no-account-link-without-verified-email': auth0NoAccountLinkWithoutVerifiedEmailRule,
     'auth0-dead-claim-verification-check': auth0DeadClaimVerificationCheckRule,
     'auth0-jwks-refresh-on-unknown-kid': auth0JwksRefreshOnUnknownKidRule,
+
     'firebase-missing-app-check': firebaseMissingAppCheckRule,
     'firebase-unhandled-auth-popup-rejection': firebaseUnhandledAuthPopupRejectionRule,
     'firebase-rtdb-list-read-for-single-item': firebaseRtdbListReadForSingleItemRule,
@@ -156,7 +157,6 @@ const plugin = {
     'firebase-rtdb-write-promise-not-handled': firebaseRtdbWritePromiseNotHandledRule,
     'firebase-firestore-rules-expired': firebaseFirestoreRulesExpiredRule,
     'firebase-id-token-cookie-flags': firebaseIdTokenCookieFlagsRule,
-    'firebase-middleware-token-not-verified': firebaseMiddlewareTokenNotVerifiedRule,
     'firebase-hardcoded-user-id': firebaseHardcodedUserIdRule,
     'firebase-auth-user-not-found-disclosure': firebaseAuthUserNotFoundDisclosureRule,
     'firebase-signup-password-confirm': firebaseSignupPasswordConfirmRule,
@@ -171,6 +171,7 @@ const plugin = {
     'lovable-paid-flag-without-edge-function': lovablePaidFlagWithoutEdgeFunctionRule,
     'lovable-expiry-column-never-checked': lovableExpiryColumnNeverCheckedRule,
     'lovable-silent-catch-on-provider-call': lovableSilentCatchOnProviderCallRule,
+
     'browserbase-no-conditional-authz-on-anonymous-user': browserbaseNoConditionalAuthzOnAnonymousUserRule,
     'browserbase-no-connect-url-in-api-response': browserbaseNoConnectUrlInApiResponseRule,
     'browserbase-session-id-requires-ownership-check': browserbaseSessionIdRequiresOwnershipCheckRule,
@@ -182,6 +183,7 @@ const plugin = {
     'browserbase-no-overbroad-error-substring-match': browserbaseNoOverbroadErrorSubstringMatchRule,
     'browserbase-use-sdk-not-raw-requests': browserbaseUseSdkNotRawRequestsRule,
     'browserbase-centralize-request-release': browserbaseCentralizeRequestReleaseRule,
+
     'openai-cua-no-domain-allowlist': openaiCuaNoDomainAllowlistRule,
     'openai-cua-scroll-delta-default-zero': openaiCuaScrollDeltaDefaultZeroRule,
     'openai-cua-structured-step-metadata-not-text-json': openaiCuaStructuredStepMetadataNotTextJsonRule,
@@ -189,6 +191,7 @@ const plugin = {
     'openai-cua-retry-transient-turn-errors': openaiCuaRetryTransientTurnErrorsRule,
     'openai-cua-check-response-status-incomplete': openaiCuaCheckResponseStatusIncompleteRule,
     'openai-cua-set-safety-identifier': openaiCuaSetSafetyIdentifierRule,
+
     'tiptap-upload-validate-fn-void': tiptapUploadValidateFnVoidRule,
     'tiptap-script-src-hardcoded-api-key': tiptapScriptSrcHardcodedApiKeyRule,
     'tiptap-dynamic-script-no-sri': tiptapDynamicScriptNoSriRule,
@@ -196,7 +199,6 @@ const plugin = {
     'tiptap-appendTransaction-add-to-history': tiptapAppendTransactionAddToHistoryRule,
     'tiptap-appendTransaction-full-scan': tiptapAppendTransactionFullScanRule,
     'tiptap-atom-node-wrap-in': tiptapAtomNodeWrapInRule,
-    'tiptap-twitter-url-regex': tiptapTwitterUrlRegexRule,
     'tiptap-drop-handler-pos-precedence': tiptapDropHandlerPosPrecedenceRule,
     'tiptap-prefer-table-kit': tiptapPreferTableKitRule,
     'tiptap-tiptap-markdown-missing-node-spec': tiptapTiptapMarkdownMissingNodeSpecRule,

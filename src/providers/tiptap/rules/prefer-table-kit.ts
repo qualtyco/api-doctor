@@ -3,7 +3,7 @@
  *
  * Detects when individual TipTap table sub-packages are imported instead of
  * using TableKit from @tiptap/extension-table. Individual imports miss the
- * coordinated configuration and the mergeOrSplit command.
+ * coordinated configuration TableKit provides.
  */
 
 const INDIVIDUAL_TABLE_PACKAGES = new Set([
@@ -19,13 +19,13 @@ const rule = {
       description: 'Use TableKit from @tiptap/extension-table instead of individual table packages',
       category: 'integration',
       rationale:
-        'Importing table extensions individually from their separate packages bypasses the coordinated wiring that TableKit provides: shared configuration, the mergeOrSplit command, and consistent HTMLAttributes across all table elements. Individual imports also leave TableCell and TableHeader unconfigured by default.',
+        'Importing table extensions individually from their separate packages bypasses the coordinated wiring that TableKit provides: shared configuration and consistent HTMLAttributes across all table elements, configured in one place. TableKit from @tiptap/extension-table is the documented way to register the full table feature set.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/functionality/table-kit',
       recommended: true,
     },
     messages: {
       preferTableKit:
-        'Individual TipTap table extension imported. Use TableKit from @tiptap/extension-table for coordinated configuration and the mergeOrSplit command.',
+        'Individual TipTap table extension imported. Use TableKit from @tiptap/extension-table to configure all table elements together.',
     },
     schema: [],
   },

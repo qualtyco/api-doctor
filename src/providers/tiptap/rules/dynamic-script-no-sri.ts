@@ -23,7 +23,7 @@ const rule = {
       owasp: 'API8:2023 Security Misconfiguration',
       rationale:
         'A script element injected without an integrity attribute will execute whatever the CDN returns, including malicious content if the CDN is compromised. Adding a Subresource Integrity hash (script.setAttribute("integrity", "sha384-...")) lets the browser verify the fetched script matches the expected bytes before executing it.',
-      docsUrl: 'https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity',
+      docsUrl: 'https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity',
       recommended: true,
     },
     messages: {
