@@ -1,16 +1,21 @@
 /**
  * supabase-fail-fast-env-validation (reliability)
  *
- * `createClient(process.env.X, process.env.Y)` doesn't throw on `undefined`
- * args — the failure surfaces later, deep in a fetch call, as an opaque
- * error rather than a clear "missing required env var" message at startup.
+ * `createClient(process.env.X, process.env.Y)` with a missing env var throws
+ * the SDK's own error ("supabaseUrl is required." / "supabaseKey is
+ * required.") — which names the SDK parameter, not YOUR env var. An explicit
+ * presence check produces an actionable message naming the exact variable to
+ * set (especially confusing otherwise with Next.js NEXT_PUBLIC_* build-time
+ * inlining, where the fix is a rebuild, not a restart).
  *
  * Tracks (in source order, since guards precede the call they protect):
- *   - which local name `createClient` was imported as
+ *   - which local names the client factories were imported as
+ *     (`createClient` from @supabase/supabase-js, `createBrowserClient` /
+ *     `createServerClient` from @supabase/ssr)
  *   - which local variables were assigned directly from `process.env.X`
  *   - which variables/env-vars an `if (!x || ...) throw/return` guard covers
- * then, at the `createClient(...)` call, flags any argument that resolves
- * to a `process.env` value with no matching guard.
+ * then, at the factory call, flags any argument that resolves to a
+ * `process.env` value with no matching guard.
  */
 
 function unwrapNonNull(node: any): any {
@@ -44,7 +49,7 @@ const rule = {
       description: 'createClient must fail fast when required env vars are missing',
       category: 'reliability',
       rationale:
-        'createClient does not throw on undefined arguments — a missing env var surfaces later as an opaque error deep in a fetch call rather than a clear message at startup. Checking presence before calling createClient turns a confusing runtime failure (e.g. on a misconfigured second service) into an immediate, actionable one.',
+        'createClient throws immediately when an argument is missing, but with the SDK\'s message ("supabaseKey is required.") — it names the SDK parameter, not your env var. An explicit presence check produces an error naming the exact variable to set, which matters most with Next.js NEXT_PUBLIC_* inlining where the fix is a rebuild with the var present, not a server restart.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/initializing',
       recommended: true,
     },
@@ -55,7 +60,11 @@ const rule = {
     schema: [],
   },
   create(context: any) {
-    let createClientLocalName: string | undefined;
+    const FACTORY_IMPORTS: Record<string, string[]> = {
+      '@supabase/supabase-js': ['createClient'],
+      '@supabase/ssr': ['createBrowserClient', 'createServerClient'],
+    };
+    const factoryLocalNames = new Set<string>();
     const envVarOfVariable = new Map<string, string>();
     const validatedVarNames = new Set<string>();
     const validatedEnvNames = new Set<string>();
@@ -93,15 +102,16 @@ const rule = {
 
     return {
       ImportDeclaration(node: any) {
-        if (node.source?.value !== '@supabase/supabase-js') return;
+        const factories = FACTORY_IMPORTS[node.source?.value];
+        if (!factories) return;
         for (const s of node.specifiers ?? []) {
           if (
             s?.type === 'ImportSpecifier' &&
             s.imported?.type === 'Identifier' &&
-            s.imported.name === 'createClient' &&
+            factories.includes(s.imported.name) &&
             s.local?.type === 'Identifier'
           ) {
-            createClientLocalName = s.local.name;
+            factoryLocalNames.add(s.local.name);
           }
         }
       },
@@ -118,8 +128,8 @@ const rule = {
       },
 
       CallExpression(node: any) {
-        if (!createClientLocalName) return;
-        if (node.callee?.type !== 'Identifier' || node.callee.name !== createClientLocalName) return;
+        if (factoryLocalNames.size === 0) return;
+        if (node.callee?.type !== 'Identifier' || !factoryLocalNames.has(node.callee.name)) return;
 
         const missing: string[] = [];
         for (const rawArg of node.arguments ?? []) {

@@ -4,17 +4,34 @@
  * Storage `.upload()` failures return `{ error }` — `if (!uploadError) { ... }`
  * with no else branch silently continues with a stale URL.
  */
-import { chainObjectCall, memberPropName } from '../utils.js';
+import { memberPropName } from '../utils.js';
 
 function isStorageUploadCall(node: any): boolean {
   let current: any = node;
   let sawStorage = false;
   let sawUpload = false;
-  while (current?.type === 'CallExpression') {
-    const prop = memberPropName(current);
-    if (prop === 'storage') sawStorage = true;
-    if (prop === 'upload') sawUpload = true;
-    current = chainObjectCall(current);
+  // Walk both call links and plain member links: in
+  // `supabase.storage.from('avatars').upload(...)` the `.storage` link is a
+  // property access, not a call, so a calls-only walk never sees it.
+  while (current) {
+    if (current.type === 'CallExpression') {
+      const prop = memberPropName(current);
+      if (prop === 'storage') sawStorage = true;
+      if (prop === 'upload') sawUpload = true;
+      current = current.callee?.object;
+    } else if (current.type === 'MemberExpression') {
+      const p = current.property;
+      const name =
+        !current.computed && p?.type === 'Identifier'
+          ? p.name
+          : p?.type === 'Literal' && typeof p.value === 'string'
+            ? p.value
+            : undefined;
+      if (name === 'storage') sawStorage = true;
+      current = current.object;
+    } else {
+      break;
+    }
   }
   return sawStorage && sawUpload;
 }

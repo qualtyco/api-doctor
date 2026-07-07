@@ -65,8 +65,8 @@ const rule = {
       cwe: 'CWE-285',
       owasp: 'A01:2021 Broken Access Control',
       rationale:
-        'Supabase documents raw_user_meta_data as client-writable and unsuitable for authorization. Reading user_metadata.role (or writing role into signUp/updateUser data) lets any signed-in user self-assign privileged roles from the browser. Store roles in app_metadata via a trusted server path, or in an RLS-protected profiles table.',
-      docsUrl: 'https://supabase.com/docs/guides/database/postgres/row-level-security',
+        'Supabase documents user_metadata as user-editable: "Do not use it in security sensitive context (such as in RLS policies or authorization logic), as this value is editable by the user without any checks." Reading user_metadata.role (or writing role into signUp/updateUser data) lets any signed-in user self-assign privileged roles from the browser. Store roles in app_metadata via a trusted server path, or in an RLS-protected profiles table.',
+      docsUrl: 'https://supabase.com/docs/guides/auth/users',
       recommended: true,
     },
     messages: {

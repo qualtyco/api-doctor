@@ -5,7 +5,7 @@ export const supabaseManifest: ProviderManifest = {
   displayName: 'Supabase',
   detect: {
     packages: ['@supabase/supabase-js'],
-    imports: ['@supabase/supabase-js'],
+    imports: ['@supabase/supabase-js', '@supabase/ssr'],
     urlPatterns: ['supabase.co'],
   },
   oxlintRules: [
@@ -13,9 +13,9 @@ export const supabaseManifest: ProviderManifest = {
       key: 'supabase-scope-queries-by-tenant-column',
       resultRule: 'supabase/correctness/scope-queries-by-tenant-column',
       message: 'Query selects a tenant column but never filters by it.',
-      fix: 'Add .eq("<column>", value) (or .match()/.filter()) to scope results to the caller.',
+      fix: 'Add .eq("<column>", value) (or .match()/.filter()) to scope results to the caller. If RLS scopes this table the filter is still worth adding — defense-in-depth, and it avoids overfetching.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/eq',
-      severity: 'error',
+      severity: 'warning',
     },
     {
       key: 'supabase-validate-uuid-columns',
@@ -44,25 +44,25 @@ export const supabaseManifest: ProviderManifest = {
     {
       key: 'supabase-idempotent-mutations',
       resultRule: 'supabase/reliability/idempotent-mutations',
-      message: 'Insert has no idempotency/dedupe key, so a retry can create a duplicate row.',
-      fix: 'Add a client-generated idempotency key field backed by a unique constraint, or use .upsert(..., { onConflict: "<key column>" }).',
+      message: 'Insert payload has no unique/idempotency key field, so a retried request can create a duplicate row.',
+      fix: 'Include a client-generated unique key (e.g. an id or *_key field backed by a unique constraint), or use .upsert(..., { onConflict: "<key column>" }).',
       docsUrl: 'https://supabase.com/docs/reference/javascript/upsert',
-      severity: 'warning',
+      severity: 'info',
     },
     {
       key: 'supabase-fail-fast-env-validation',
       resultRule: 'supabase/reliability/fail-fast-env-validation',
       message: 'createClient is called with env vars that have no presence check.',
-      fix: 'Throw a clear error (e.g. if (!url || !key) throw new Error(...)) before calling createClient.',
+      fix: 'Throw an error naming the env var (e.g. if (!url || !key) throw new Error("SUPABASE_URL/KEY must be set")) before creating the client — the SDK\'s own error ("supabaseKey is required.") does not say which variable to fix.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/initializing',
-      severity: 'warning',
+      severity: 'info',
     },
     {
       key: 'supabase-no-user-metadata-authz',
       resultRule: 'supabase/security/no-user-metadata-authz',
       message: 'Authorization data is read from or written to user_metadata, which clients can modify.',
       fix: 'Store roles in app_metadata via a trusted server path, or in an RLS-protected profiles table — never user_metadata.',
-      docsUrl: 'https://supabase.com/docs/guides/database/postgres/row-level-security',
+      docsUrl: 'https://supabase.com/docs/guides/auth/users',
       severity: 'error',
     },
     {

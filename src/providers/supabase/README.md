@@ -10,7 +10,7 @@
 | **Fixtures**             | `tests/fixtures/supabase/`           |
 | **Rule tests**           | `tests/rules/supabase-*.test.ts`     |
 
-Detection: `@supabase/supabase-js` in package.json, `import from '@supabase/supabase-js'`, or `supabase.co` in source.
+Detection: `@supabase/supabase-js` in package.json, `import from '@supabase/supabase-js'` or `'@supabase/ssr'`, or `supabase.co` in source.
 
 Six of these rules target the `{ data, error }` return contract, Realtime fan-out, storage upload handling, and `user_metadata` authorization mistakes common in agent-generated apps.
 
@@ -24,7 +24,7 @@ Client-writable JWT metadata used as authorization.
 
 | Rule | Severity | CWE / OWASP | Why it matters | Supabase docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- | --- |
-| No user_metadata authz | error | CWE-285, A01:2021 | user_metadata is client-writable and can be forged; using it in RLS policies allows any user to escalate their own permissions. | [RLS — user vs app metadata](https://supabase.com/docs/guides/database/postgres/row-level-security) | [no-user-metadata-authz.ts](rules/no-user-metadata-authz.ts) | [supabase-no-user-metadata-authz.test.ts](../../../tests/rules/supabase-no-user-metadata-authz.test.ts) |
+| No user_metadata authz | error | CWE-285, A01:2021 | The docs warn verbatim: "Do not use it in security sensitive context (such as in RLS policies or authorization logic), as this value is editable by the user without any checks." | [User metadata](https://supabase.com/docs/guides/auth/users) | [no-user-metadata-authz.ts](rules/no-user-metadata-authz.ts) | [supabase-no-user-metadata-authz.test.ts](../../../tests/rules/supabase-no-user-metadata-authz.test.ts) |
 
 #### Fixtures
 
@@ -40,21 +40,21 @@ Query scoping, validation, and Supabase's non-throwing `{ data, error }` contrac
 
 | Rule | Severity | Why it matters | Supabase docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
-| Scope queries by tenant column | error | Queries without tenant filtering leak data across organizations, allowing any user to access all data in the database. | [`.eq()`](https://supabase.com/docs/reference/javascript/eq) | [scope-queries-by-tenant-column.ts](rules/scope-queries-by-tenant-column.ts) | [supabase-scope-queries-by-tenant-column.test.ts](../../../tests/rules/supabase-scope-queries-by-tenant-column.test.ts) |
-| Single without error check | warning | .single() returns undefined silently if no rows match; without error checks, the code operates on null data. | [`.single()`](https://supabase.com/docs/reference/javascript/single) | [single-without-error-check.ts](rules/single-without-error-check.ts) | [supabase-single-without-error-check.test.ts](../../../tests/rules/supabase-single-without-error-check.test.ts) |
+| Scope queries by tenant column | warning | Without RLS on the table an unfiltered query returns every tenant's rows; even with RLS, an explicit filter is defense-in-depth and avoids overfetching. | [`.eq()`](https://supabase.com/docs/reference/javascript/eq) | [scope-queries-by-tenant-column.ts](rules/scope-queries-by-tenant-column.ts) | [supabase-scope-queries-by-tenant-column.test.ts](../../../tests/rules/supabase-scope-queries-by-tenant-column.test.ts) |
+| Single without error check | warning | .single() does not throw — zero or multiple rows set error (PGRST116) with data: null; ignoring error turns a missing row into a perpetual loading state. | [`.single()`](https://supabase.com/docs/reference/javascript/single) | [single-without-error-check.ts](rules/single-without-error-check.ts) | [supabase-single-without-error-check.test.ts](../../../tests/rules/supabase-single-without-error-check.test.ts) |
 | Unchecked mutation error | warning | Mutation errors like constraint violations are not checked, so the code proceeds assuming success when the write failed. | [`.insert()`](https://supabase.com/docs/reference/javascript/insert) | [unchecked-mutation-error.ts](rules/unchecked-mutation-error.ts) | [supabase-unchecked-mutation-error.test.ts](../../../tests/rules/supabase-unchecked-mutation-error.test.ts) |
 | Non-atomic replace pattern | warning | Separate delete and insert calls are not atomic; concurrent writes can interleave, leaving the database with partial data. | [Database functions](https://supabase.com/docs/guides/database/functions) | [non-atomic-replace-pattern.ts](rules/non-atomic-replace-pattern.ts) | [supabase-non-atomic-replace-pattern.test.ts](../../../tests/rules/supabase-non-atomic-replace-pattern.test.ts) |
 | Consistent input length limits | warning | Inconsistent length limits between client and database allow oversized inputs to silently fail server-side with no error feedback. | [Tables](https://supabase.com/docs/guides/database/tables) | [consistent-input-length-limits.ts](rules/consistent-input-length-limits.ts) | [supabase-consistent-input-length-limits.test.ts](../../../tests/rules/supabase-consistent-input-length-limits.test.ts) |
 | Validate UUID columns | info | UUID columns without validation accept any string, allowing malformed UUIDs to corrupt the database. | [Data types](https://supabase.com/docs/guides/database/tables#data-types) | [validate-uuid-columns.ts](rules/validate-uuid-columns.ts) | [supabase-validate-uuid-columns.test.ts](../../../tests/rules/supabase-validate-uuid-columns.test.ts) |
-| Order by timestamp not identity | info | Ordering by timestamp instead of primary key can skip rows when multiple rows share the same timestamp, causing pagination errors. | [`.order()`](https://supabase.com/docs/reference/javascript/order) | [order-by-timestamp-not-identity.ts](rules/order-by-timestamp-not-identity.ts) | [supabase-order-by-timestamp-not-identity.test.ts](../../../tests/rules/supabase-order-by-timestamp-not-identity.test.ts) |
+| Order by timestamp not identity | info | Ordering by a surrogate id is only chronological while PK order coincides with insert order — bulk inserts and backfills break it. Order by the selected timestamp column (add id as a tiebreaker for stable pagination). | [`.order()`](https://supabase.com/docs/reference/javascript/order) | [order-by-timestamp-not-identity.ts](rules/order-by-timestamp-not-identity.ts) | [supabase-order-by-timestamp-not-identity.test.ts](../../../tests/rules/supabase-order-by-timestamp-not-identity.test.ts) |
 
 #### Fixtures
 
 | Rule | Broken | Fixed |
 | --- | --- | --- |
 | Scope queries by tenant column | `supabase-scope-queries-by-tenant-column-broken/01-history-route.ts`, `02-orders-by-user.ts` | `supabase-scope-queries-by-tenant-column-fixed/01-eq-filter.ts`, `02-match-filter-adversarial.ts` |
-| Single without error check | `supabase-single-without-error-check-broken/01-project-detail.ts`, `02-edit-prefill.ts` | `supabase-single-without-error-check-fixed/01-checks-error.ts`, `02-maybe-single-adversarial.ts` |
-| Unchecked mutation error | `supabase-unchecked-mutation-error-broken/01-save-for-later.ts`, `02-send-reply.ts` | `supabase-unchecked-mutation-error-fixed/01-checks-error.ts`, `02-select-not-mutation-adversarial.ts` |
+| Single without error check | `supabase-single-without-error-check-broken/01-project-detail.ts`, `02-edit-prefill.ts` | `supabase-single-without-error-check-fixed/01-checks-error.ts`, `02-maybe-single-adversarial.ts`, `03-throw-on-error-adversarial.ts`, `04-result-object-error-adversarial.ts` |
+| Unchecked mutation error | `supabase-unchecked-mutation-error-broken/01-save-for-later.ts`, `02-send-reply.ts` | `supabase-unchecked-mutation-error-fixed/01-checks-error.ts`, `02-select-not-mutation-adversarial.ts`, `03-throw-on-error-adversarial.ts`, `04-result-object-error-adversarial.ts` |
 | Non-atomic replace pattern | `supabase-non-atomic-replace-pattern-broken/01-education-replace.ts`, `02-experiences-replace.ts` | `supabase-non-atomic-replace-pattern-fixed/01-checks-both-steps.ts`, `02-delete-only-adversarial.ts` |
 | Consistent input length limits | `supabase-consistent-input-length-limits-broken/01-history-post.ts`, `02-comments-upsert.ts`, `03-nullish-coalesced-value.ts` | `supabase-consistent-input-length-limits-fixed/01-all-capped.ts`, `02-uniformly-uncapped-adversarial.ts` |
 | Validate UUID columns | `supabase-validate-uuid-columns-broken/01-history-post.ts`, `02-accounts-upsert.ts`, `03-nullish-coalesced-value.ts` | `supabase-validate-uuid-columns-fixed/01-uuid-regex-check.ts`, `02-non-uuid-named-regex-adversarial.ts` |
@@ -68,9 +68,9 @@ Idempotency, env validation, Realtime scope, and storage error surfacing.
 
 | Rule | Severity | Why it matters | Supabase docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
-| Realtime missing filter | error | Realtime without filters broadcasts all table changes to all subscribers, wasting bandwidth and revealing data changes to unauthorized users. | [Realtime filtering](https://supabase.com/docs/guides/realtime/postgres-changes#filtering) | [realtime-missing-filter.ts](rules/realtime-missing-filter.ts) | [supabase-realtime-missing-filter.test.ts](../../../tests/rules/supabase-realtime-missing-filter.test.ts) |
-| Idempotent mutations | warning | Without idempotency keys, retries on network failures cause duplicate inserts, corrupting the database. | [`.upsert()`](https://supabase.com/docs/reference/javascript/upsert) | [idempotent-mutations.ts](rules/idempotent-mutations.ts) | [supabase-idempotent-mutations.test.ts](../../../tests/rules/supabase-idempotent-mutations.test.ts) |
-| Fail-fast env validation | warning | Missing environment variables are not validated at startup, so failures happen at runtime during critical operations. | [Initializing](https://supabase.com/docs/reference/javascript/initializing) | [fail-fast-env-validation.ts](rules/fail-fast-env-validation.ts) | [supabase-fail-fast-env-validation.test.ts](../../../tests/rules/supabase-fail-fast-env-validation.test.ts) |
+| Realtime missing filter | error | An unfiltered postgres_changes subscription fires on every row change table-wide; RLS still scopes what each subscriber sees, but per-subscriber authorization makes fan-out scale with connected users (docs: above ~3,000 concurrent subscribers use Broadcast instead). | [Realtime filtering](https://supabase.com/docs/guides/realtime/postgres-changes#filtering) | [realtime-missing-filter.ts](rules/realtime-missing-filter.ts) | [supabase-realtime-missing-filter.test.ts](../../../tests/rules/supabase-realtime-missing-filter.test.ts) |
+| Idempotent mutations | info | An insert with no unique key in the payload duplicates the row when the request is retried (flaky network, double-click). A client-generated id counts as the dedupe key. | [`.upsert()`](https://supabase.com/docs/reference/javascript/upsert) | [idempotent-mutations.ts](rules/idempotent-mutations.ts) | [supabase-idempotent-mutations.test.ts](../../../tests/rules/supabase-idempotent-mutations.test.ts) |
+| Fail-fast env validation | info | createClient throws immediately on a missing arg, but with the SDK's message ("supabaseKey is required.") — an explicit presence check names the exact env var to fix. | [Initializing](https://supabase.com/docs/reference/javascript/initializing) | [fail-fast-env-validation.ts](rules/fail-fast-env-validation.ts) | [supabase-fail-fast-env-validation.test.ts](../../../tests/rules/supabase-fail-fast-env-validation.test.ts) |
 | Storage error not surfaced | warning | Storage upload errors are ignored, so files fail silently while the code proceeds as if the upload succeeded. | [Storage upload](https://supabase.com/docs/reference/javascript/storage-from-upload) | [storage-error-not-surfaced.ts](rules/storage-error-not-surfaced.ts) | [supabase-storage-error-not-surfaced.test.ts](../../../tests/rules/supabase-storage-error-not-surfaced.test.ts) |
 
 #### Fixtures
@@ -78,9 +78,9 @@ Idempotency, env validation, Realtime scope, and storage error surfacing.
 | Rule | Broken | Fixed |
 | --- | --- | --- |
 | Realtime missing filter | `supabase-realtime-missing-filter-broken/01-app-layout.ts`, `02-messages-page.ts` | `supabase-realtime-missing-filter-fixed/01-filtered-subscription.ts`, `02-non-postgres-changes-adversarial.ts` |
-| Idempotent mutations | `supabase-idempotent-mutations-broken/01-history-insert.ts`, `02-orders-array-insert.ts` | `supabase-idempotent-mutations-fixed/01-insert-with-idempotency-key.ts`, `02-upsert-on-conflict-adversarial.ts` |
-| Fail-fast env validation | `supabase-fail-fast-env-validation-broken/01-lib-supabase.ts`, `02-cleanup-script.ts` | `supabase-fail-fast-env-validation-fixed/01-guarded-extracted-vars.ts`, `02-non-env-args-adversarial.ts` |
-| Storage error not surfaced | `supabase-storage-error-not-surfaced-broken/01-avatar-upload.ts`, `02-resume-upload.ts` | `supabase-storage-error-not-surfaced-fixed/01-throws-on-upload-error.ts`, `02-else-branch-adversarial.ts` |
+| Idempotent mutations | `supabase-idempotent-mutations-broken/01-history-insert.ts`, `02-orders-array-insert.ts` | `supabase-idempotent-mutations-fixed/01-insert-with-idempotency-key.ts`, `02-upsert-on-conflict-adversarial.ts`, `03-client-generated-id.ts` |
+| Fail-fast env validation | `supabase-fail-fast-env-validation-broken/01-lib-supabase.ts`, `02-cleanup-script.ts`, `03-ssr-server-client.ts` | `supabase-fail-fast-env-validation-fixed/01-guarded-extracted-vars.ts`, `02-non-env-args-adversarial.ts` |
+| Storage error not surfaced | `supabase-storage-error-not-surfaced-broken/01-avatar-upload.ts`, `02-resume-upload.ts`, `03-renamed-error-var.ts` | `supabase-storage-error-not-surfaced-fixed/01-throws-on-upload-error.ts`, `02-else-branch-adversarial.ts` |
 
 ---
 
@@ -120,9 +120,9 @@ Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts)
 
 | Severity | Count | Affects score |
 | --- | --- | --- |
-| error | 3 rules | −15 each |
-| warning | 7 rules | −5 each |
-| info | 2 rules | no penalty |
+| error | 2 rules | −15 each |
+| warning | 6 rules | −5 each |
+| info | 4 rules | no penalty |
 
 Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
 

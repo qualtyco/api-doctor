@@ -3,8 +3,9 @@
  *
  * A `.from(table).select(...)` query that selects a tenant/ownership-style
  * column (e.g. `session_id`, `user_id`) but never filters by it (`.eq()`,
- * `.match()`, `.filter()`) reads every row across every tenant instead of
- * scoping to the caller's own data.
+ * `.match()`, `.filter()`). If RLS is not enabled on the table this reads
+ * every tenant's rows; even with RLS, an explicit filter is defense-in-depth
+ * and avoids overfetching.
  *
  * Detection walks each query chain bottom-up (`CallExpression:exit`, so
  * inner calls are visited before the calls built on top of them) and
@@ -27,13 +28,13 @@ const rule = {
       description: 'Supabase queries that select a tenant column must filter by it',
       category: 'correctness',
       rationale:
-        'A column like session_id or user_id existing in the schema (and being selected) signals intent to scope rows to one caller, but selecting it is not the same as filtering by it. Without an .eq()/.match()/.filter() on that column, the query returns every row for every tenant, turning a per-user feed into a single shared, cross-user one.',
+        'A column like session_id or user_id being selected signals intent to scope rows to one caller, but selecting it is not the same as filtering by it. If RLS is not enabled on the table, the unfiltered query returns every row for every tenant — a per-user feed becomes a shared, cross-user one. Even when RLS scopes the rows server-side, an explicit .eq()/.match()/.filter() is defense-in-depth (a dropped policy no longer leaks data) and avoids fetching rows the page never uses.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/eq',
       recommended: true,
     },
     messages: {
       missingTenantFilter:
-        'This query selects "{{column}}" but never filters by it. Add .eq("{{column}}", ...) (or .match()/.filter()) to scope results to the caller.',
+        'This query selects "{{column}}" but never filters by it — without RLS on this table that is every tenant\'s rows. Add .eq("{{column}}", ...) (or .match()/.filter()) to scope results to the caller.',
     },
     schema: [],
   },

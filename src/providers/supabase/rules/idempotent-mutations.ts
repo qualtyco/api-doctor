@@ -14,7 +14,11 @@ function objectHasIdempotencyKey(objectExpression: any): boolean {
     if (p?.type !== 'Property') return false;
     const name =
       p.key?.type === 'Identifier' ? p.key.name : p.key?.type === 'Literal' ? p.key.value : undefined;
-    return typeof name === 'string' && /idempot|dedupe/i.test(name);
+    if (typeof name !== 'string') return false;
+    // A client-supplied `id`/`uuid` (or *_key/*_uuid field) is a dedupe key in
+    // practice — a retry hits the unique/PK constraint instead of duplicating.
+    // Deliberately not `_id$`: foreign keys like user_id are not dedupe keys.
+    return /idempot|dedupe/i.test(name) || /^(id|uuid)$/i.test(name) || /_(key|uuid)$/i.test(name);
   });
 }
 
@@ -33,13 +37,13 @@ const rule = {
       description: 'Supabase insert calls should be retry-safe via an idempotency key',
       category: 'reliability',
       rationale:
-        'Nothing prevents a duplicate row if the client fetch behind an insert is retried (flaky network, double-click, browser replay) — there is no unique constraint or dedupe key visible in the payload, and no upsert semantics. Generate a client-side idempotency key per logical action and either include it as a field guarded by a unique constraint, or use .upsert(..., { onConflict: "<key column>" }).',
+        'Nothing prevents a duplicate row if the client fetch behind an insert is retried (flaky network, double-click, browser replay) — no unique key is visible in the payload, and no upsert semantics. Include a client-generated unique key (an id, or a *_key field backed by a unique constraint), or use .upsert(..., { onConflict: "<key column>" }). This is general retry-safety practice rather than a documented Supabase requirement, hence info severity.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/upsert',
       recommended: true,
     },
     messages: {
       missingIdempotencyKey:
-        'This insert has no idempotency/dedupe key field, so a retried request can create a duplicate row. Add one, or use .upsert(..., { onConflict: "<key column>" }).',
+        'This insert payload has no unique/idempotency key field, so a retried request can create a duplicate row. Include a client-generated key, or use .upsert(..., { onConflict: "<key column>" }).',
     },
     schema: [],
   },
