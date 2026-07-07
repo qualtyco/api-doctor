@@ -31,11 +31,11 @@ npx @api-doctor/cli install
 | [Resend](https://resend.com/docs)                                                       | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/resend/README.md)      |
 | [Supabase](https://supabase.com/docs)                                                   | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md)    |
 | [Auth0](https://auth0.com/docs)                                                         | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md)        |
-| [Firebase](https://firebase.google.com/docs)                                            | [20 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md)    |
+| [Firebase](https://firebase.google.com/docs)                                            | [19 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md)    |
 | [Lovable](https://docs.lovable.dev)                                                     | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/lovable/README.md)      |
 | [Browserbase](https://docs.browserbase.com)                                             | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) |
 | [OpenAI Computer Use](https://developers.openai.com/api/docs/guides/tools-computer-use) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-cua/README.md)   |
-| [TipTap](https://tiptap.dev/docs)                                                       | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md)      |
+| [TipTap](https://tiptap.dev/docs)                                                       | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md)      |
 | [ElevenLabs](https://elevenlabs.io/docs)                                                | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md)  |
 | [Twilio](https://www.twilio.com/docs)                                                   | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md)       |
 | [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime)               | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-realtime/README.md) |
