@@ -111,6 +111,23 @@ import { openaiRealtimeVerifyDeprecatedSessionFieldsRule } from '../providers/op
 import { openaiRealtimeBufferAudioUntilSessionReadyRule } from '../providers/openai-realtime/rules/buffer-audio-until-session-ready.js';
 import { openaiRealtimeSendSafetyIdentifierRule } from '../providers/openai-realtime/rules/send-safety-identifier.js';
 import { openaiRealtimeTranscriptionModelChoiceRule } from '../providers/openai-realtime/rules/transcription-model-choice.js';
+import { s2ScopedTokenForClientRule } from '../providers/s2/rules/scoped-token-for-client.js';
+import { s2AppendRetryDuplicatesRule } from '../providers/s2/rules/append-retry-duplicates.js';
+import { s2NoHardcodedAccessTokenRule } from '../providers/s2/rules/no-hardcoded-access-token.js';
+import { s2AppendBatchLimitRule } from '../providers/s2/rules/append-batch-limit.js';
+import { s2AppendSessionForStreamsRule } from '../providers/s2/rules/append-session-for-streams.js';
+import { s2TokenExpiryAndLeastPrivilegeRule } from '../providers/s2/rules/token-expiry-and-least-privilege.js';
+import { s2AwaitAppendDurabilityRule } from '../providers/s2/rules/await-append-durability.js';
+import { s2NoManualAppendRetryLoopRule } from '../providers/s2/rules/no-manual-append-retry-loop.js';
+import { s2TailIsEndNotLastRecordRule } from '../providers/s2/rules/tail-is-end-not-last-record.js';
+import { s2SingleReadIsCappedRule } from '../providers/s2/rules/single-read-is-capped.js';
+import { s2ReadSessionTerminatesRule } from '../providers/s2/rules/read-session-terminates.js';
+import { s2TailOffsetClampRule } from '../providers/s2/rules/tail-offset-clamp.js';
+import { s2IdempotentResourceCreateRule } from '../providers/s2/rules/idempotent-resource-create.js';
+import { s2CloseStreamClientRule } from '../providers/s2/rules/close-stream-client.js';
+import { s2UseS2EnvironmentEndpointsRule } from '../providers/s2/rules/use-s2-environment-endpoints.js';
+import { s2MetricsDateArgumentsRule } from '../providers/s2/rules/metrics-date-arguments.js';
+import { s2TokenSecretHandlingRule } from '../providers/s2/rules/token-secret-handling.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -233,6 +250,24 @@ const plugin = {
     'openai-realtime-buffer-audio-until-session-ready': openaiRealtimeBufferAudioUntilSessionReadyRule,
     'openai-realtime-send-safety-identifier': openaiRealtimeSendSafetyIdentifierRule,
     'openai-realtime-transcription-model-choice': openaiRealtimeTranscriptionModelChoiceRule,
+
+    's2-scoped-token-for-client': s2ScopedTokenForClientRule,
+    's2-append-retry-duplicates': s2AppendRetryDuplicatesRule,
+    's2-no-hardcoded-access-token': s2NoHardcodedAccessTokenRule,
+    's2-append-batch-limit': s2AppendBatchLimitRule,
+    's2-append-session-for-streams': s2AppendSessionForStreamsRule,
+    's2-token-expiry-and-least-privilege': s2TokenExpiryAndLeastPrivilegeRule,
+    's2-await-append-durability': s2AwaitAppendDurabilityRule,
+    's2-no-manual-append-retry-loop': s2NoManualAppendRetryLoopRule,
+    's2-tail-is-end-not-last-record': s2TailIsEndNotLastRecordRule,
+    's2-single-read-is-capped': s2SingleReadIsCappedRule,
+    's2-read-session-terminates': s2ReadSessionTerminatesRule,
+    's2-tail-offset-clamp': s2TailOffsetClampRule,
+    's2-idempotent-resource-create': s2IdempotentResourceCreateRule,
+    's2-close-stream-client': s2CloseStreamClientRule,
+    's2-use-s2-environment-endpoints': s2UseS2EnvironmentEndpointsRule,
+    's2-metrics-date-arguments': s2MetricsDateArgumentsRule,
+    's2-token-secret-handling': s2TokenSecretHandlingRule,
   },
 } as const;
 
