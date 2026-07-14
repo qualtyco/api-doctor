@@ -50,9 +50,28 @@ function runOxlint(
  * Recursively walks a directory tree and collects relative paths to source files.
  * Skips hidden files/dirs (names starting with `.`) and dirs in SKIP_DIRS.
  * Mutates the `files` array in place — callers pass an empty array to fill.
+ *
+ * Nested directories that can't be read (permission denied, broken/looping
+ * symlinks, deleted mid-scan) are skipped rather than aborting the whole walk.
+ * The `isRoot` flag lets the caller distinguish an unreadable target directory
+ * (a hard error) from an unreadable subdirectory (silently skipped).
  */
-async function walk(dir: string, root: string, files: string[]): Promise<void> {
-  const entries = await readdir(dir, { withFileTypes: true });
+async function walk(
+  dir: string,
+  root: string,
+  files: string[],
+  isRoot = false,
+): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    // The target directory itself being unreadable is a real failure; a nested
+    // subdir that we can't read just gets skipped so one bad folder doesn't
+    // sink the entire scan.
+    if (isRoot) throw err;
+    return;
+  }
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
     const full = join(dir, entry.name);
@@ -127,7 +146,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   // Collect every .ts/.tsx/.js/.jsx file under absRoot (skipping node_modules, etc.).
   const paths: string[] = [];
   try {
-    await walk(absRoot, absRoot, paths);
+    await walk(absRoot, absRoot, paths, true);
   } catch (err) {
     throw new ScanError(`Could not read directory: ${absRoot}`, err);
   }

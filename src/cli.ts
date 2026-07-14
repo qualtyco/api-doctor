@@ -147,6 +147,7 @@ program
         durationMs: elapsedMs,
         noTelemetry,
         projectDir: scannedDir,
+        filesScanned,
       });
 
       process.exit(errors > 0 || warningsExceeded ? 1 : 0);

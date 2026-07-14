@@ -76,6 +76,8 @@ export interface TrackRunOptions {
   durationMs: number;
   noTelemetry: boolean;
   projectDir: string;
+  /** Number of source files walked — lets us tell empty/unscannable dirs apart from real passes. */
+  filesScanned: number;
 }
 
 export async function trackRun(opts: TrackRunOptions): Promise<void> {
@@ -99,6 +101,10 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       project_hash: hashProjectDir(opts.projectDir),
       score: opts.score,
       score_delta: scoreDelta,
+      // A score of 100 with zero providers detected is a no-op scan, not a
+      // healthy integration — segment on these to keep the two apart.
+      providers_detected: opts.detected.length,
+      files_scanned: opts.filesScanned,
       errors: opts.results.filter((r) => r.severity === 'error').length,
       warnings: opts.results.filter((r) => r.severity === 'warning').length,
       duration_ms: Math.round(opts.durationMs),
