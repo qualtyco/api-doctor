@@ -141,6 +141,7 @@ import { agentmailCustomDomainForOutreachRule } from '../providers/agentmail/rul
 import { agentmailNoMessageIdAsThreadIdRule } from '../providers/agentmail/rules/no-message-id-as-thread-id.js';
 import { agentmailPreferWebhooksInProductionRule } from '../providers/agentmail/rules/prefer-webhooks-in-production.js';
 import { agentmailHtmlRequiresTextRule } from '../providers/agentmail/rules/html-requires-text.js';
+import { agentmailAttachmentSizeGuardRule } from '../providers/agentmail/rules/attachment-size-guard.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -295,6 +296,7 @@ const plugin = {
     'agentmail-no-message-id-as-thread-id': agentmailNoMessageIdAsThreadIdRule,
     'agentmail-prefer-webhooks-in-production': agentmailPreferWebhooksInProductionRule,
     'agentmail-html-requires-text': agentmailHtmlRequiresTextRule,
+    'agentmail-attachment-size-guard': agentmailAttachmentSizeGuardRule,
   },
 } as const;
 

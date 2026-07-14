@@ -118,6 +118,15 @@ export const agentmailManifest: ProviderManifest = {
       severity: 'info',
     },
     {
+      key: 'agentmail-attachment-size-guard',
+      resultRule: 'agentmail/attachment-size-guard',
+      message:
+        'Attachment content comes from a file/network read with no size check — AgentMail handlers cap inline base64 content at 6 MB.',
+      fix: 'Check the payload size before attaching (raw bytes over ~4.5 MB exceed 6 MB once base64-encoded) and use the url attachment field (up to 30 MB) for larger files.',
+      docsUrl: 'https://docs.agentmail.to/attachments',
+      severity: 'warning',
+    },
+    {
       key: 'agentmail-html-requires-text',
       resultRule: 'agentmail/html-requires-text',
       message:

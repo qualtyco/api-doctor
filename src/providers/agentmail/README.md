@@ -26,6 +26,7 @@ Rules for the [`agentmail`](https://docs.agentmail.to/welcome) SDK, derived from
 | `agentmail/handle-send-failure-status` | error | Blanket catch around sends — permanent 403 (suppressed recipient) failures retried forever |
 | `agentmail/throttle-bulk-sends` | warning | `messages.send` in a loop with no inter-iteration delay — bursts the whole list from one address |
 | `agentmail/label-failed-messages` | warning | Per-message catch with no label transition — the message stays `unread` and every poll retries it |
+| `agentmail/attachment-size-guard` | warning | File/network content attached inline with no size check — handlers cap inline base64 `content` at 6 MB; use the `url` field (30 MB) for larger files. Limits provider-confirmed 2026-07-14 (docs update pending); both fields verified in `agentmail@0.4.20` |
 
 ## Integration
 
