@@ -40,6 +40,7 @@ npx @api-doctor/cli install
 | [Twilio](https://www.twilio.com/docs)                                                   | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md)       |
 | [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime)               | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-realtime/README.md) |
 | [S2](https://s2.dev/docs/intro)                                                         | [17 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/s2/README.md)          |
+| [AgentMail](https://docs.agentmail.to/welcome)                                          | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/agentmail/README.md)   |
 
 Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 

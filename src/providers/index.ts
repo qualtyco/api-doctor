@@ -15,6 +15,7 @@ import { elevenlabsManifest } from './elevenlabs/manifest.js';
 import { twilioManifest } from './twilio/manifest.js';
 import { openaiRealtimeManifest } from './openai-realtime/manifest.js';
 import { s2Manifest } from './s2/manifest.js';
+import { agentmailManifest } from './agentmail/manifest.js';
 
 export const providers: ProviderManifest[] = [
   resendManifest,
@@ -29,4 +30,5 @@ export const providers: ProviderManifest[] = [
   twilioManifest,
   openaiRealtimeManifest,
   s2Manifest,
+  agentmailManifest,
 ];

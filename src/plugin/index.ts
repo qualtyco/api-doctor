@@ -128,6 +128,19 @@ import { s2CloseStreamClientRule } from '../providers/s2/rules/close-stream-clie
 import { s2UseS2EnvironmentEndpointsRule } from '../providers/s2/rules/use-s2-environment-endpoints.js';
 import { s2MetricsDateArgumentsRule } from '../providers/s2/rules/metrics-date-arguments.js';
 import { s2TokenSecretHandlingRule } from '../providers/s2/rules/token-secret-handling.js';
+import { agentmailVerifyApprovalReplySenderRule } from '../providers/agentmail/rules/verify-approval-reply-sender.js';
+import { agentmailInboxCreateClientIdRule } from '../providers/agentmail/rules/inbox-create-client-id.js';
+import { agentmailHandleSendFailureStatusRule } from '../providers/agentmail/rules/handle-send-failure-status.js';
+import { agentmailCheckUnauthenticatedLabelRule } from '../providers/agentmail/rules/check-unauthenticated-label.js';
+import { agentmailConfigureRecipientGuardrailsRule } from '../providers/agentmail/rules/configure-recipient-guardrails.js';
+import { agentmailDraftCreateClientIdRule } from '../providers/agentmail/rules/draft-create-client-id.js';
+import { agentmailHtmlFallbackForInboundBodyRule } from '../providers/agentmail/rules/html-fallback-for-inbound-body.js';
+import { agentmailThrottleBulkSendsRule } from '../providers/agentmail/rules/throttle-bulk-sends.js';
+import { agentmailLabelFailedMessagesRule } from '../providers/agentmail/rules/label-failed-messages.js';
+import { agentmailCustomDomainForOutreachRule } from '../providers/agentmail/rules/custom-domain-for-outreach.js';
+import { agentmailNoMessageIdAsThreadIdRule } from '../providers/agentmail/rules/no-message-id-as-thread-id.js';
+import { agentmailPreferWebhooksInProductionRule } from '../providers/agentmail/rules/prefer-webhooks-in-production.js';
+import { agentmailHtmlRequiresTextRule } from '../providers/agentmail/rules/html-requires-text.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
@@ -268,6 +281,20 @@ const plugin = {
     's2-use-s2-environment-endpoints': s2UseS2EnvironmentEndpointsRule,
     's2-metrics-date-arguments': s2MetricsDateArgumentsRule,
     's2-token-secret-handling': s2TokenSecretHandlingRule,
+
+    'agentmail-verify-approval-reply-sender': agentmailVerifyApprovalReplySenderRule,
+    'agentmail-inbox-create-client-id': agentmailInboxCreateClientIdRule,
+    'agentmail-handle-send-failure-status': agentmailHandleSendFailureStatusRule,
+    'agentmail-check-unauthenticated-label': agentmailCheckUnauthenticatedLabelRule,
+    'agentmail-configure-recipient-guardrails': agentmailConfigureRecipientGuardrailsRule,
+    'agentmail-draft-create-client-id': agentmailDraftCreateClientIdRule,
+    'agentmail-html-fallback-for-inbound-body': agentmailHtmlFallbackForInboundBodyRule,
+    'agentmail-throttle-bulk-sends': agentmailThrottleBulkSendsRule,
+    'agentmail-label-failed-messages': agentmailLabelFailedMessagesRule,
+    'agentmail-custom-domain-for-outreach': agentmailCustomDomainForOutreachRule,
+    'agentmail-no-message-id-as-thread-id': agentmailNoMessageIdAsThreadIdRule,
+    'agentmail-prefer-webhooks-in-production': agentmailPreferWebhooksInProductionRule,
+    'agentmail-html-requires-text': agentmailHtmlRequiresTextRule,
   },
 } as const;
 
