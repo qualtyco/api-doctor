@@ -59,7 +59,7 @@ export const openaiCuaManifest: ProviderManifest = {
     },
     {
       key: 'openai-cua-set-safety-identifier',
-      resultRule: 'openai-cua/integration/set-safety-identifier',
+      resultRule: 'openai-cua/correctness/set-safety-identifier',
       message: 'responses.create() call has no safety_identifier (or user) parameter.',
       fix: 'Thread a stable, hashed per-customer identifier through to every responses.create() call as safety_identifier.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/safety-best-practices',

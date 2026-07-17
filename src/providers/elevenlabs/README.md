@@ -78,23 +78,3 @@ Network timeouts, version pinning, and conversation lifecycle cleanup.
 | API version pinning           | `route.ts`, `lib-elevenlabs.ts`          | `route.ts` (explicit header), `lib-elevenlabs.ts` (adversarial: spread shared headers) |
 | Conversation cleanup on error | `ConvAI.tsx`, `lib-cleanup.ts`            | `ConvAI.tsx` (direct try/catch), `lib-cleanup.ts` (adversarial: call inside unrelated try) |
 
----
-
-## Root-cause note
-
-Findings A, C, D, H, I in the audit cluster as "Inadequate error handling and validation on network boundaries" — five separate rules here (`validate-signed-url-response`, `fetch-timeout-required`, `validate-agent-id-format`, `check-http-status-before-json`, `conversation-cleanup-on-error`) rather than one meta-rule, per the audit's recommendation to keep them granular for reviewers.
-
----
-
-## Running tests
-
-```bash
-pnpm build
-npx vitest run tests/rules/elevenlabs-
-
-# Single rule
-npx vitest run tests/rules/elevenlabs-validate-signed-url-response.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/elevenlabs/elevenlabs-validate-signed-url-response-broken
-```

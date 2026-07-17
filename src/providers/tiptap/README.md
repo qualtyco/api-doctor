@@ -40,7 +40,7 @@ Input validation (upload handlers), hardcoded API keys in dynamically injected s
 
 ### Correctness
 
-HTML serialization round-trips, ProseMirror undo-stack integrity, operator precedence bugs, and atomic command semantics.
+HTML serialization round-trips, ProseMirror undo-stack integrity, operator precedence bugs, atomic command semantics, and table extension bundling.
 
 | Rule | Severity | Why it matters | Docs | Rule file | Test |
 | ---- | -------- | --- | ---- | --------- | ---- |
@@ -48,6 +48,7 @@ HTML serialization round-trips, ProseMirror undo-stack integrity, operator prece
 | appendTransaction-add-to-history | warning | appendTransaction modifications that add to undo history should use setMeta to prevent undo loops and duplicate entries. | [setMeta](https://prosemirror.net/docs/ref/#state.Transaction.setMeta) | [appendTransaction-add-to-history.ts](rules/appendTransaction-add-to-history.ts) | [test](../../../tests/rules/tiptap-appendTransaction-add-to-history.test.ts) |
 | atom-node-wrap-in | warning | Atomic nodes that can contain other nodes break the invariant of atomicity and lead to unexpected editor behavior. | [Node types](https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node) | [atom-node-wrap-in.ts](rules/atom-node-wrap-in.ts) | [test](../../../tests/rules/tiptap-atom-node-wrap-in.test.ts) |
 | drop-handler-pos-precedence | warning | Incorrect operator precedence in posAtCoords lookup can place content at the wrong position or fail silently on large documents. | [posAtCoords](https://prosemirror.net/docs/ref/#view.EditorView.posAtCoords) | [drop-handler-pos-precedence.ts](rules/drop-handler-pos-precedence.ts) | [test](../../../tests/rules/tiptap-drop-handler-pos-precedence.test.ts) |
+| prefer-table-kit | info | Importing table sub-packages individually bypasses TableKit, the documented way to configure all table elements together with shared HTMLAttributes. | [Table kit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit) | [prefer-table-kit.ts](rules/prefer-table-kit.ts) | [test](../../../tests/rules/tiptap-prefer-table-kit.test.ts) |
 
 #### Correctness fixtures
 
@@ -57,39 +58,24 @@ HTML serialization round-trips, ProseMirror undo-stack integrity, operator prece
 | appendTransaction-add-to-history | `tiptap-appendTransaction-add-to-history-broken/definition-node-broken.tsx`, `spacing-plugin-broken.ts` | `tiptap-appendTransaction-add-to-history-fixed/definition-node-fixed.tsx`, `readonly-appendTransaction-adversarial.ts` |
 | atom-node-wrap-in | `tiptap-atom-node-wrap-in-broken/desmos-node-broken.ts`, `embed-node-broken.ts` | `tiptap-atom-node-wrap-in-fixed/desmos-node-fixed.ts`, `container-node-adversarial.ts` |
 | drop-handler-pos-precedence | `tiptap-drop-handler-pos-precedence-broken/upload-images-broken.tsx`, `drop-handler-broken.ts` | `tiptap-drop-handler-pos-precedence-fixed/upload-images-fixed.tsx`, `correct-precedence-adversarial.tsx` |
+| prefer-table-kit | `tiptap-prefer-table-kit-broken/extensions-broken.ts`, `editor-setup-broken.tsx` | `tiptap-prefer-table-kit-fixed/extensions-fixed.ts`, `table-only-adversarial.ts` |
 
 ---
 
 ### Reliability
 
-Performance issues from quadratic-time document scans on every keystroke.
+Performance issues from quadratic-time document scans on every keystroke, and markdown serialization specs that prevent silent content loss.
 
 | Rule | Severity | Why it matters | Docs | Rule file | Test |
 | ---- | -------- | --- | ---- | --------- | ---- |
 | appendTransaction-full-scan | warning | Scanning the entire document in appendTransaction (called on every keystroke) causes quadratic performance that makes the editor sluggish on large documents. | [appendTransaction](https://prosemirror.net/docs/ref/#state.PluginSpec.appendTransaction) | [appendTransaction-full-scan.ts](rules/appendTransaction-full-scan.ts) | [test](../../../tests/rules/tiptap-appendTransaction-full-scan.test.ts) |
+| tiptap-markdown-missing-node-spec | warning | Custom nodes without markdown specs are silently dropped during markdown conversion, corrupting document content. | [tiptap-markdown](https://github.com/aguingand/tiptap-markdown) | [tiptap-markdown-missing-node-spec.ts](rules/tiptap-markdown-missing-node-spec.ts) | [test](../../../tests/rules/tiptap-tiptap-markdown-missing-node-spec.test.ts) |
 
 #### Reliability fixtures
 
 | Rule | Broken (`should flag`) | Fixed (`should not flag`) |
 | ---- | ---------------------- | ------------------------- |
 | appendTransaction-full-scan | `tiptap-appendTransaction-full-scan-broken/definition-node-broken.tsx`, `validator-plugin-broken.ts` | `tiptap-appendTransaction-full-scan-fixed/definition-node-fixed.tsx`, `no-scan-adversarial.ts` |
-
----
-
-### Integration
-
-Extension bundling best practices and markdown serialization specs.
-
-| Rule | Severity | Why it matters | Docs | Rule file | Test |
-| ---- | -------- | --- | ---- | --------- | ---- |
-| prefer-table-kit | info | Importing table sub-packages individually bypasses TableKit, the documented way to configure all table elements together with shared HTMLAttributes. | [Table kit](https://tiptap.dev/docs/editor/extensions/functionality/table-kit) | [prefer-table-kit.ts](rules/prefer-table-kit.ts) | [test](../../../tests/rules/tiptap-prefer-table-kit.test.ts) |
-| tiptap-markdown-missing-node-spec | warning | Custom nodes without markdown specs are silently dropped during markdown conversion, corrupting document content. | [tiptap-markdown](https://github.com/aguingand/tiptap-markdown) | [tiptap-markdown-missing-node-spec.ts](rules/tiptap-markdown-missing-node-spec.ts) | [test](../../../tests/rules/tiptap-tiptap-markdown-missing-node-spec.test.ts) |
-
-#### Integration fixtures
-
-| Rule | Broken (`should flag`) | Fixed (`should not flag`) |
-| ---- | ---------------------- | ------------------------- |
-| prefer-table-kit | `tiptap-prefer-table-kit-broken/extensions-broken.ts`, `editor-setup-broken.tsx` | `tiptap-prefer-table-kit-fixed/extensions-fixed.ts`, `table-only-adversarial.ts` |
 | tiptap-markdown-missing-node-spec | `tiptap-tiptap-markdown-missing-node-spec-broken/mathematics-broken.ts`, `custom-node-broken.ts` | `tiptap-tiptap-markdown-missing-node-spec-fixed/mathematics-fixed.ts`, `markdown-already-set-adversarial.ts` |
 
 ---
@@ -99,40 +85,6 @@ Extension bundling best practices and markdown serialization specs.
 | Category    | Rules  | Test files | Fixture pairs |
 | ----------- | ------ | ---------- | ------------- |
 | Security    | 3      | 3          | 3             |
-| Correctness | 4      | 4          | 4             |
-| Reliability | 1      | 1          | 1             |
-| Integration | 3      | 3          | 3             |
-| **Total**   | **11** | **11**     | **11**        |
-
-### Running tests
-
-```bash
-# All TipTap rule tests
-pnpm build
-npx vitest run tests/rules/tiptap-
-
-# Single rule
-npx vitest run tests/rules/tiptap-upload-validate-fn-void.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/tiptap/tiptap-drop-handler-pos-precedence-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'tiptap')` — resolves `tests/fixtures/tiptap/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-## Severity in reports
-
-| Severity | Count | Affects score |
-| -------- | ----- | ------------- |
-| error    | 2     | −15 each      |
-| warning  | 8     | −5 each       |
-| info     | 1     | no penalty    |
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
+| Correctness | 5      | 5          | 5             |
+| Reliability | 2      | 2          | 2             |
+| **Total**   | **10** | **10**     | **10**        |

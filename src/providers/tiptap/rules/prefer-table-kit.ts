@@ -1,5 +1,5 @@
 /**
- * tiptap-prefer-table-kit (integration)
+ * tiptap-prefer-table-kit (correctness)
  *
  * Detects when individual TipTap table sub-packages are imported instead of
  * using TableKit from @tiptap/extension-table. Individual imports miss the
@@ -17,7 +17,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Use TableKit from @tiptap/extension-table instead of individual table packages',
-      category: 'integration',
+      category: 'correctness',
       rationale:
         'Importing table extensions individually from their separate packages bypasses the coordinated wiring that TableKit provides: shared configuration and consistent HTMLAttributes across all table elements, configured in one place. TableKit from @tiptap/extension-table is the documented way to register the full table feature set.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/functionality/table-kit',

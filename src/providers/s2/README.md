@@ -30,17 +30,18 @@ Scoped-token hygiene: keeping the account-wide bearer token out of browsers, exp
 
 ### Correctness
 
-Batch limits and read-position semantics: the tail is the end (not the last record), and a single read is one capped batch.
+Batch limits and read-position semantics: the tail is the end (not the last record), a single read is one capped batch, and TypeScript-vs-Python API-shape confusion.
 
 | Rule | Severity | Why it matters | Docs | Rule file | Test |
 | ---- | -------- | --- | ---- | --------- | ---- |
 | append-batch-limit | error | Batches over 1000 records / 1 MiB are rejected by the service; statically oversized `AppendInput.create` calls fail at runtime. | [Appending](https://s2.dev/docs/sdk/appending) | [append-batch-limit.ts](rules/append-batch-limit.ts) | [test](../../../tests/rules/s2-append-batch-limit.test.ts) |
 | tail-is-end-not-last-record | warning | Bounded reads at `tailOffset: 0` return nothing — the tail is one past the last record. | [Reading](https://s2.dev/docs/sdk/reading) | [tail-is-end-not-last-record.ts](rules/tail-is-end-not-last-record.ts) | [test](../../../tests/rules/s2-tail-is-end-not-last-record.test.ts) |
 | single-read-is-capped | warning | One read from seqNum 0 is at most 1000 records / 1 MiB, silently dropping the rest of the stream. Advisory: fires on deliberately capped reads from 0 too. | [Reading](https://s2.dev/docs/sdk/reading) | [single-read-is-capped.ts](rules/single-read-is-capped.ts) | [test](../../../tests/rules/s2-single-read-is-capped.test.ts) |
+| metrics-date-arguments | warning | TS metrics take Date objects (Python takes epoch ints) and timeseries sets need an interval. | [Metrics](https://s2.dev/docs/sdk/metrics) | [metrics-date-arguments.ts](rules/metrics-date-arguments.ts) | [test](../../../tests/rules/s2-metrics-date-arguments.test.ts) |
 
 ### Reliability
 
-The append durability/exactly-once contract (at-least-once by default, exactly-once explicitly) plus session lifecycle and idempotent provisioning.
+The append durability/exactly-once contract (at-least-once by default, exactly-once explicitly) plus session lifecycle, idempotent provisioning, and environment-aware endpoint targeting.
 
 | Rule | Severity | Why it matters | Docs | Rule file | Test |
 | ---- | -------- | --- | ---- | --------- | ---- |
@@ -52,21 +53,9 @@ The append durability/exactly-once contract (at-least-once by default, exactly-o
 | tail-offset-clamp | warning (advisory) | `tailOffset: N` without `clamp: true` errors on streams shorter than N; advisory because S2's own doc snippet omits clamp. | [Reading](https://s2.dev/docs/sdk/reading) | [tail-offset-clamp.ts](rules/tail-offset-clamp.ts) | [test](../../../tests/rules/s2-tail-offset-clamp.test.ts) |
 | idempotent-resource-create | warning | Re-creating an existing basin/stream throws HTTP 409; bare creates crash the second run or a concurrent creator. | [Stream resources](https://s2.dev/docs/sdk/stream-resources) | [idempotent-resource-create.ts](rules/idempotent-resource-create.ts) | [test](../../../tests/rules/s2-idempotent-resource-create.test.ts) |
 | close-stream-client | warning | Sessions/Producers pin an HTTP/2 connection; never closing them leaks per request or hangs process exit. | [Appending](https://s2.dev/docs/sdk/appending) | [close-stream-client.ts](rules/close-stream-client.ts) | [test](../../../tests/rules/s2-close-stream-client.test.ts) |
-
-### Integration
-
-Environment-aware endpoints and TypeScript-vs-Python API shape confusion.
-
-| Rule | Severity | Why it matters | Docs | Rule file | Test |
-| ---- | -------- | --- | ---- | --------- | ---- |
 | use-s2-environment-endpoints | info (advisory) | Env-token clients without `...S2Environment.parse()` or `endpoints` are pinned to the cloud service — s2-lite/self-hosted can't be targeted. | [Endpoints](https://s2.dev/docs/sdk/endpoints) | [use-s2-environment-endpoints.ts](rules/use-s2-environment-endpoints.ts) | [test](../../../tests/rules/s2-use-s2-environment-endpoints.test.ts) |
-| metrics-date-arguments | warning | TS metrics take Date objects (Python takes epoch ints) and timeseries sets need an interval. | [Metrics](https://s2.dev/docs/sdk/metrics) | [metrics-date-arguments.ts](rules/metrics-date-arguments.ts) | [test](../../../tests/rules/s2-metrics-date-arguments.test.ts) |
 
 ---
-
-## Docs-examples fixtures
-
-`tests/fixtures/s2/docs-examples/` holds the 10 verbatim samples from the S2 SDK docs. Three carry `docs-example-expected` annotations by design (advisory rules firing on minimal samples): `create-client.ts` (`s2/use-s2-environment-endpoints`), `single-batch-read.ts` (`s2/single-read-is-capped`), and `read-session-tail-offset.ts` (`s2/tail-offset-clamp`, the clamp variant gap the audit documents). Everything else must scan clean.
 
 ## Non-rule findings (from the audit)
 

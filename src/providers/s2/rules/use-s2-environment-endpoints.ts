@@ -1,5 +1,5 @@
 /**
- * s2-use-s2-environment-endpoints (integration, advisory)
+ * s2-use-s2-environment-endpoints (reliability, advisory)
  *
  * Flags `new S2({ accessToken })` constructions that read the token from the
  * environment but ignore endpoint configuration entirely — no
@@ -16,7 +16,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Spread S2Environment.parse() (or pass endpoints) so endpoint overrides work',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'The SDK reads S2_ACCOUNT_ENDPOINT and S2_BASIN_ENDPOINT via S2Environment.parse(); constructing new S2({ accessToken }) without it (or an explicit endpoints field) hard-pins the app to the production cloud endpoints. Code that already reads its token from the environment clearly expects env-based deployment config, so wire endpoints the same way to keep s2-lite and self-hosted targets working.',
       docsUrl: 'https://s2.dev/docs/sdk/endpoints',

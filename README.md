@@ -48,14 +48,13 @@ Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doc
 
 ## What it catches
 
-Rules cover four categories: security (CWE/OWASP mapped), correctness (wrong endpoints), reliability (production failure modes), and integration (wiring gaps).
+Rules cover three categories: security (CWE/OWASP mapped), correctness (wrong endpoints), and reliability (production failure modes)
 
 | Category        | What it means                                                         | Examples                                                                                      |
 | --------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Security**    | Issues that expose you to compromise. Mapped to CWE and OWASP audits. | Hardcoded API keys, secrets in the client bundle, webhooks read before signature verification |
-| **Correctness** | Wrong endpoint or API for the job.                                    | Marketing email via batch send, missing unsubscribe links, test domain in production          |
-| **Reliability** | Production failure modes the provider docs warn about.                | Missing idempotency keys, batch limits not enforced, error codes not mapped                   |
-| **Integration** | Wiring gaps your agent won't add on its own.                          | No tags, no request ID logging, bare `from` address instead of `"Name <email>"`               |
+| **Security**    | Are your integrations secure? Mapped to CWE and OWASP audits. | Hardcoded API keys, secrets in the client bundle, webhooks read before signature verification |
+| **Correctness** | Are you using the right endpoint or API for the job?                                    | Marketing email via batch send, missing unsubscribe links, test domain in production          |
+| **Reliability** | Is your integration production ready or following suggested best practices?                | Missing idempotency keys, batch limits not enforced, error codes not mapped                   |
 
 ---
 

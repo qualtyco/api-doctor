@@ -1,5 +1,5 @@
 /**
- * browserbase-use-sdk-not-raw-requests (integration)
+ * browserbase-use-sdk-not-raw-requests (reliability)
  *
  * A raw fetch/axios/http call to an api.browserbase.com endpoint bypasses
  * the installed SDK's typed exceptions, retry/backoff, and consistent error
@@ -58,7 +58,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Use the installed Browserbase SDK instead of hand-rolled HTTP requests',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'A raw fetch/axios/http call to an api.browserbase.com endpoint duplicates a method the installed SDK already exposes (e.g. sessions.recording.retrieve()), forfeiting its typed exceptions, built-in retry/backoff, and consistent error handling — and risks drifting on auth header naming or response shape as the API evolves.',
       docsUrl: 'https://docs.browserbase.com/reference/sdk/nodejs',

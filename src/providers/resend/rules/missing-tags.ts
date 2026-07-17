@@ -1,5 +1,5 @@
 /**
- * resend-missing-tags (integration)
+ * resend-missing-tags (reliability)
  *
  * Tags power deliverability segmentation in the Resend dashboard. Flags a
  * Resend send whose statically-visible email option object(s) omit a `tags`
@@ -13,7 +13,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Resend sends should include tags for deliverability segmentation',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'Tags are how Resend segments and filters email in the dashboard and analytics, so sends without them collapse into one undifferentiated stream. When deliverability dips or you need to trace a specific campaign, untagged mail gives you nothing to slice on. Adding tags such as [{ name: "category", value: "welcome" }] makes monitoring and debugging across email types possible.',
       docsUrl: 'https://resend.com/docs/dashboard/emails/tags',

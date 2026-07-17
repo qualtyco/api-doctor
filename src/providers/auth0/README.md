@@ -79,35 +79,3 @@ JWKS cache refresh on key rotation.
 | Correctness | 1     | 1          | 1              |
 | Reliability | 1     | 1          | 1              |
 | **Total**   | **4** | **4**      | **4**          |
-
-### Running tests
-
-```bash
-# All Auth0 rule tests
-pnpm build
-npx vitest run tests/rules/auth0-
-
-# Single rule
-npx vitest run tests/rules/auth0-required-audience-validation.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/auth0/auth0-required-audience-validation-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'auth0')` — resolves `tests/fixtures/auth0/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-## Severity in reports
-
-| Severity | Count | Affects score |
-| -------- | ----- | ------------- |
-| error    | 3     | −15 each      |
-| warning  | 1     | −5 each       |
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).

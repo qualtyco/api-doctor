@@ -93,41 +93,6 @@ Idempotency, env validation, Realtime scope, and storage error surfacing.
 | Reliability | 4 | 4 | 4 |
 | **Total** | **12** | **12 rule tests** | **12 broken/fixed dirs** |
 
-### Running tests
-
-```bash
-# All Supabase rule tests
-pnpm build
-npx vitest run tests/rules/supabase-
-
-# Single rule
-npx vitest run tests/rules/supabase-unchecked-mutation-error.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/supabase/supabase-unchecked-mutation-error-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'supabase')` — resolves `tests/fixtures/supabase/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-## Severity in reports
-
-| Severity | Count | Affects score |
-| --- | --- | --- |
-| error | 2 rules | −15 each |
-| warning | 6 rules | −5 each |
-| info | 4 rules | no penalty |
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
-
----
-
 ## Out of scope (not AST rules)
 
 These patterns require migration SQL or config cross-reference — not detectable in JS/TS source alone:

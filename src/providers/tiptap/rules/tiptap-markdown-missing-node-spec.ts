@@ -1,5 +1,5 @@
 /**
- * tiptap-tiptap-markdown-missing-node-spec (integration)
+ * tiptap-tiptap-markdown-missing-node-spec (reliability)
  *
  * Detects when a file imports both @tiptap/core and tiptap-markdown but
  * contains a Node.create() / Mark.create() call with no markdown serialization
@@ -12,7 +12,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'TipTap nodes used with tiptap-markdown must define a markdown serialization spec',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'When tiptap-markdown serializes a document, nodes without a markdown spec are silently dropped or emitted as empty strings. Custom node types must register a serialize/parse pair (MarkdownNodeSpec) under a `markdown` key returned from addStorage — the library reads only extension.storage.markdown — so content survives markdown export/import cycles.',
       docsUrl: 'https://github.com/aguingand/tiptap-markdown',

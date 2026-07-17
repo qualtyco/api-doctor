@@ -72,7 +72,7 @@ Wrong API choice for marketing, compliance gaps, and test-only sender domains in
 
 ### Reliability
 
-Idempotency, batch limits, error mapping, and webhook retry safety.
+Idempotency, batch limits, error mapping, webhook retry safety, deliverability conventions, and observability.
 
 
 | Rule                    | Severity | Resend docs                                                                            | Rule file                                                                          | Test                                                                                                  |
@@ -81,6 +81,9 @@ Idempotency, batch limits, error mapping, and webhook retry safety.
 | Batch size not enforced | warning  | [Send batch (max 100)](https://resend.com/docs/api-reference/emails/send-batch-emails) | [batch-size-not-enforced.ts](rules/batch-size-not-enforced.ts) | [resend-batch-size-not-enforced.test.ts](../../../tests/rules/resend-batch-size-not-enforced.test.ts) |
 | No error code mapping   | warning  | [AI onboarding — errors](https://resend.com/docs/ai-onboarding)                        | [no-error-code-mapping.ts](rules/no-error-code-mapping.ts)     | [resend-no-error-code-mapping.test.ts](../../../tests/rules/resend-no-error-code-mapping.test.ts)     |
 | Webhook no idempotency  | warning  | [Webhooks](https://resend.com/docs/webhooks/introduction)                    | [webhook-no-idempotency.ts](rules/webhook-no-idempotency.ts)   | [resend-webhook-no-idempotency.test.ts](../../../tests/rules/resend-webhook-no-idempotency.test.ts)   |
+| From address not friendly format | info     | [Send email API](https://resend.com/docs/api-reference/emails/send-email) | [from-address-not-friendly-format.ts](rules/from-address-not-friendly-format.ts) | [resend-from-address-not-friendly-format.test.ts](../../../tests/rules/resend-from-address-not-friendly-format.test.ts) |
+| Missing tags                     | info     | [Tags](https://resend.com/docs/dashboard/emails/tags)                     | [missing-tags.ts](rules/missing-tags.ts)                                         | [resend-missing-tags.test.ts](../../../tests/rules/resend-missing-tags.test.ts)                                         |
+| Request id not logged            | info     | [Errors](https://resend.com/docs/api-reference/errors)                    | [request-id-not-logged.ts](rules/request-id-not-logged.ts)                       | [resend-request-id-not-logged.test.ts](../../../tests/rules/resend-request-id-not-logged.test.ts)                       |
 
 
 #### Fixtures
@@ -92,27 +95,6 @@ Idempotency, batch limits, error mapping, and webhook retry safety.
 | Batch size not enforced | `resend-batch-size-not-enforced-broken/01-direct-request-array.ts`, `02-mapped-array.ts` | `resend-batch-size-not-enforced-fixed/01-length-guarded.ts`, `02-chunked-loop.ts`       |
 | No error code mapping   | `resend-no-error-code-mapping-broken/01-nextresponse-500.ts`, `02-res-status-500.ts`     | `resend-no-error-code-mapping-fixed/01-mapped-status.ts`, `02-non-resend-500.ts`        |
 | Webhook no idempotency  | `resend-webhook-no-idempotency-broken/01-no-dedup.ts`, `02-switch-no-dedup.ts`           | `resend-webhook-no-idempotency-fixed/01-set-dedup.ts`, `02-redis-dedup.ts`              |
-
-
----
-
-### Integration
-
-Deliverability conventions, observability, and dashboard segmentation.
-
-
-| Rule                             | Severity | Resend docs                                                               | Rule file                                                                                            | Test                                                                                                                    |
-| -------------------------------- | -------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| From address not friendly format | info     | [Send email API](https://resend.com/docs/api-reference/emails/send-email) | [from-address-not-friendly-format.ts](rules/from-address-not-friendly-format.ts) | [resend-from-address-not-friendly-format.test.ts](../../../tests/rules/resend-from-address-not-friendly-format.test.ts) |
-| Missing tags                     | info     | [Tags](https://resend.com/docs/dashboard/emails/tags)                     | [missing-tags.ts](rules/missing-tags.ts)                                         | [resend-missing-tags.test.ts](../../../tests/rules/resend-missing-tags.test.ts)                                         |
-| Request id not logged            | info     | [Errors](https://resend.com/docs/api-reference/errors)                    | [request-id-not-logged.ts](rules/request-id-not-logged.ts)                       | [resend-request-id-not-logged.test.ts](../../../tests/rules/resend-request-id-not-logged.test.ts)                       |
-
-
-#### Fixtures
-
-
-| Rule                  | Broken                                                                                           | Fixed                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
 | From address format   | `resend-from-address-not-friendly-format-broken/01-emails-send-bare.ts`, `02-batch-send-bare.ts` | `resend-from-address-not-friendly-format-fixed/01-friendly-name.ts`, `02-dynamic-from.ts`            |
 | Missing tags          | `resend-missing-tags-broken/01-emails-send-no-tags.ts`, `02-batch-item-no-tags.ts`               | `resend-missing-tags-fixed/01-emails-send-with-tags.ts`, `02-non-resend-send.ts`                     |
 | Request id not logged | `resend-request-id-not-logged-broken/01-if-error.ts`, `02-catch.ts`                              | `resend-request-id-not-logged-fixed/01-if-error-with-request-id.ts`, `02-catch-resend-request-id.ts` |
@@ -127,47 +109,5 @@ Deliverability conventions, observability, and dashboard segmentation.
 | ----------- | ------ | --------------------------- | -------------------------------------------- |
 | Security    | 3      | 3 (+ scanner)               | 3 broken + 1 legacy webhook dir              |
 | Correctness | 3      | 3                           | 3                                            |
-| Reliability | 4      | 4                           | 4                                            |
-| Integration | 3      | 3                           | 3                                            |
+| Reliability | 7      | 7                           | 7                                            |
 | **Total**   | **13** | **13 rule tests + scanner** | **26 broken/fixed dirs + webhook-signature** |
-
-
-### Running tests
-
-```bash
-# All Resend rule tests
-pnpm build
-npx vitest run tests/rules/resend-
-
-# Single rule
-npx vitest run tests/rules/resend-api-key-hardcoded.test.ts
-
-# Webhook signature (legacy path + scanner)
-npx vitest run tests/resend-webhook-signature.test.ts tests/scanner.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/resend/resend-api-key-hardcoded-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed')` — resolves `tests/fixtures/resend/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
-Reporter tests (`tests/reporter/`) cover snippet extraction, report JSON shape, and CLI output modes against these same fixtures.
-
----
-
-## Severity in reports
-
-
-| Severity | Count today | Affects score |
-| -------- | ----------- | ------------- |
-| error    | 5 rules     | −15 each      |
-| warning  | 5 rules     | −5 each       |
-| info     | 3 rules     | no penalty    |
-
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).

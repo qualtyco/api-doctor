@@ -70,13 +70,15 @@ Context atomicity and device configuration requirements.
 
 ### Reliability
 
-Session lifecycle management and error handling strategy.
+Session lifecycle management, SDK usage, and error handling strategy.
 
 | Rule | Severity | Why it matters | Browserbase docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
 | Release session on connect failure | error | If CDP handshake fails after session creation, the session is never released and accumulates charges until the timeout elapses (up to 6 hours). | [Error handling](https://docs.browserbase.com/reference/sdk/nodejs) | [release-session-on-connect-failure.ts](rules/release-session-on-connect-failure.ts) | [test](../../../tests/rules/browserbase-release-session-on-connect-failure.test.ts) |
 | No overbroad error substring match | error | Broad substring matching like "session" in error messages kills healthy recordings on transient network errors, causing false positives. | [API errors](https://docs.browserbase.com/reference/sdk/nodejs) | [no-overbroad-error-substring-match.ts](rules/no-overbroad-error-substring-match.ts) | [test](../../../tests/rules/browserbase-no-overbroad-error-substring-match.test.ts) |
 | Don't stack custom retry on SDK retry | warning | Layering custom retry on top of SDK's built-in retry (2 retries) can trigger up to 9 actual HTTP attempts, compounding latency and consuming quota. | [Retry logic](https://docs.browserbase.com/reference/sdk/nodejs) | [dont-stack-custom-retry-on-sdk-retry.ts](rules/dont-stack-custom-retry-on-sdk-retry.ts) | [test](../../../tests/rules/browserbase-dont-stack-custom-retry-on-sdk-retry.test.ts) |
+| Use SDK, not raw requests | info | Raw fetch/axios calls to `api.browserbase.com` duplicate SDK methods, forfeiting typed exceptions, built-in retry/backoff, and consistent error handling — and risk drifting on auth headers or response shape as the API evolves. | [SDK reference](https://docs.browserbase.com/reference/sdk/nodejs) | [use-sdk-not-raw-requests.ts](rules/use-sdk-not-raw-requests.ts) | [test](../../../tests/rules/browserbase-use-sdk-not-raw-requests.test.ts) |
+| Centralize REQUEST_RELEASE | warning | Inline `sessions.update(id, { status: "REQUEST_RELEASE" })` duplicated at each call site drifts in error handling and forces fixing every site on an API change; route it through one shared release method. | [Session release](https://docs.browserbase.com/reference/api/update-a-session) | [centralize-request-release.ts](rules/centralize-request-release.ts) | [test](../../../tests/rules/browserbase-centralize-request-release.test.ts) |
 
 #### Reliability fixtures
 
@@ -85,22 +87,6 @@ Session lifecycle management and error handling strategy.
 | Release session on connect failure | `browserbase-release-session-on-connect-failure-broken/no-release-on-error.ts`, `throw-without-cleanup.ts` | `browserbase-release-session-on-connect-failure-fixed/release-in-finally.ts`, `no-connect-attempt-adversarial.ts` |
 | No overbroad error substring match | `browserbase-no-overbroad-error-substring-match-broken/includes-timeout.ts`, `substring-partial-match.ts` | `browserbase-no-overbroad-error-substring-match-fixed/specific-error-check.ts`, `http-error-specific-adversarial.ts` |
 | Don't stack custom retry on SDK retry | `browserbase-dont-stack-custom-retry-on-sdk-retry-broken/custom-retry-wrapper.ts`, `manual-retry-loop.ts` | `browserbase-dont-stack-custom-retry-on-sdk-retry-fixed/no-custom-retry.ts`, `debug-log-no-retry-adversarial.ts` |
-
----
-
-### Integration
-
-Best practices for SDK usage and API interaction patterns.
-
-| Rule | Severity | Browserbase docs | Rule file | Test |
-| --- | --- | --- | --- | --- |
-| Use SDK, not raw requests | info | [SDK reference](https://docs.browserbase.com/reference/sdk/nodejs) | [use-sdk-not-raw-requests.ts](rules/use-sdk-not-raw-requests.ts) | [test](../../../tests/rules/browserbase-use-sdk-not-raw-requests.test.ts) |
-| Centralize REQUEST_RELEASE | warning | [Session release](https://docs.browserbase.com/reference/api/update-a-session) | [centralize-request-release.ts](rules/centralize-request-release.ts) | [test](../../../tests/rules/browserbase-centralize-request-release.test.ts) |
-
-#### Integration fixtures
-
-| Rule | Broken (`should flag`) | Fixed (`should not flag`) |
-| --- | --- | --- |
 | Use SDK, not raw requests | `browserbase-use-sdk-not-raw-requests-broken/fetch-raw-request.ts`, `manual-http-call.ts` | `browserbase-use-sdk-not-raw-requests-fixed/sdk-method-call.ts`, `internal-utility-call-adversarial.ts` |
 | Centralize REQUEST_RELEASE | `browserbase-centralize-request-release-broken/scattered-release-calls.ts`, `release-in-multiple-places.ts` | `browserbase-centralize-request-release-fixed/single-release-handler.ts`, `no-release-needed-adversarial.ts` |
 
@@ -112,44 +98,8 @@ Best practices for SDK usage and API interaction patterns.
 | ----------- | ----- | ---------- | -------------- |
 | Security    | 3     | 3          | 3              |
 | Correctness | 3     | 3          | 3              |
-| Reliability | 3     | 3          | 3              |
-| Integration | 2     | 2          | 2              |
+| Reliability | 5     | 5          | 5              |
 | **Total**   | **11** | **11**    | **11**         |
-
-### Running tests
-
-```bash
-# All Browserbase rule tests
-pnpm build
-npx vitest run tests/rules/browserbase-
-
-# Single rule
-npx vitest run tests/rules/browserbase-no-concurrent-shared-context.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/browserbase/browserbase-no-concurrent-shared-context-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'browserbase')` — resolves `tests/fixtures/browserbase/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-## Severity in reports
-
-| Severity | Count | Affects score |
-| -------- | ----- | ------------- |
-| error    | 5     | −15 each      |
-| warning  | 4     | −5 each       |
-| info     | 2     | no penalty    |
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
-
----
 
 ## Known detection limits
 

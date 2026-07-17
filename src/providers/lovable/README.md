@@ -62,40 +62,6 @@ Data validation and expiry/cost tracking.
 | Correctness | 2     | 2          | 2              |
 | **Total**   | **4** | **4**      | **4**          |
 
-### Running tests
-
-```bash
-# All Lovable rule tests
-pnpm build
-npx vitest run tests/rules/lovable-
-
-# Single rule
-npx vitest run tests/rules/lovable-no-client-side-secret-fetch.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/lovable/lovable-no-client-side-secret-fetch-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'lovable')` — resolves `tests/fixtures/lovable/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-## Severity in reports
-
-| Severity | Count | Affects score |
-| -------- | ----- | ------------- |
-| error    | 2     | −15 each      |
-| warning  | 2     | −5 each       |
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
-
----
-
 ## Out of scope
 
 These patterns require cross-file analysis or non-JS resources — not detectable via single-file AST rules:

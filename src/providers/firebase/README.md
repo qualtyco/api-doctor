@@ -137,33 +137,6 @@ Listener error handling (Firestore and RTDB), document size limits, effect depen
 | **Total**   | **19** | **19**     | **19**        |
 
 
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'firebase')` — resolves `tests/fixtures/firebase/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-
-
-## Severity in reports
-
-
-| Severity | Count | Affects score |
-| -------- | ----- | ------------- |
-| error    | 5     | −15 each      |
-| warning  | 13    | −5 each       |
-| info     | 1     | no penalty    |
-
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
-
----
-
-
-
 ## Known detection limits
 
 Rules operate per-file on the modular SDK's free functions. A project that wraps SDK calls behind project-local helpers will hide the call shapes these rules look for. The `firebase-firestore-document-size-guard` rule detects `getJSON()` only when it appears directly inside `updateDoc`/`setDoc` arguments, not when the result is pre-assigned to a variable. `firebase-rtdb-write-promise-not-handled` analyzes one file at a time, so `await set(...)` inside a helper whose *callers* wrap it in try/catch is still flagged — hence warning severity. `firebase-firestore-rules-expired` only sees rules embedded in JS/TS string literals; a real `firestore.rules` file is outside the scanner's file set.

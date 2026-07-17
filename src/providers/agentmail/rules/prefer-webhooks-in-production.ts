@@ -1,5 +1,5 @@
 /**
- * agentmail-prefer-webhooks-in-production (integration, advisory)
+ * agentmail-prefer-webhooks-in-production (reliability, advisory)
  *
  * Long-running agents that poll `messages.list` in a while(true)/setInterval
  * loop re-fetch on a fixed interval (plus per-message get/thread
@@ -30,7 +30,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Production agents should receive mail via webhooks/WebSockets, not poll loops',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'A forever-loop that polls messages.list every N seconds adds latency, burns rate budget with per-message get/thread amplification, and misses the delivery guarantees of the recommended mechanisms: webhooks ("Recommended for Production", with Svix signature verification) or WebSockets (real-time without a public URL). Polling remains a documented pattern for simple agents — treat this as an architecture nudge for long-running production workloads.',
       docsUrl: 'https://docs.agentmail.to/knowledge-base/handling-inbound-emails',

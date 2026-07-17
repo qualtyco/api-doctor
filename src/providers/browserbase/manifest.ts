@@ -83,7 +83,7 @@ export const browserbaseManifest: ProviderManifest = {
     },
     {
       key: 'browserbase-use-sdk-not-raw-requests',
-      resultRule: 'browserbase/integration/use-sdk-not-raw-requests',
+      resultRule: 'browserbase/reliability/use-sdk-not-raw-requests',
       message: 'A raw HTTP request targets a Browserbase API endpoint instead of using the SDK.',
       fix: 'Replace the raw fetch/axios/http call with the equivalent installed-SDK method.',
       docsUrl: 'https://docs.browserbase.com/reference/sdk/nodejs',
@@ -91,7 +91,7 @@ export const browserbaseManifest: ProviderManifest = {
     },
     {
       key: 'browserbase-centralize-request-release',
-      resultRule: 'browserbase/integration/centralize-request-release',
+      resultRule: 'browserbase/reliability/centralize-request-release',
       message: 'REQUEST_RELEASE is hand-rolled inline instead of going through a shared abstraction.',
       fix: 'Route this call through a single designated release/provider method instead of inlining sessions.update(..., { status: "REQUEST_RELEASE" }).',
       docsUrl: 'https://docs.browserbase.com/reference/api/update-a-session',

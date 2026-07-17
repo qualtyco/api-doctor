@@ -1,5 +1,5 @@
 /**
- * resend-request-id-not-logged (integration)
+ * resend-request-id-not-logged (reliability)
  *
  * When handling a Resend error, logging the request id makes
  * support/debugging far easier. Flags an error-handling block
@@ -16,7 +16,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Log the Resend request id when handling errors',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'Every Resend API response carries a request id (x-request-id / x-resend-request-id) that uniquely identifies the call on their side. When something goes wrong, logging only error.message leaves you and Resend support with no way to find the exact failed request. Logging the request id alongside the message turns a vague "send failed" into a traceable incident that support can look up directly.',
       docsUrl: 'https://resend.com/docs/api-reference/errors',

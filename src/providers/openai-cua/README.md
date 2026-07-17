@@ -12,7 +12,7 @@
 
 Detection: `openai` in package.json or imports, or `api.openai.com` in source.
 
-These rules target integration mistakes specific to building a computer-use agent loop on the Responses API: governance gaps (no domain allowlist, blind safety-check acknowledgment), reliability gaps around the turn loop (no retry on transient errors, not detecting a token-budget truncation disguised as a successful completion), and a few narrower correctness/integration issues in action normalization and request configuration.
+These rules target integration mistakes specific to building a computer-use agent loop on the Responses API: governance gaps (no domain allowlist, blind safety-check acknowledgment), reliability gaps around the turn loop (no retry on transient errors, not detecting a token-budget truncation disguised as a successful completion), and a few narrower correctness issues in action normalization and request configuration.
 
 ---
 
@@ -82,40 +82,6 @@ Retry logic and truncation detection on the turn loop.
 | Correctness | 3     | 3          | 3              |
 | Reliability | 2     | 2          | 2              |
 | **Total**   | **7** | **7**      | **7**          |
-
-### Running tests
-
-```bash
-# All OpenAI CUA rule tests
-pnpm build
-npx vitest run tests/rules/openai-cua-
-
-# Single rule
-npx vitest run tests/rules/openai-cua-no-domain-allowlist.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/openai-cua/openai-cua-no-domain-allowlist-broken
-```
-
-### Test harness
-
-Rule tests use [tests/helpers/lint-rule.ts](../../../tests/helpers/lint-rule.ts):
-
-- `fixtureDir(ruleKey, 'broken' | 'fixed', 'openai-cua')` — resolves `tests/fixtures/openai-cua/<rule-key>-<kind>/`
-- `lintFileForRule(ruleKey, filePath)` — runs oxlint with only that rule enabled
-
----
-
-## Severity in reports
-
-| Severity | Count | Affects score |
-| -------- | ----- | ------------- |
-| error    | 4     | −15 each      |
-| warning  | 3     | −5 each       |
-
-Structured reports include each rule's `meta.docs.rationale` under **Why this matters** (markdown export).
-
----
 
 ## Out of scope
 

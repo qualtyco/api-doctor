@@ -60,7 +60,7 @@ export const resendManifest: ProviderManifest = {
     },
     {
       key: 'resend-from-address-not-friendly-format',
-      resultRule: 'resend/integration/from-address-not-friendly-format',
+      resultRule: 'resend/reliability/from-address-not-friendly-format',
       message: 'From address is a bare email rather than the "Name <email>" format.',
       fix: 'Use a friendly-name sender, e.g. "Acme <onboarding@acme.com>".',
       docsUrl: 'https://resend.com/docs/api-reference/emails/send-email',
@@ -100,7 +100,7 @@ export const resendManifest: ProviderManifest = {
     },
     {
       key: 'resend-missing-tags',
-      resultRule: 'resend/integration/missing-tags',
+      resultRule: 'resend/reliability/missing-tags',
       message: 'Resend send has no tags for deliverability segmentation.',
       fix: 'Add tags, e.g. tags: [{ name: "category", value: "welcome" }].',
       docsUrl: 'https://resend.com/docs/dashboard/emails/tags',
@@ -108,7 +108,7 @@ export const resendManifest: ProviderManifest = {
     },
     {
       key: 'resend-request-id-not-logged',
-      resultRule: 'resend/integration/request-id-not-logged',
+      resultRule: 'resend/reliability/request-id-not-logged',
       message: 'Resend error handler does not log the request id.',
       fix: 'Log error.headers?.["x-request-id"] (or x-resend-request-id) alongside error.message.',
       docsUrl: 'https://resend.com/docs/api-reference/errors',

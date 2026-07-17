@@ -10,7 +10,7 @@ const rule = {
     type: 'problem',
     docs: {
       description: 'responses.create() must set safety_identifier for per-end-user policy attribution',
-      category: 'integration',
+      category: 'correctness',
       rationale:
         'OpenAI documents that a stable per-end-user safety_identifier lets policy violations be attributed and acted on per end user. Without one on a multi-tenant integration routing many customers through a single shared API key, a single customer triggering a high-confidence policy-violation heuristic can result in access being temporarily revoked for the entire organization, not just the offending identifier.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/safety-best-practices',

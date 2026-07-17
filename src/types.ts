@@ -4,7 +4,7 @@
 
 export type Severity = 'error' | 'warning' | 'info';
 
-export type FindingCategory = 'security' | 'correctness' | 'reliability' | 'integration';
+export type FindingCategory = 'security' | 'correctness' | 'reliability';
 
 export type ReportSeverityLabel = 'excellent' | 'good' | 'needs-work' | 'critical';
 

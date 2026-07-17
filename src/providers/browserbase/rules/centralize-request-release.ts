@@ -1,5 +1,5 @@
 /**
- * browserbase-centralize-request-release (integration)
+ * browserbase-centralize-request-release (reliability)
  *
  * `sessions.update(id, { status: "REQUEST_RELEASE" })` hand-rolled inline at
  * multiple call sites, each with slightly different error handling, drifts
@@ -13,7 +13,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Route REQUEST_RELEASE through a single shared abstraction',
-      category: 'integration',
+      category: 'reliability',
       rationale:
         'sessions.update(id, { status: "REQUEST_RELEASE" }) hand-rolled inline at each call site, with each one carrying slightly different error handling, means an API change (a new required field, a renamed status value) requires fixing every call site instead of one — and the duplicated copies already drift in error-handling quality. Centralize behind one designated provider method (e.g. requestStop()/releaseSession()) and call that everywhere instead.',
       docsUrl: 'https://docs.browserbase.com/reference/api/update-a-session',

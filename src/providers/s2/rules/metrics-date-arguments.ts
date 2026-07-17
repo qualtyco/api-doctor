@@ -1,5 +1,5 @@
 /**
- * s2-metrics-date-arguments (integration)
+ * s2-metrics-date-arguments (correctness)
  *
  * The TypeScript metrics API takes `start`/`end` as Date objects and a
  * string `interval`; the Python SDK takes integer epoch seconds. Agents
@@ -18,7 +18,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'S2 metrics take Date objects for start/end and need interval on timeseries sets',
-      category: 'integration',
+      category: 'correctness',
       rationale:
         'metrics.account/basin/stream in the TypeScript SDK expect start and end as Date objects — passing epoch numbers (the Python SDK pattern) is a type error at best and a silently wrong query at worst. Timeseries sets like "storage" and "append-ops" also take interval: "hour" | "minute"; omitting it returns a resolution you did not choose.',
       docsUrl: 'https://s2.dev/docs/sdk/metrics',

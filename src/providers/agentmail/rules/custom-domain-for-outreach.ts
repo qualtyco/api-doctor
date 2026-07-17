@@ -1,5 +1,5 @@
 /**
- * agentmail-custom-domain-for-outreach (integration)
+ * agentmail-custom-domain-for-outreach (correctness)
  *
  * Cold-outreach campaigns sent from the shared @agentmail.to domain ride on
  * reputation shared across all users — the spam guide says it is for
@@ -22,7 +22,7 @@ const rule = {
     type: 'suggestion',
     docs: {
       description: 'Outreach campaigns should send from a verified custom subdomain, not @agentmail.to',
-      category: 'integration',
+      category: 'correctness',
       rationale:
         'The shared @agentmail.to domain carries reputation shared across all users — fine for testing, a liability for production cold outreach, where full-volume sending from a fresh shared-domain inbox is a top cause of spam-foldering. Create the outreach inbox on a verified custom subdomain (agents.yourcompany.com avoids MX conflicts with the root domain) and warm it up gradually.',
       docsUrl: 'https://docs.agentmail.to/knowledge-base/emails-going-to-spam',

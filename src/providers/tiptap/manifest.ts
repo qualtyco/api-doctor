@@ -75,7 +75,7 @@ export const tiptapManifest: ProviderManifest = {
     },
     {
       key: 'tiptap-prefer-table-kit',
-      resultRule: 'tiptap/integration/prefer-table-kit',
+      resultRule: 'tiptap/correctness/prefer-table-kit',
       message: 'Individual TipTap table extension imported — use TableKit instead.',
       fix: 'Import TableKit from @tiptap/extension-table and configure all table elements together.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/functionality/table-kit',
@@ -83,7 +83,7 @@ export const tiptapManifest: ProviderManifest = {
     },
     {
       key: 'tiptap-tiptap-markdown-missing-node-spec',
-      resultRule: 'tiptap/integration/tiptap-markdown-missing-node-spec',
+      resultRule: 'tiptap/reliability/tiptap-markdown-missing-node-spec',
       message: 'TipTap node used with tiptap-markdown has no markdown serialization spec — content lost on export.',
       fix: 'Return a markdown serialize/parse spec (MarkdownNodeSpec) from addStorage — tiptap-markdown reads only extension.storage.markdown.',
       docsUrl: 'https://github.com/aguingand/tiptap-markdown',

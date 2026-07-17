@@ -81,18 +81,3 @@ A session map keyed by the wrong identifier, unhandled REST rejections inside ev
 ## Root-cause note
 
 The audit's Finding D (`/outbound-call` never invoked by the real call flow) and Finding N (mixed `<Connect>`/`<Enqueue>` routing strategies) are documented as non-rules — they require cross-file control-flow reachability analysis that a single-file AST rule can't reliably do. `taskrouter-attributes-match-consumer` (Finding E) is kept as an independent rule per the audit's recommendation, since it's a self-contained, unconditionally-true bug regardless of reachability — but because oxlint rules run per file, it only fires when the producer and consumer code live in the same file; the audit's actual two-file case (`outbound-call.ts` + `flex-reservation-accepted.ts`) needs manual review to catch.
-
----
-
-## Running tests
-
-```bash
-pnpm build
-npx vitest run tests/rules/twilio-
-
-# Single rule
-npx vitest run tests/rules/twilio-validate-webhook-signature.test.ts
-
-# Lint a fixture directory end-to-end
-node dist/cli.mjs tests/fixtures/twilio/twilio-validate-webhook-signature-broken
-```
