@@ -2,7 +2,7 @@ import type { ProviderManifest } from '../../types.js';
 
 export const tiptapManifest: ProviderManifest = {
   name: 'tiptap',
-  displayName: 'TipTap',
+  displayName: 'Tiptap',
   detect: {
     packages: ['@tiptap/core', '@tiptap/react', '@tiptap/pm'],
     imports: ['@tiptap/core', '@tiptap/react', '@tiptap/pm'],
@@ -36,7 +36,7 @@ export const tiptapManifest: ProviderManifest = {
     {
       key: 'tiptap-addAttributes-missing-renderHTML',
       resultRule: 'tiptap/correctness/addAttributes-missing-renderHTML',
-      message: 'TipTap attribute defines parseHTML but no renderHTML — attribute lost on HTML round-trip.',
+      message: 'Tiptap attribute defines parseHTML but no renderHTML — attribute lost on HTML round-trip.',
       fix: 'Add renderHTML: (attrs) => ({ "data-<name>": attrs.<name> }) to the attribute descriptor.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node#attributes',
       severity: 'error',
@@ -76,7 +76,7 @@ export const tiptapManifest: ProviderManifest = {
     {
       key: 'tiptap-prefer-table-kit',
       resultRule: 'tiptap/correctness/prefer-table-kit',
-      message: 'Individual TipTap table extension imported — use TableKit instead.',
+      message: 'Individual Tiptap table extension imported — use TableKit instead.',
       fix: 'Import TableKit from @tiptap/extension-table and configure all table elements together.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/functionality/table-kit',
       severity: 'info',
@@ -84,7 +84,7 @@ export const tiptapManifest: ProviderManifest = {
     {
       key: 'tiptap-tiptap-markdown-missing-node-spec',
       resultRule: 'tiptap/reliability/tiptap-markdown-missing-node-spec',
-      message: 'TipTap node used with tiptap-markdown has no markdown serialization spec — content lost on export.',
+      message: 'Tiptap node used with tiptap-markdown has no markdown serialization spec — content lost on export.',
       fix: 'Return a markdown serialize/parse spec (MarkdownNodeSpec) from addStorage — tiptap-markdown reads only extension.storage.markdown.',
       docsUrl: 'https://github.com/aguingand/tiptap-markdown',
       severity: 'warning',

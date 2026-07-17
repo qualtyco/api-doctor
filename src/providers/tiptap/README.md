@@ -1,6 +1,6 @@
-# TipTap
+# Tiptap
 
-10 oxlint rules for [TipTap](https://tiptap.dev) editor extensions and ProseMirror plugins.
+10 oxlint rules for [Tiptap](https://tiptap.dev) editor extensions and ProseMirror plugins.
 
 
 |                          |                                      |
