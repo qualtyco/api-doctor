@@ -1,8 +1,8 @@
 /**
  * tiptap-addAttributes-missing-renderHTML (correctness)
  *
- * Detects TipTap node/mark attribute descriptors that define `parseHTML` but
- * not `renderHTML`. Without `renderHTML`, TipTap serializes the attribute
+ * Detects Tiptap node/mark attribute descriptors that define `parseHTML` but
+ * not `renderHTML`. Without `renderHTML`, Tiptap serializes the attribute
  * using the plain attribute name, while `parseHTML` reads from `data-*`.
  * The mismatch silently drops attribute values on HTML round-trips.
  */
@@ -12,16 +12,16 @@ const rule = {
   meta: {
     type: 'problem',
     docs: {
-      description: 'TipTap addAttributes descriptors with parseHTML must also define renderHTML',
+      description: 'Tiptap addAttributes descriptors with parseHTML must also define renderHTML',
       category: 'correctness',
       rationale:
-        'When an attribute defines parseHTML: (el) => el.getAttribute("data-label") but no renderHTML, TipTap emits the attribute as a plain HTML attribute (label="...") instead of data-label="...". On re-parse, getAttribute("data-label") returns null and the value falls back to the default, silently discarding any customization across HTML export/import cycles.',
+        'When an attribute defines parseHTML: (el) => el.getAttribute("data-label") but no renderHTML, Tiptap emits the attribute as a plain HTML attribute (label="...") instead of data-label="...". On re-parse, getAttribute("data-label") returns null and the value falls back to the default, silently discarding any customization across HTML export/import cycles.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node#attributes',
       recommended: true,
     },
     messages: {
       missingRenderHTML:
-        'Attribute defines parseHTML but no renderHTML. TipTap will serialize this attribute with the default name, breaking the HTML round-trip. Add renderHTML: (attrs) => ({ "data-<name>": attrs.<name> }).',
+        'Attribute defines parseHTML but no renderHTML. Tiptap will serialize this attribute with the default name, breaking the HTML round-trip. Add renderHTML: (attrs) => ({ "data-<name>": attrs.<name> }).',
     },
     schema: [],
   },

@@ -11,7 +11,7 @@ const rule = {
   meta: {
     type: 'suggestion',
     docs: {
-      description: 'TipTap nodes used with tiptap-markdown must define a markdown serialization spec',
+      description: 'Tiptap nodes used with tiptap-markdown must define a markdown serialization spec',
       category: 'reliability',
       rationale:
         'When tiptap-markdown serializes a document, nodes without a markdown spec are silently dropped or emitted as empty strings. Custom node types must register a serialize/parse pair (MarkdownNodeSpec) under a `markdown` key returned from addStorage — the library reads only extension.storage.markdown — so content survives markdown export/import cycles.',
@@ -20,7 +20,7 @@ const rule = {
     },
     messages: {
       missingMarkdownNodeSpec:
-        'This TipTap node is used alongside tiptap-markdown but defines no markdown serialization. Nodes without a markdown spec are silently dropped on export. Return a markdown spec (MarkdownNodeSpec) from addStorage.',
+        'This Tiptap node is used alongside tiptap-markdown but defines no markdown serialization. Nodes without a markdown spec are silently dropped on export. Return a markdown spec (MarkdownNodeSpec) from addStorage.',
     },
     schema: [],
   },

@@ -1,7 +1,7 @@
 /**
  * tiptap-prefer-table-kit (correctness)
  *
- * Detects when individual TipTap table sub-packages are imported instead of
+ * Detects when individual Tiptap table sub-packages are imported instead of
  * using TableKit from @tiptap/extension-table. Individual imports miss the
  * coordinated configuration TableKit provides.
  */
@@ -25,7 +25,7 @@ const rule = {
     },
     messages: {
       preferTableKit:
-        'Individual TipTap table extension imported. Use TableKit from @tiptap/extension-table to configure all table elements together.',
+        'Individual Tiptap table extension imported. Use TableKit from @tiptap/extension-table to configure all table elements together.',
     },
     schema: [],
   },

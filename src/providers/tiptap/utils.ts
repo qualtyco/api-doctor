@@ -1,5 +1,5 @@
 /**
- * Shared AST helpers for TipTap rules.
+ * Shared AST helpers for Tiptap rules.
  */
 
 /** True if ImportDeclaration source is from @tiptap/* or tiptap-markdown. */
