@@ -1,0 +1,13 @@
+import Browserbase from '@browserbasehq/sdk';
+
+const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY });
+
+export async function startSetupLoginSession(device: string) {
+  const browserSettings: any = { viewport: { width: 1280, height: 800 } };
+
+  if (device === 'mobile') {
+    browserSettings.viewport = { width: 390, height: 844 };
+  }
+
+  return bb.sessions.create({ projectId: process.env.BROWSERBASE_PROJECT_ID, browserSettings });
+}
