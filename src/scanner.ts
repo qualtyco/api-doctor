@@ -10,7 +10,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import os from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { PLUGIN_NAME } from './constants.js';
 import { detectProviders, type DetectResult } from './detector.js';
 import { providers } from './providers/index.js';
@@ -22,17 +22,21 @@ const SOURCE_EXT = /\.(tsx?|jsx?)$/;
 /**
  * Runs oxlint asynchronously (rather than spawnSync) so the event loop stays
  * free — this is what lets the CLI's spinner actually animate while it waits.
+ *
+ * oxlint runs as `node <oxlint-bin>` instead of through npx: spawning npx.cmd
+ * on Windows throws EINVAL since Node's CVE-2024-27980 fix (batch files now
+ * require shell: true), and a shell would reintroduce the quoting risks that
+ * fix exists to prevent. Running the dependency's JS bin under our own Node
+ * binary also pins oxlint to the version this package declares, rather than
+ * whatever npx happens to resolve.
  */
-const NPX_CMD = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
 function runOxlint(
+  oxlintBin: string,
   args: string[],
   cwd: string,
 ): Promise<{ stdout: string; stderr: string; error?: Error }> {
   return new Promise((resolveRun) => {
-    // Windows resolves shims (npx.cmd) only via a shell; spawn's own PATH
-    // lookup doesn't append extensions, so passing 'npx' bare throws ENOENT.
-    const child = spawn(NPX_CMD, args, { cwd });
+    const child = spawn(process.execPath, [oxlintBin, ...args], { cwd });
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (chunk) => {
@@ -187,6 +191,25 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   const require = createRequire(import.meta.url);
   const pluginEntry = require.resolve('@api-doctor/cli/plugin');
 
+  // Resolve oxlint's bin script from its own manifest rather than hardcoding
+  // the path — oxlint's exports map only exposes package.json, and following
+  // the declared `bin` field keeps this working if a future release moves the
+  // script. The bin is a plain Node ESM shim, safe to run via execPath.
+  let oxlintBin: string;
+  try {
+    const oxlintPkgPath = require.resolve('oxlint/package.json');
+    const oxlintPkg = require(oxlintPkgPath);
+    const binRel =
+      typeof oxlintPkg.bin === 'string' ? oxlintPkg.bin : oxlintPkg.bin?.oxlint;
+    if (!binRel) throw new Error('oxlint package.json declares no "oxlint" bin');
+    oxlintBin = join(dirname(oxlintPkgPath), binRel);
+  } catch (err) {
+    throw new ScanError(
+      'Could not locate the bundled oxlint package — try reinstalling @api-doctor/cli',
+      err,
+    );
+  }
+
   // Write a temporary oxlint config — we don't require users to have one in their project.
   const tmpDir = mkdtempSync(join(os.tmpdir(), 'api-doctor-oxlint-'));
   const configPath = join(tmpDir, 'oxlintrc.json');
@@ -201,7 +224,8 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   // Run oxlint against the target project; diagnostics come back as JSON on stdout.
   const res = await runOxlint(
-    ['oxlint', '--config', configPath, '--format', 'json', '.'],
+    oxlintBin,
+    ['--config', configPath, '--format', 'json', '.'],
     absRoot,
   );
 

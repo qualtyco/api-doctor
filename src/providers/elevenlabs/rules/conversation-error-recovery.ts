@@ -78,8 +78,11 @@ const rule = {
     }
 
     function analyzeFunction(fnNode: any): void {
-      const setterName = findLoadingSetterFromUseState(fnNode);
-      if (!setterName) return;
+      const foundSetter = findLoadingSetterFromUseState(fnNode);
+      if (!foundSetter) return;
+      // Re-bind after the null guard: narrowing doesn't reach the nested
+      // `walk` closure, so give it an already-narrowed string binding.
+      const setterName: string = foundSetter;
 
       // Only the try block immediately following a `setLoading(true)` sibling
       // statement is in scope — a stray setLoading(true) elsewhere in the
