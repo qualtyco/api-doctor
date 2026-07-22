@@ -93,6 +93,10 @@ tests/
 
 Fixture files may be named `*.test.ts` to exercise test-file detection; vitest excludes `tests/fixtures/**`.
 
+### Test suite policy
+
+The test suite is the contract for rule behavior — **never edit existing tests or fixtures to make a failing run pass**. If a test fails, the bug is in the rule or source code; fix it there. Adding new tests and fixtures for new rules is expected (see the checklists below). The only legitimate reason to change an existing test is that the intended behavior itself changed — in that case, call the change out explicitly in the PR description and explain why the old expectation was wrong; never adjust expectations silently.
+
 ## Adding a rule (checklist)
 
 1. `src/providers/<name>/rules/<check>.ts` — AST visitors, named export + default export
