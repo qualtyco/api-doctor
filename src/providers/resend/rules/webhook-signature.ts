@@ -26,6 +26,35 @@ const rule = {
     let importsResend = false;
     const svixImports = new Set<string>();
 
+    // A POST handler only counts as a webhook handler with positive webhook
+    // evidence. Without this gate, every Resend-importing API route that
+    // reads its request body (e.g. an outbound send endpoint parsing
+    // `{ email }`) gets flagged as an unverified webhook handler.
+    //
+    // Evidence is primarily behavioural (what the handler does with the body)
+    // and only secondarily positional. The path check deliberately looks at
+    // the last few segments rather than the whole path: oxlint supplies an
+    // absolute filename, so matching anywhere would make every file in a repo
+    // that merely lives under a directory named `webhooks/` look like a
+    // webhook handler — results would depend on checkout location.
+    const filename = String(context.filename ?? context.getFilename?.() ?? '');
+    const nearPath = filename.split(/[\\/]/).slice(-3).join('/');
+    let webhookEvidence = /webhook/i.test(nearPath);
+
+    // Resend webhook event types and Svix signature headers — strings only a
+    // webhook consumer would reference.
+    const WEBHOOK_LITERAL_RE =
+      /^(svix-(id|timestamp|signature)|email\.(sent|delivered|delivery_delayed|complained|bounced|opened|clicked|failed|received|scheduled|suppressed)|contact\.(created|updated|deleted)|domain\.(created|updated|deleted))$/i;
+
+    // Identifiers holding the parsed request body: `const event = await
+    // req.json()`. Reading `.type` off one of these is the behavioural
+    // signature of an event consumer — a webhook handler branches on
+    // `event.type`, while an outbound route destructures domain fields
+    // (`const { email, name } = await req.json()`), which binds no identifier
+    // here. This is what catches handlers that compare against a constant
+    // (`event.type === EVENT_BOUNCED`) rather than an inline event literal.
+    const bodyVars = new Set<string>();
+
     type Pos = { offset: number; line: number; column: number };
     type Handler = {
       node: any;
@@ -206,6 +235,7 @@ const rule = {
         }
 
         if (importSource === 'svix') {
+          webhookEvidence = true;
           for (const s of node.specifiers ?? []) {
             // `import { Webhook as MyHook } from 'svix'`
             if (s?.type === 'ImportSpecifier' && s.local?.type === 'Identifier') {
@@ -240,7 +270,34 @@ const rule = {
         }
       },
 
+      Literal(node: any) {
+        if (typeof node?.value === 'string' && WEBHOOK_LITERAL_RE.test(node.value)) {
+          webhookEvidence = true;
+        }
+      },
+
+      // `const event = await req.json()` / `= await req.text()` — remember the
+      // binding so `event.type` below can be recognised as event consumption.
+      VariableDeclarator(node: any) {
+        if (node?.id?.type !== 'Identifier') return;
+        const init = node.init?.type === 'AwaitExpression' ? node.init.argument : node.init;
+        if (isReqJsonCall(init) || isReqTextCall(init)) bodyVars.add(node.id.name);
+      },
+
       MemberExpression(node: any) {
+        // `<body>.type` — branching on an event type is what a webhook
+        // consumer does; an outbound send route reads domain fields.
+        const prop = node?.property;
+        if (
+          !node?.computed &&
+          prop?.type === 'Identifier' &&
+          prop.name === 'type' &&
+          node.object?.type === 'Identifier' &&
+          bodyVars.has(node.object.name)
+        ) {
+          webhookEvidence = true;
+        }
+
         if (postHandlers.length === 0) return;
         if (!isBodyMember(node)) return;
         const pos = nodeStartPos(node);
@@ -251,7 +308,7 @@ const rule = {
       },
 
       'Program:exit'() {
-        if (!importsResend) return;
+        if (!importsResend || !webhookEvidence) return;
         for (const handler of postHandlers) {
           // A POST route that never consumes the request (e.g. the official
           // "send email" quickstart route) is not a webhook handler — only
