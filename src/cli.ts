@@ -110,7 +110,7 @@ program
       } finally {
         spinner.stop();
       }
-      const { results, detected, rawPackages, directory: scannedDir, filesScanned, filesContent } = scanOutput;
+      const { results, detected, rawPackages, directory: scannedDir, filesScanned, filesContent, coverage } = scanOutput;
       const elapsedMs = performance.now() - start;
 
       const report = buildReport({
@@ -121,6 +121,7 @@ program
         filesContent,
         durationMs: elapsedMs,
         version: pkg.version,
+        coverage,
       });
 
       const outputPath = opts.output
@@ -154,6 +155,7 @@ program
         projectDir: scannedDir,
         filesScanned,
         agentModel: opts.agentModel ?? process.env['API_DOCTOR_AGENT_MODEL'],
+        coverage,
       });
 
       process.exit(errors > 0 || warningsExceeded ? 1 : 0);

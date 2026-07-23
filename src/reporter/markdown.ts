@@ -6,7 +6,7 @@
 import { basename } from 'node:path';
 import { getRuleDocsMeta } from '../plugin/rule-registry.js';
 import { providers } from '../providers/index.js';
-import type { Finding, Report } from '../types.js';
+import type { Finding, ProviderCoverage, Report } from '../types.js';
 
 /** Maps a finding's result rule id to the rule's longer-form rationale. */
 function rationaleByRule(): Map<string, string> {
@@ -33,6 +33,36 @@ function references(finding: Finding): string | undefined {
   if (finding.cwe) parts.push(finding.cwe);
   if (finding.owasp) parts.push(`OWASP ${finding.owasp}`);
   return parts.length > 0 ? parts.join(', ') : undefined;
+}
+
+/**
+ * Coverage is context, not work. The explicit not-a-task-list label matters:
+ * the agent handoff prompt below tells agents to fix everything in this
+ * document, and without the label an agent will import unused SDK surface
+ * into a codebase that doesn't need it.
+ */
+function coverageSection(all: ProviderCoverage[] | undefined): string[] {
+  // Entries with nothing used carry no information — emitting the heading and
+  // its "do NOT add unused surface" paragraph with no content underneath is
+  // worse than silence, especially directly above the agent-handoff prompt.
+  const coverage = (all ?? []).filter((entry) => entry.used.length > 0);
+  if (coverage.length === 0) return [];
+  const out: string[] = [];
+  out.push('## SDK surface (informational — not a task list)');
+  out.push('');
+  out.push(
+    'This section records which SDK methods this codebase calls. It is informational ' +
+      'context only. Do NOT treat unused SDK surface as an issue to fix, and do NOT ' +
+      'add code for capabilities the project does not need.',
+  );
+  out.push('');
+  for (const entry of coverage) {
+    const provider = providers.find((p) => p.name === entry.provider);
+    const title = provider?.displayName ?? entry.provider;
+    out.push(`**${title}** — using: ${entry.used.map((m) => `\`${m}\``).join(', ')}`);
+    out.push('');
+  }
+  return out;
 }
 
 const HANDOFF_PROMPT =
@@ -69,6 +99,7 @@ export function renderMarkdown(report: Report): string {
   if (findings.length === 0) {
     out.push('No issues found. Nothing to fix.');
     out.push('');
+    out.push(...coverageSection(report.coverage));
     return `${out.join('\n')}\n`;
   }
 
@@ -95,6 +126,8 @@ export function renderMarkdown(report: Report): string {
     out.push('---');
     out.push('');
   });
+
+  out.push(...coverageSection(report.coverage));
 
   out.push('## How to fix these with a coding agent');
   out.push('');

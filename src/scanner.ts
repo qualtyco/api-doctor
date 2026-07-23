@@ -12,9 +12,10 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { PLUGIN_NAME } from './constants.js';
+import { collectCoverage } from './coverage/collect.js';
 import { detectProviders, type DetectResult } from './detector.js';
 import { providers } from './providers/index.js';
-import type { DetectedProvider, OxlintRuleMeta, ScanResult } from './types.js';
+import type { CoverageCollection, DetectedProvider, OxlintRuleMeta, ScanResult } from './types.js';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.next']);
 const SOURCE_EXT = /\.(tsx?|jsx?)$/;
@@ -106,6 +107,8 @@ export interface ScanOutput {
   filesScanned: number;
   /** Relative file path -> file contents, for snippet extraction downstream. */
   filesContent: Map<string, string>;
+  /** Informational SDK usage per provider; undefined when no detected provider qualifies. */
+  coverage?: CoverageCollection[];
 }
 
 /** Thrown on tool-level failures (unreadable directory, oxlint crash). Maps to exit 2. */
@@ -171,6 +174,10 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     detected = detected.filter((d) => allowed.has(d.name));
   }
 
+  // Collect informational SDK surface usage — separate from linting so it
+  // also runs when no rules are enabled for a provider.
+  const coverage = collectCoverage(detected, filesContent);
+
   // Look up which oxlint rules to enable based on detected providers.
   const detectedNames = new Set(detected.map((d) => d.name));
   const { oxlintRules, ruleMetaByKey } = buildOxlintConfig(detectedNames);
@@ -184,6 +191,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
       directory: absRoot,
       filesScanned: paths.length,
       filesContent,
+      coverage,
     };
   }
 
@@ -298,6 +306,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
       directory: absRoot,
       filesScanned: paths.length,
       filesContent,
+      coverage,
     };
   } finally {
     // Clean up the temp config directory regardless of success or failure.

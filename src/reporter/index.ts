@@ -65,6 +65,7 @@ export async function emitReport(
     await renderTerminalReport(results, detected, {
       elapsedMs: options.elapsedMs,
       reportDisplayPath: options.noReport ? undefined : options.reportDisplayPath,
+      coverage: report.coverage,
     });
   }
 

@@ -56,6 +56,7 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "check:links": "node scripts/check-docs-links.mjs",
+    "check:surface": "node scripts/check-sdk-surface.mjs",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
@@ -63,6 +64,7 @@
   },
   "dependencies": {
     "commander": "^13.1.0",
+    "oxc-parser": "0.141.0",
     "oxlint": "^1.68.0",
     "picocolors": "^1.1.1"
   },

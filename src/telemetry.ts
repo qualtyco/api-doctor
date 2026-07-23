@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { DetectedProvider, ScanResult } from './types.js';
+import type { CoverageCollection, DetectedProvider, ScanResult } from './types.js';
 import {
   aggregateAiAuthors,
   detectAgentSignals,
@@ -86,6 +86,29 @@ export interface TrackRunOptions {
   filesScanned: number;
   /** Self-reported model id from `--agent-model` / API_DOCTOR_AGENT_MODEL — set by agents running the scan. */
   agentModel?: string;
+  /** Informational SDK usage per provider; sdk_used/unknown_sdk_calls on provider_scanned. */
+  coverage?: CoverageCollection[];
+}
+
+/**
+ * Coverage props for a provider_scanned event. Privacy holds by construction:
+ * `sdk_used` is a closed vocabulary from the hand-written surface manifest,
+ * and `unknown_sdk_calls` is a bare count — no code, method names outside the
+ * manifest, file paths, or arguments ever leave the machine. Returns {} when
+ * coverage did not run for the provider, so analytics can tell "didn't run"
+ * apart from "ran, nothing used" (empty array). unknown_sdk_calls keeps
+ * undercounting visible: absence of a method in the data can mean "unused" or
+ * "undetectable", and this is the signal that separates the two.
+ */
+export function coverageTelemetryProps(
+  providerName: string,
+  entry: CoverageCollection | undefined,
+): Record<string, string[] | number> {
+  if (!entry) return {};
+  return {
+    sdk_used: entry.used.map((m) => `${providerName}.${m}`),
+    unknown_sdk_calls: entry.unknownSdkCalls,
+  };
 }
 
 export async function trackRun(opts: TrackRunOptions): Promise<void> {
@@ -166,6 +189,7 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
           rules_triggered,
           ai_model: aiModel.model,
           ai_model_source: aiModel.source,
+          ...coverageTelemetryProps(d.name, opts.coverage?.find((c) => c.provider === d.name)),
         });
       }),
     );

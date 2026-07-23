@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git policy
+
+**Never commit or push without being explicitly asked.** Finish the work, leave all changes uncommitted in the working tree, and summarize what changed so it can be reviewed first. Plan or task approval is not commit authorization. If a commit split would help, propose the split and messages and wait for the go-ahead.
+
 ## Commands
 
 ```bash
@@ -10,6 +14,7 @@ pnpm build          # compile src/ → dist/ (tsup bundles cli.ts + plugin/index
 pnpm dev            # watch mode
 pnpm test           # vitest run (builds once via globalSetup before workers)
 pnpm check:links    # validate every docs URL in src/providers (404s, soft 404s, stale redirects) — network-bound, run before releases
+pnpm check:surface  # diff surface.methods manifests against the latest SDK type declarations (drift guard) — network-bound, run before releases
 ```
 
 Run a single rule's tests (requires a prior build):
@@ -42,6 +47,8 @@ src/
 ├── detector.ts         package.json / import / URL-pattern heuristics
 ├── types.ts            Shared contracts (ScanResult, Report, Finding, manifests)
 ├── reporter/           Terminal, JSON, markdown, and file output
+├── coverage/           SDK surface coverage (CLI-only; informational, never scored)
+│   └── collect.ts      oxc-parser pass over provider files → used method paths
 ├── plugin/
 │   ├── index.ts        Oxlint plugin entrypoint — imports rules from providers/
 │   └── rule-registry.ts  Reads meta.docs from each rule; used by report-builder
@@ -68,6 +75,19 @@ cli.ts
 ```
 
 Detection reads **manifests only**. Linting runs the **plugin**. Reporting merges oxlint diagnostics with manifest metadata (`message`, `fix`, `docsUrl`, `severity`) and rule docs from `plugin/rule-registry.ts` (which reads `meta.docs` directly from the rule objects).
+
+### SDK surface coverage (`src/coverage/`)
+
+Coverage records which SDK method paths a codebase actually calls (`report.coverage`, plus `sdk_used`/`unknown_sdk_calls` on the `provider_scanned` telemetry event). Rules that must never be broken:
+
+- Coverage is **not a rule**: never in `findings[]`, never affects the score, and no output may contain counts, ratios, or "X of Y" — using a small part of an API is a fit, not a gap.
+- Surface method lists in `manifest.ts` → `surface.methods` are **hand-written and verified against the SDK's published types/docs** — never auto-derived from package exports. `pnpm check:surface` guards them against SDK drift.
+- Client identity is **verified, never assumed from names**: a binding counts only when it traces to the SDK (same-file construction, or an import resolved to a project module that verifiably exports a client/constructor). Unverifiable wrapper imports are dropped.
+- Coverage is skipped entirely (section omitted, not empty) when a provider was detected from a URL string alone.
+- Undercounting stays measurable: calls on a verified client outside the surface manifest are counted (never named) as `unknown_sdk_calls` in telemetry. The report itself carries no counts.
+- Coverage runs in the CLI via its own `oxc-parser` pass — **`src/plugin/index.ts` must never import from `src/coverage/`** (dist/plugin.js stays lint-only). `oxc-parser` is pinned exact (0.x native dep) — bump it deliberately and re-run the coverage tests.
+- **Coverage must never fail a scan**: `walkAst` is iterative (deep ASTs blow the call stack) and `parseFile` wraps parse *and* walk, dropping unanalysable files rather than propagating. An informational feature must not be able to take down the tool.
+- Notables (hand-written unused-capability pointers) were deliberately dropped from v1: too heuristic-heavy to scale across providers. If they return, they must be justified by telemetry data, fire only on positive code evidence, and scope suppression signals to the provider.
 
 ### Three names that must stay in sync
 

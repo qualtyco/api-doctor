@@ -10,6 +10,7 @@ import {
   scoreToSeverityLabel,
   type DetectedProvider,
   type Finding,
+  type ProviderCoverage,
   type Report,
   type ReportSummary,
   type ScanResult,
@@ -24,6 +25,8 @@ export interface BuildReportInput {
   durationMs: number;
   version: string;
   scannedAt?: Date;
+  /** Informational SDK usage; never affects summary or findings. */
+  coverage?: ProviderCoverage[];
 }
 
 /** Same scoring as the terminal report: info findings do not affect the score. */
@@ -102,8 +105,12 @@ export function buildReport(input: BuildReportInput): Report {
     };
   });
 
+  const coverageForReport = (input.coverage ?? [])
+    .filter((entry) => entry.used.length > 0)
+    .map(({ provider, used }) => ({ provider, used }));
+
   return {
-    schemaVersion: '1.0.0',
+    schemaVersion: '1.1.0',
     tool: { name: 'api-doctor', version: input.version },
     scanMeta: {
       directory: input.directory,
@@ -114,5 +121,13 @@ export function buildReport(input: BuildReportInput): Report {
     },
     summary,
     findings,
+    // Omitted entirely (not []) when no provider has verified usage to show.
+    // A provider that was collected but resolved no calls carries nothing for
+    // a reader, so it is dropped here rather than rendered as an empty
+    // section; the collection entry still reaches telemetry, where "scanned,
+    // found nothing" is a distinct and meaningful signal. Collection
+    // diagnostics (unknownSdkCalls) are telemetry-only — the report carries
+    // no counts by design.
+    ...(coverageForReport.length ? { coverage: coverageForReport } : {}),
   };
 }

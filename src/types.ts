@@ -45,6 +45,52 @@ export interface ProviderManifest {
     urlPatterns?: string[];
   };
   oxlintRules: OxlintRuleMeta[];
+  /** SDK surface description driving coverage collection. Optional — coverage is skipped for providers without one. */
+  surface?: ProviderSurface;
+}
+
+/**
+ * Hand-written SDK surface description. Method lists are verified against the
+ * provider's published SDK/docs — never auto-derived from package exports,
+ * which breaks on version bumps and picks up re-exported internals.
+ */
+export interface ProviderSurface {
+  /** Package sources whose imports create clients (e.g. ['resend']). */
+  packages: string[];
+  /** Client constructor export names (e.g. ['Resend']). */
+  clientConstructors: string[];
+  /** Local-binding heuristic for wrapper imports (e.g. `import { resend } from '@/lib/resend'`). */
+  clientNamePattern: RegExp;
+  /** Full dotted method paths off a client instance (e.g. 'emails.send'). */
+  methods: string[];
+  /** Docs page the method list was verified against. */
+  docsUrl: string;
+}
+
+/**
+ * SDK surface a codebase actually calls for one provider. Deliberately carries
+ * no available/unused lists and no counts or ratios — using a small part of an
+ * API is a fit, not a gap.
+ */
+export interface ProviderCoverage {
+  provider: string;
+  /** Sorted dotted method paths actually called (e.g. ['batch.send', 'emails.send']). */
+  used: string[];
+}
+
+/**
+ * Internal collection result: ProviderCoverage plus diagnostics that are
+ * stripped from the report (the report carries no counts by design) but sent
+ * to telemetry, where undercounting must stay visible.
+ */
+export interface CoverageCollection extends ProviderCoverage {
+  /**
+   * Calls made on a verified SDK client that we could not match to a method
+   * in the surface manifest — the SDK grew a method we haven't listed yet, or
+   * the code uses a low-level escape hatch (`resend.post(...)`). A count
+   * only; the method names stay on the machine.
+   */
+  unknownSdkCalls: number;
 }
 
 export interface DetectedProvider {
@@ -65,11 +111,13 @@ export interface DetectedProvider {
  * versioned independently of the package so downstream consumers can pin to it.
  */
 export interface Report {
-  schemaVersion: '1.0.0';
+  schemaVersion: '1.1.0';
   tool: { name: 'api-doctor'; version: string };
   scanMeta: ScanMeta;
   summary: ReportSummary;
   findings: Finding[];
+  /** Informational SDK usage per provider. Omitted entirely when no detected provider qualifies. */
+  coverage?: ProviderCoverage[];
 }
 
 export interface ScanMeta {

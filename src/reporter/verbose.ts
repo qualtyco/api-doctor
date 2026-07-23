@@ -5,6 +5,7 @@
 import pc from 'picocolors';
 import type { Report, Severity } from '../types.js';
 import { revealDelay } from './animate.js';
+import { printCoverage } from './terminal.js';
 
 function severityTag(severity: Severity): string {
   if (severity === 'error') return pc.red('error');
@@ -40,6 +41,8 @@ export async function renderVerboseReport(report: Report): Promise<void> {
 
   if (findings.length === 0) {
     console.log(pc.green(`${pc.bold('✓')} No issues found`));
+    console.log('');
+    printCoverage(report.coverage);
     return;
   }
 
@@ -58,4 +61,6 @@ export async function renderVerboseReport(report: Report): Promise<void> {
     console.log('');
     await revealDelay();
   }
+
+  printCoverage(report.coverage);
 }

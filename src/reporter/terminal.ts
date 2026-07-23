@@ -7,7 +7,7 @@
 import pc from 'picocolors';
 import { INSTALL_COMMAND } from '../install.js';
 import { providers } from '../providers/index.js';
-import type { DetectedProvider, ScanResult } from '../types.js';
+import type { DetectedProvider, ProviderCoverage, ScanResult } from '../types.js';
 import { lineDelay, revealDelay } from './animate.js';
 
 const ISSUES_URL = 'https://github.com/qualtyco/api-doctor/issues';
@@ -20,6 +20,8 @@ export interface ReportOptions {
   elapsedMs?: number;
   /** Where the JSON report was written (shown when the finding list truncates). */
   reportDisplayPath?: string;
+  /** Informational SDK usage; rendered after the findings, never scored. */
+  coverage?: ProviderCoverage[];
 }
 
 interface IssueGroup {
@@ -218,6 +220,21 @@ async function printIssueGroups(
   }
 }
 
+/**
+ * Informational SDK-surface section. Prints nothing when there is nothing to
+ * say, and never shows counts, ratios, or unused-method lists.
+ */
+export function printCoverage(coverage: ProviderCoverage[] | undefined): void {
+  if (!coverage?.length) return;
+  for (const entry of coverage) {
+    if (entry.used.length === 0) continue;
+    const label = providers.find((p) => p.name === entry.provider)?.displayName ?? entry.provider;
+    console.log(pc.bold(`${label} surface`));
+    console.log(pc.dim(`  Using: ${entry.used.join(', ')}`));
+    console.log('');
+  }
+}
+
 export async function renderTerminalReport(
   results: ScanResult[],
   detected: DetectedProvider[],
@@ -254,12 +271,15 @@ export async function renderTerminalReport(
     console.log(pc.dim(`${scannedLabel}${duration ? ` in ${duration}` : ''}`));
     console.log('');
     console.log(pc.green(`${pc.bold('✓')} No issues found`));
+    console.log('');
+    printCoverage(options.coverage);
     return;
   }
 
   printSummary(errors, warnings, infos, fileCount, options.elapsedMs);
   console.log('');
   await printIssueGroups(groupResults(results), options.verbose ?? false, options.reportDisplayPath);
+  printCoverage(options.coverage);
 }
 
 export function countErrors(results: ScanResult[]): number {
