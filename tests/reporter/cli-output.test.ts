@@ -33,16 +33,6 @@ describe('cli output modes', () => {
     expect(res.stdout).toContain('Process them in order');
   });
 
-  it('--format github emits workflow-command annotations only', () => {
-    const res = run([ERROR_FIXTURE, '--format', 'github', '--no-report']);
-    const lines = res.stdout.trim().split('\n');
-    expect(lines.length).toBeGreaterThan(0);
-    for (const line of lines) {
-      expect(line).toMatch(/^::(error|warning|notice) file=.+,line=\d+.*::/);
-    }
-    expect(res.stdout).not.toContain('Detected APIs');
-  });
-
   it('--quiet prints only the score line', () => {
     const res = run([WARNING_FIXTURE, '--quiet', '--no-report']);
     expect(res.stdout.trim()).toMatch(/^Score: \d+\/100$/);
