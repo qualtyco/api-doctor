@@ -1,0 +1,20 @@
+#!/bin/sh
+#
+# Runs the full gate before every commit: unit tests plus the two
+# network-bound guards.
+#
+# Both guards catch things the unit suite structurally cannot see, because
+# both compare the repo against the outside world:
+#   check:links   — a provider moved a docs page, so every docsUrl pointing at
+#                   it now redirects or 404s (this shipped once already).
+#   check:surface — a provider's SDK grew or renamed methods, so the
+#                   hand-written surface manifest silently undercounts usage.
+#
+# Skip deliberately for a WIP commit with:  git commit --no-verify
+#
+# Git finds this file via core.hooksPath, set by the `prepare` script on
+# `pnpm install`. To wire it up by hand:  git config core.hooksPath .githooks
+set -e
+
+echo "pre-commit: running full gate (pnpm test) — --no-verify to skip"
+exec pnpm test

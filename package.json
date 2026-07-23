@@ -54,9 +54,11 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "test": "vitest run",
+    "test": "pnpm test:unit && pnpm check:links && pnpm check:surface",
+    "test:unit": "vitest run",
     "check:links": "node scripts/check-docs-links.mjs",
     "check:surface": "node scripts/check-sdk-surface.mjs",
+    "prepare": "git config core.hooksPath .githooks || true",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {

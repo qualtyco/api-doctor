@@ -9,13 +9,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-pnpm install        # install deps
+pnpm install        # install deps (also points git at .githooks/ via `prepare`)
 pnpm build          # compile src/ → dist/ (tsup bundles cli.ts + plugin/index.ts)
 pnpm dev            # watch mode
-pnpm test           # vitest run (builds once via globalSetup before workers)
-pnpm check:links    # validate every docs URL in src/providers (404s, soft 404s, stale redirects) — network-bound, run before releases
-pnpm check:surface  # diff surface.methods manifests against the latest SDK type declarations (drift guard) — network-bound, run before releases
+pnpm test           # full gate: test:unit + check:links + check:surface — network-bound
+pnpm test:unit      # vitest run only (builds once via globalSetup) — fast, offline, for the inner loop
+pnpm check:links    # validate every docs URL in src/providers (404s, soft 404s, stale redirects)
+pnpm check:surface  # diff surface.methods manifests against the latest SDK type declarations (drift guard)
 ```
+
+**`pnpm test` is the pre-commit gate.** `.githooks/pre-commit` runs it before every
+commit, so the two network-bound guards can never be skipped by accident — both
+compare the repo against the outside world and catch what the unit suite
+structurally cannot (a provider moving a docs page, an SDK growing methods the
+surface manifest doesn't list). Both have already caught real problems. Use
+`pnpm test:unit` while iterating, and `git commit --no-verify` for a deliberate
+WIP commit. The hook is wired by `pnpm install`; to set it up by hand:
+`git config core.hooksPath .githooks`.
 
 Run a single rule's tests (requires a prior build):
 
