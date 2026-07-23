@@ -52,6 +52,12 @@ export interface DetectedProvider {
   source: 'package.json' | 'imports' | 'url-patterns';
   /** True when api-doctor ran oxlint rules for this provider. */
   checked: boolean;
+  /**
+   * Scan-relative paths of source files that reference this provider's SDK
+   * (import/require statements or API URL substrings). Empty when detection
+   * came from package.json alone and no source file uses the SDK yet.
+   */
+  files?: string[];
 }
 
 /**

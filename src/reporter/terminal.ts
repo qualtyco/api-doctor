@@ -12,10 +12,14 @@ import { lineDelay, revealDelay } from './animate.js';
 
 const ISSUES_URL = 'https://github.com/qualtyco/api-doctor/issues';
 const BAR_WIDTH = 24;
+/** Beyond this many findings the terminal list truncates and defers to the report file. */
+const MAX_TERMINAL_FINDINGS = 20;
 
 export interface ReportOptions {
   verbose?: boolean;
   elapsedMs?: number;
+  /** Where the JSON report was written (shown when the finding list truncates). */
+  reportDisplayPath?: string;
 }
 
 interface IssueGroup {
@@ -162,8 +166,18 @@ function printSummary(
   console.log(`${parts.join(pc.dim(', '))}${tail ? pc.dim(` ${tail}`) : ''}`);
 }
 
-async function printIssueGroups(groups: IssueGroup[], verbose: boolean): Promise<void> {
+async function printIssueGroups(
+  groups: IssueGroup[],
+  verbose: boolean,
+  reportDisplayPath?: string,
+): Promise<void> {
+  const total = groups.reduce((sum, g) => sum + g.items.length, 0);
+  // --verbose is the escape hatch: it always prints everything.
+  const limit = verbose ? Infinity : MAX_TERMINAL_FINDINGS;
+  let remaining = total > limit ? limit : Infinity;
+
   for (const group of groups) {
+    if (remaining <= 0) break;
     const count = group.items.length;
     const severity = group.items[0]?.severity;
     const countColor = severity === 'warning' ? pc.yellow : severity === 'info' ? pc.cyan : pc.red;
@@ -174,6 +188,11 @@ async function printIssueGroups(groups: IssueGroup[], verbose: boolean): Promise
     await lineDelay();
 
     for (const [index, item] of group.items.entries()) {
+      if (remaining <= 0) {
+        console.log(pc.dim(`    … and ${count - index} more`));
+        break;
+      }
+      remaining -= 1;
       console.log(pc.dim(`    ${index + 1}. ${item.file}:${item.line}`));
       if (verbose) {
         console.log(pc.dim(`       ${item.snippet}`));
@@ -188,6 +207,14 @@ async function printIssueGroups(groups: IssueGroup[], verbose: boolean): Promise
     }
     console.log('');
     await revealDelay();
+  }
+
+  if (total > limit) {
+    const where = reportDisplayPath
+      ? `See ${pc.bold(reportDisplayPath)} for the full report`
+      : 'Re-run with --verbose for the full list';
+    console.log(pc.yellow(`Showing ${limit} of ${total} findings. `) + pc.dim(`${where}.`));
+    console.log('');
   }
 }
 
@@ -232,7 +259,7 @@ export async function renderTerminalReport(
 
   printSummary(errors, warnings, infos, fileCount, options.elapsedMs);
   console.log('');
-  await printIssueGroups(groupResults(results), options.verbose ?? false);
+  await printIssueGroups(groupResults(results), options.verbose ?? false, options.reportDisplayPath);
 }
 
 export function countErrors(results: ScanResult[]): number {

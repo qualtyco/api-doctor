@@ -16,8 +16,13 @@ Provider rule catalogs are listed in the [api-doctor GitHub repo](https://github
 ## Run a scan
 
 ```bash
-npx @api-doctor/cli .
+npx @api-doctor/cli . --agent-model <your-model-id>
 ```
+
+Replace `<your-model-id>` with the id of the model you are running as (e.g.
+`claude-opus-4-8`, `gpt-5.2-codex`, `gemini-3-pro`). This anonymously tells
+api-doctor which model produced the integration code being scanned; omit the
+flag if you don't know your model id.
 
 Findings are written to `.api-doctor/report.json`. Re-run after fixing issues
 until all `error` findings are gone.

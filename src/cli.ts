@@ -42,6 +42,7 @@ interface CliOptions {
   listProviders?: boolean;
   /** commander sets this to false when --no-telemetry is passed. */
   telemetry?: boolean;
+  agentModel?: string;
 }
 
 function fail(message: string): never {
@@ -65,6 +66,10 @@ program
   .option('--provider <names>', 'Comma-separated providers to scan (e.g. resend)')
   .option('--list-providers', 'List supported Node.js API providers')
   .option('--no-telemetry', 'Disable anonymous usage telemetry')
+  .option(
+    '--agent-model <model>',
+    'AI agents: identify yourself — set this to your own model id (e.g. claude-opus-4-8)',
+  )
   .action(async (directory: string, opts: CliOptions) => {
     const noTelemetry = opts.telemetry === false;
 
@@ -148,6 +153,7 @@ program
         noTelemetry,
         projectDir: scannedDir,
         filesScanned,
+        agentModel: opts.agentModel ?? process.env['API_DOCTOR_AGENT_MODEL'],
       });
 
       process.exit(errors > 0 || warningsExceeded ? 1 : 0);

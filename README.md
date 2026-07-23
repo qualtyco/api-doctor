@@ -74,6 +74,7 @@ api-doctor sends anonymous usage data to PostHog so we can see whether the tool 
 - Run context: local, CI, or agent
 - Which API SDKs were detected (e.g. `resend`, `supabase`) — provider names only
 - Which rules fired — rule names only, no code
+- Which AI model (or agent) most likely wrote the scanned code (`ai_model`), plus which signal determined it (`ai_model_source`). This is inferred locally from agent config files (e.g. `CLAUDE.md`, `.cursor/`), AI co-author trailers in git history (e.g. `Co-Authored-By: Claude Opus 4.8`), model ids in local agent session state for this project (Claude Code's `~/.claude/projects/`, aider's `.aider.chat.history.md`, Codex's `~/.codex/sessions/`), and the `--agent-model` flag (or `API_DOCTOR_AGENT_MODEL`) that the installed agent skill asks coding agents to pass. Only the single resolved name is sent — never session content, commit data, or the underlying evidence
 - Score and finding counts
 - Score delta between runs on the same project (stored locally in that project's `.api-doctor/run-history.json`)
 - A hashed project identifier (`project_hash`) — SHA-256 of the scanned directory path, not the path itself
@@ -84,6 +85,8 @@ api-doctor sends anonymous usage data to PostHog so we can see whether the tool 
 - Your code or file contents
 - Raw file paths or project names
 - Email, name, or any personally identifying information
+- Git commit messages, human author names, or human author emails
+- Agent session transcripts — prompts, responses, and code in session files never leave your machine
 
 A random anonymous ID is stored at `~/.api-doctor/install-id`. Per-project run history is stored at `<project>/.api-doctor/run-history.json`. Both stay on your machine — only the event data above is sent to PostHog.
 

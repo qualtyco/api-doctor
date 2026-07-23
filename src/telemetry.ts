@@ -3,6 +3,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { DetectedProvider, ScanResult } from './types.js';
+import {
+  aggregateAiAuthors,
+  detectAgentSignals,
+  resolveAiModel,
+  sanitizeModelSlug,
+} from './agent-detector.js';
 import { readProjectHistory, writeProjectHistory } from './run-history.js';
 
 // Public project API key — safe to embed (same as a browser-side PostHog key).
@@ -41,7 +47,7 @@ function getOrCreateInstallId(): string {
 function detectRunContext(): string {
   if (process.env['CI']) return 'ci';
   if (
-    process.env['CLAUDE_CODE'] ||
+    process.env['CLAUDECODE'] ||
     process.env['CURSOR_TRACE_ID'] ||
     process.env['CODEX_ENV'] ||
     process.env['WINDSURF_SESSION_ID']
@@ -78,6 +84,8 @@ export interface TrackRunOptions {
   projectDir: string;
   /** Number of source files walked — lets us tell empty/unscannable dirs apart from real passes. */
   filesScanned: number;
+  /** Self-reported model id from `--agent-model` / API_DOCTOR_AGENT_MODEL — set by agents running the scan. */
+  agentModel?: string;
 }
 
 export async function trackRun(opts: TrackRunOptions): Promise<void> {
@@ -87,6 +95,21 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
     const distinctId = getOrCreateInstallId();
     const prev = readProjectHistory(opts.projectDir);
     const scoreDelta = prev !== null ? opts.score - prev.last_score : null;
+
+    // All detection signals (config markers, git trailers, local agent session
+    // state, --agent-model) collapse into one answer per event: ai_model, the
+    // model (or agent) that made the code, plus ai_model_source saying which
+    // signal decided it. Only that resolved slug leaves the machine — never
+    // author names, emails, file paths, or session content.
+    const agentSignals = await detectAgentSignals(opts.projectDir);
+    const repoAiAuthors = aggregateAiAuthors(agentSignals.commits);
+    const selfReportedModel = opts.agentModel ? sanitizeModelSlug(opts.agentModel) : null;
+    const repoAiModel = resolveAiModel(
+      repoAiAuthors,
+      agentSignals.sessions,
+      selfReportedModel,
+      agentSignals.configMarkers,
+    );
 
     const sharedProps = {
       cli_version: opts.version,
@@ -109,6 +132,8 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       warnings: opts.results.filter((r) => r.severity === 'warning').length,
       duration_ms: Math.round(opts.durationMs),
       run_count: (prev?.run_count ?? 0) + 1,
+      ai_model: repoAiModel.model,
+      ai_model_source: repoAiModel.source,
     });
 
     // 2. One event per detected provider.
@@ -121,11 +146,26 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
               .map((r) => r.ruleKey),
           ),
         ];
+        // Git evidence scoped to the commits that touched this provider's
+        // files is the strongest answer; when those commits carry no AI
+        // signature the resolver falls back to self-report, sessions, and
+        // config markers, which exist even when humans make every commit.
+        const scopedAuthors = d.files?.length
+          ? aggregateAiAuthors(agentSignals.commits, d.files)
+          : [];
+        const aiModel = resolveAiModel(
+          scopedAuthors,
+          agentSignals.sessions,
+          selfReportedModel,
+          agentSignals.configMarkers,
+        );
         return capture('provider_scanned', distinctId, {
           ...sharedProps,
           provider: d.name,
           score: opts.score,
           rules_triggered,
+          ai_model: aiModel.model,
+          ai_model_source: aiModel.source,
         });
       }),
     );

@@ -50,6 +50,18 @@ export async function detectProviders(
   for (const provider of providers) {
     if (detected.has(provider.name)) continue;
 
+    // Files whose content references this provider's SDK — recorded on every
+    // detection stage so downstream consumers (e.g. git-history attribution in
+    // telemetry) can scope work to the files that actually use the provider.
+    const imports = provider.detect.imports ?? [];
+    const urls = provider.detect.urlPatterns ?? [];
+    const matchedFiles = [...filesContent.entries()]
+      .filter(
+        ([, source]) =>
+          imports.some((p) => hasImportPattern(source, p)) || urls.some((u) => source.includes(u)),
+      )
+      .map(([file]) => file);
+
     // Stage 1: match npm package names in dependencies / devDependencies.
     const packages = provider.detect.packages ?? [];
     if (packages.some((p) => p in deps)) {
@@ -57,17 +69,18 @@ export async function detectProviders(
         name: provider.name,
         source: 'package.json',
         checked: provider.oxlintRules.length > 0,
+        files: matchedFiles,
       });
       continue;
     }
 
     // Stage 2: match import/require statements in source files.
-    const imports = provider.detect.imports ?? [];
     if (imports.some((p) => [...filesContent.values()].some((s) => hasImportPattern(s, p)))) {
       detected.set(provider.name, {
         name: provider.name,
         source: 'imports',
         checked: provider.oxlintRules.length > 0,
+        files: matchedFiles,
       });
       continue;
     }
@@ -78,7 +91,6 @@ export async function detectProviders(
     // also matches — otherwise a broad host-only pattern (e.g. api.openai.com)
     // would falsely claim sources that actually match a more specific sibling
     // provider's path-qualified pattern (e.g. api.openai.com/v1/realtime).
-    const urls = provider.detect.urlPatterns ?? [];
     const matchedUrl = urls.find((u) => {
       if (!allSources.includes(u)) return false;
       const isShadowedByMoreSpecificProvider = providers.some((other) => {
@@ -94,6 +106,7 @@ export async function detectProviders(
         name: provider.name,
         source: 'url-patterns',
         checked: provider.oxlintRules.length > 0,
+        files: matchedFiles,
       });
     }
   }
