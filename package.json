@@ -58,7 +58,6 @@
     "test:unit": "vitest run",
     "check:links": "node scripts/check-docs-links.mjs",
     "check:surface": "node scripts/check-sdk-surface.mjs",
-    "prepare": "git config core.hooksPath .githooks || true",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {
