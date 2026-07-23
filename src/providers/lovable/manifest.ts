@@ -40,7 +40,7 @@ export const lovableManifest: ProviderManifest = {
       resultRule: 'lovable/correctness/silent-catch-on-provider-call',
       message: 'A catch block around an LLM provider call has no logging, so failures look like "no key configured."',
       fix: 'console.error (or log to your error tracker) the failure reason — status code and error body — before falling through.',
-      docsUrl: 'https://docs.lovable.dev/integrations/cloud',
+      docsUrl: 'https://docs.lovable.dev/features/cloud',
       severity: 'warning',
     },
   ],
