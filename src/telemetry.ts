@@ -44,8 +44,25 @@ function getOrCreateInstallId(): string {
   }
 }
 
+/**
+ * How this run was triggered — a single axis with three buckets:
+ *   ci    — the Qualty API Doctor GitHub App (runs in GitHub Actions)
+ *   agent — a local coding agent (Claude Code, Cursor, Codex, Windsurf)
+ *   local — a developer ran the CLI by hand in their terminal
+ *
+ * CI is checked first and wins deliberately: the GitHub App runs inside GitHub
+ * Actions where CI=true, and that must take precedence even if a coding-agent
+ * env var also happens to be present on the runner. Any other CI provider also
+ * reports 'ci' — we treat the App and generic CI as the same bucket on purpose.
+ * The GITHUB_WORKFLOW clause is belt-and-suspenders: it keeps the App in 'ci'
+ * even in the edge case where CI is unset, and names the App explicitly in code.
+ */
 function detectRunContext(): string {
-  if (process.env['CI']) return 'ci';
+  if (
+    process.env['CI'] ||
+    (process.env['GITHUB_ACTIONS'] === 'true' && process.env['GITHUB_WORKFLOW'] === 'API Doctor Scan')
+  )
+    return 'ci';
   if (
     process.env['CLAUDECODE'] ||
     process.env['CURSOR_TRACE_ID'] ||
