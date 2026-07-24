@@ -16,7 +16,7 @@ Provider rule catalogs are listed in the [api-doctor GitHub repo](https://github
 ## Run a scan
 
 ```bash
-npx @api-doctor/cli . --agent-model <your-model-id>
+npx @api-doctor/cli@latest . --agent-model <your-model-id>
 ```
 
 Replace `<your-model-id>` with the id of the model you are running as (e.g.
@@ -96,7 +96,7 @@ Never treat clearing all `info` findings as a task requirement.
 2. Identify which findings are substantive vs. style.
 3. Fix all `error` findings.
 4. For each `warning`: apply substantive fixes; ask the user about style fixes.
-5. Re-run `npx @api-doctor/cli .` and confirm errors are resolved.
+5. Re-run `npx @api-doctor/cli@latest .` and confirm errors are resolved.
 6. If warnings remain after your fixes, explain which ones and why you left them.
 
 Do not loop indefinitely trying to reach 100/100. A score of 85–100 with no
@@ -114,5 +114,5 @@ do not treat it as incomplete work that requires further changes.
 To paste findings into a chat or another agent:
 
 ```bash
-npx @api-doctor/cli . --format markdown > issues.md
+npx @api-doctor/cli@latest . --format markdown > issues.md
 ```

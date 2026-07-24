@@ -11,7 +11,7 @@ describe('installAgentFiles', () => {
       const { created } = installAgentFiles(dir);
       const skillPath = join(dir, SKILL_RELATIVE_PATH);
 
-      expect(readFileSync(skillPath, 'utf-8')).toContain('npx @api-doctor/cli .');
+      expect(readFileSync(skillPath, 'utf-8')).toContain('npx @api-doctor/cli@latest .');
       expect(readFileSync(skillPath, 'utf-8')).toContain('.api-doctor/report.json');
       expect(readFileSync(join(dir, '.cursor', 'rules', 'api-doctor.mdc'), 'utf-8')).toContain(
         '@skills/api-doctor/SKILL.md',
@@ -56,7 +56,7 @@ describe('installAgentFiles', () => {
       writeFileSync(skillPath, '# stale\n', 'utf-8');
 
       installAgentFiles(dir, { force: true });
-      expect(readFileSync(skillPath, 'utf-8')).toContain('npx @api-doctor/cli .');
+      expect(readFileSync(skillPath, 'utf-8')).toContain('npx @api-doctor/cli@latest .');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
