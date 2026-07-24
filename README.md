@@ -101,6 +101,15 @@ Or set `API_DOCTOR_TELEMETRY=0` or `DO_NOT_TRACK=1` in your environment.
 
 ---
 
+## Troubleshooting
+
+**Seeing an old version?** npx sometimes caches an older resolution.
+Force a fresh pull with 
+
+```bash
+npx @api-doctor/cli@latest .
+```
+
 ## Help
 
 - **New provider?** [Open an issue](https://github.com/qualtyco/api-doctor/issues)
