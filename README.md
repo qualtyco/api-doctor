@@ -7,7 +7,7 @@ api-doctor scans AI-generated code for bad API integrations.
 
 Deterministic AST rules. Not a prompt. Same input, same output, every time.
 
-→ **[Full story and examples at apidoctor.co](https://apidoctor.co)**
+**<u>[Website](https://apidoctor.co) → </u>**
 
 
 [https://github.com/user-attachments/assets/53dab24f-528b-4f1b-87a9-8870002053d8](https://github.com/user-attachments/assets/53dab24f-528b-4f1b-87a9-8870002053d8)
@@ -23,6 +23,9 @@ npx @api-doctor/cli .
 npx @api-doctor/cli install
 ```
 
+## Install In Your Codebase (recommended)
+
+→ **[Run it in CI on every PR](https://apidoctor.co/ci)**
 
 ## 📦 Supported Providers
 
