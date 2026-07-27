@@ -23,3 +23,14 @@ docs/
 
 # Build output (publish via npm, not git)
 dist/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Local validation clones (not part of the product)
+validation/
+
+# Pipeline runs: corpus mirrors can get large and are not meant to be committed.
+Rule\ Creation\ Pipeline/runs/**/corpus/
+Rule\ Creation\ Pipeline/runs/**/sample-scan-reports/

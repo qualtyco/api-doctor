@@ -8,7 +8,7 @@ export const tiptapManifest: ProviderManifest = {
     imports: ['@tiptap/core', '@tiptap/react', '@tiptap/pm'],
     urlPatterns: ['tiptap.dev'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'tiptap-upload-validate-fn-void',
       resultRule: 'tiptap/security/upload-validate-fn-void',

@@ -8,7 +8,7 @@ export const openaiCuaManifest: ProviderManifest = {
     imports: ['openai'],
     urlPatterns: ['api.openai.com'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'openai-cua-no-domain-allowlist',
       resultRule: 'openai-cua/security/no-domain-allowlist',

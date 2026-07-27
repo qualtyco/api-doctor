@@ -37,6 +37,8 @@
   "files": [
     "dist",
     "skills",
+    "src/engines/python/runtime",
+    "src/providers",
     "README.md",
     "LICENSE.md"
   ],

@@ -8,7 +8,7 @@ export const s2Manifest: ProviderManifest = {
     imports: ['@s2-dev/streamstore', '@s2-dev/streamstore-patterns', '@s2-dev/resumable-stream'],
     urlPatterns: ['s2.dev'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 's2-scoped-token-for-client',
       resultRule: 's2/scoped-token-for-client',

@@ -110,7 +110,16 @@ program
       } finally {
         spinner.stop();
       }
-      const { results, detected, rawPackages, directory: scannedDir, filesScanned, filesContent, coverage } = scanOutput;
+      const {
+        results,
+        detected,
+        rawPackages,
+        directory: scannedDir,
+        filesScanned,
+        filesContent,
+        coverage,
+        languagesScanned,
+      } = scanOutput;
       const elapsedMs = performance.now() - start;
 
       const report = buildReport({
@@ -122,6 +131,7 @@ program
         durationMs: elapsedMs,
         version: pkg.version,
         coverage,
+        languagesScanned,
       });
 
       const outputPath = opts.output

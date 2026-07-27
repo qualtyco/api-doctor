@@ -8,7 +8,7 @@ export const supabaseManifest: ProviderManifest = {
     imports: ['@supabase/supabase-js', '@supabase/ssr'],
     urlPatterns: ['supabase.co'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'supabase-scope-queries-by-tenant-column',
       resultRule: 'supabase/correctness/scope-queries-by-tenant-column',

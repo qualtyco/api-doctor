@@ -8,7 +8,7 @@ export const twilioManifest: ProviderManifest = {
     imports: ['twilio'],
     urlPatterns: ['api.twilio.com'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'twilio-validate-webhook-signature',
       resultRule: 'twilio/security/validate-webhook-signature',

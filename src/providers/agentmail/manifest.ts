@@ -8,7 +8,7 @@ export const agentmailManifest: ProviderManifest = {
     imports: ['agentmail'],
     urlPatterns: ['api.agentmail.to'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'agentmail-verify-approval-reply-sender',
       resultRule: 'agentmail/verify-approval-reply-sender',

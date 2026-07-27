@@ -1,14 +1,14 @@
 /**
- * Detects which API providers are present in a project using package.json
- * dependencies, import patterns in source files, and URL substrings.
- * This is the only non-oxlint step — it decides which rules to enable.
+ * Detects which API providers are present using package manifests, imports,
+ * and URL substrings — for both JavaScript/TypeScript and Python sources.
  */
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DetectedProvider } from './types.js';
+import { isJavascriptFile, isPythonFile } from './engines/classify.js';
 import { providers } from './providers/index.js';
+import { ruleLanguages, type DetectedProvider, type DetectionSource } from './types.js';
 
-function hasImportPattern(source: string, pkg: string): boolean {
+function hasJsImportPattern(source: string, pkg: string): boolean {
   return (
     source.includes(`from '${pkg}'`) ||
     source.includes(`from "${pkg}"`) ||
@@ -17,9 +17,78 @@ function hasImportPattern(source: string, pkg: string): boolean {
   );
 }
 
+function hasPythonImportPattern(source: string, pkg: string): boolean {
+  const escaped = pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(
+    String.raw`(^|\n)\s*(import\s+${escaped}(\s|\.|$)|from\s+${escaped}(\s|\.|$))`,
+    'm',
+  );
+  return re.test(source);
+}
+
+function requirementName(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('-')) return null;
+  const match = trimmed.match(/^([A-Za-z0-9_.-]+)/);
+  return match ? match[1].toLowerCase().replace(/_/g, '-') : null;
+}
+
+async function loadPythonPackages(directory: string): Promise<{
+  packages: Set<string>;
+  source: 'pyproject' | 'requirements' | null;
+}> {
+  const packages = new Set<string>();
+  let source: 'pyproject' | 'requirements' | null = null;
+
+  try {
+    const raw = await readFile(join(directory, 'pyproject.toml'), 'utf-8');
+    const depBlock = raw.match(/dependencies\s*=\s*\[([\s\S]*?)\]/);
+    if (depBlock) {
+      for (const m of depBlock[1].matchAll(/["']([A-Za-z0-9_.-]+)/g)) {
+        packages.add(m[1].toLowerCase().replace(/_/g, '-'));
+        source = 'pyproject';
+      }
+    }
+    const poetry = raw.match(/\[tool\.poetry\.dependencies\]([\s\S]*?)(\n\[|\s*$)/);
+    if (poetry) {
+      for (const line of poetry[1].split('\n')) {
+        const m = line.match(/^\s*([A-Za-z0-9_.-]+)\s*=/);
+        if (m && m[1].toLowerCase() !== 'python') {
+          packages.add(m[1].toLowerCase().replace(/_/g, '-'));
+          source = 'pyproject';
+        }
+      }
+    }
+  } catch {
+    // no pyproject
+  }
+
+  try {
+    const entries = await readdir(directory);
+    for (const name of entries) {
+      if (!/^requirements.*\.txt$/i.test(name)) continue;
+      try {
+        const raw = await readFile(join(directory, name), 'utf-8');
+        for (const line of raw.split(/\r?\n/)) {
+          const pkg = requirementName(line);
+          if (pkg) {
+            packages.add(pkg);
+            if (!source) source = 'requirements';
+          }
+        }
+      } catch {
+        // skip
+      }
+    }
+  } catch {
+    // skip
+  }
+
+  return { packages, source };
+}
+
 export interface DetectResult {
   detected: DetectedProvider[];
-  /** All package names from package.json (deps + devDeps). Empty if no package.json. */
   rawPackages: string[];
 }
 
@@ -27,13 +96,14 @@ export async function detectProviders(
   directory: string,
   filesContent: Map<string, string>,
 ): Promise<DetectResult> {
-  // Dedupe by provider name — each SDK is only reported once.
   const detected = new Map<string, DetectedProvider>();
 
-  // Single string of all source files, used for URL pattern matching below.
+  const jsEntries = [...filesContent.entries()].filter(([path]) => isJavascriptFile(path));
+  const pyEntries = [...filesContent.entries()].filter(([path]) => isPythonFile(path));
+  const jsSources = jsEntries.map(([, src]) => src);
+  const pySources = pyEntries.map(([, src]) => src);
   const allSources = [...filesContent.values()].join('\n');
 
-  // Load dependencies from package.json (if it exists).
   let deps: Record<string, string> = {};
   try {
     const raw = await readFile(join(directory, 'package.json'), 'utf-8');
@@ -43,72 +113,94 @@ export async function detectProviders(
     };
     deps = { ...pkg.dependencies, ...pkg.devDependencies };
   } catch {
-    // missing or invalid package.json — skip package-based detection
+    // missing package.json
   }
 
-  // Check each registered provider (Resend, Stripe, Supabase, …).
+  const { packages: pyPackages, source: pyPkgSource } = await loadPythonPackages(directory);
+
   for (const provider of providers) {
     if (detected.has(provider.name)) continue;
 
-    // Files whose content references this provider's SDK — recorded on every
-    // detection stage so downstream consumers (e.g. git-history attribution in
-    // telemetry) can scope work to the files that actually use the provider.
-    const imports = provider.detect.imports ?? [];
+    const jsImports = provider.detect.imports ?? [];
+    const pyImports = provider.detect.pythonImports ?? [];
     const urls = provider.detect.urlPatterns ?? [];
+
     const matchedFiles = [...filesContent.entries()]
-      .filter(
-        ([, source]) =>
-          imports.some((p) => hasImportPattern(source, p)) || urls.some((u) => source.includes(u)),
-      )
+      .filter(([path, source]) => {
+        if (isJavascriptFile(path)) {
+          return (
+            jsImports.some((p) => hasJsImportPattern(source, p)) ||
+            urls.some((u) => source.includes(u))
+          );
+        }
+        if (isPythonFile(path)) {
+          return (
+            pyImports.some((p) => hasPythonImportPattern(source, p)) ||
+            urls.some((u) => source.includes(u))
+          );
+        }
+        return false;
+      })
       .map(([file]) => file);
 
-    // Stage 1: match npm package names in dependencies / devDependencies.
+    const mark = (source: DetectionSource) => {
+      detected.set(provider.name, {
+        name: provider.name,
+        source,
+        checked: provider.rules.length > 0,
+        files: matchedFiles,
+      });
+    };
+
     const packages = provider.detect.packages ?? [];
     if (packages.some((p) => p in deps)) {
-      detected.set(provider.name, {
-        name: provider.name,
-        source: 'package.json',
-        checked: provider.oxlintRules.length > 0,
-        files: matchedFiles,
-      });
+      mark('package.json');
       continue;
     }
 
-    // Stage 2: match import/require statements in source files.
-    if (imports.some((p) => [...filesContent.values()].some((s) => hasImportPattern(s, p)))) {
-      detected.set(provider.name, {
-        name: provider.name,
-        source: 'imports',
-        checked: provider.oxlintRules.length > 0,
-        files: matchedFiles,
-      });
+    const pythonPackages = (provider.detect.pythonPackages ?? []).map((p) =>
+      p.toLowerCase().replace(/_/g, '-'),
+    );
+    if (pythonPackages.some((p) => pyPackages.has(p))) {
+      mark(pyPkgSource === 'requirements' ? 'requirements' : 'pyproject');
       continue;
     }
 
-    // Stage 3: match API URL substrings anywhere in source (e.g. api.resend.com).
-    // A pattern only counts if no OTHER registered provider has a strictly
-    // more specific pattern (one that contains this one as a substring) that
-    // also matches — otherwise a broad host-only pattern (e.g. api.openai.com)
-    // would falsely claim sources that actually match a more specific sibling
-    // provider's path-qualified pattern (e.g. api.openai.com/v1/realtime).
+    if (jsImports.some((p) => jsSources.some((s) => hasJsImportPattern(s, p)))) {
+      mark('imports');
+      continue;
+    }
+
+    if (pyImports.some((p) => pySources.some((s) => hasPythonImportPattern(s, p)))) {
+      mark('python-imports');
+      continue;
+    }
+
     const matchedUrl = urls.find((u) => {
       if (!allSources.includes(u)) return false;
-      const isShadowedByMoreSpecificProvider = providers.some((other) => {
+      const isShadowed = providers.some((other) => {
         if (other === provider) return false;
         return (other.detect.urlPatterns ?? []).some(
           (otherUrl) => otherUrl !== u && otherUrl.includes(u) && allSources.includes(otherUrl),
         );
       });
-      return !isShadowedByMoreSpecificProvider;
+      return !isShadowed;
     });
-    if (matchedUrl) {
-      detected.set(provider.name, {
-        name: provider.name,
-        source: 'url-patterns',
-        checked: provider.oxlintRules.length > 0,
-        files: matchedFiles,
-      });
+    if (matchedUrl) mark('url-patterns');
+  }
+
+  const hasJs = jsEntries.length > 0;
+  const hasPy = pyEntries.length > 0;
+  for (const d of detected.values()) {
+    const manifest = providers.find((p) => p.name === d.name);
+    if (!manifest) {
+      d.checked = false;
+      continue;
     }
+    d.checked = manifest.rules.some((rule) => {
+      const langs = ruleLanguages(rule);
+      return (hasJs && langs.includes('javascript')) || (hasPy && langs.includes('python'));
+    });
   }
 
   return { detected: [...detected.values()], rawPackages: Object.keys(deps) };

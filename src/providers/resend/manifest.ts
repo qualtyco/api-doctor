@@ -127,7 +127,7 @@ export const resendManifest: ProviderManifest = {
       'webhooks.verify',
     ],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'resend-webhook-signature',
       resultRule: 'resend/webhook-signature-missing',

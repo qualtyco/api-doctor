@@ -8,7 +8,7 @@ export const browserbaseManifest: ProviderManifest = {
     imports: ['@browserbasehq/sdk'],
     urlPatterns: ['api.browserbase.com'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'browserbase-no-conditional-authz-on-anonymous-user',
       resultRule: 'browserbase/security/no-conditional-authz-on-anonymous-user',

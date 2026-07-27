@@ -7,12 +7,14 @@ import { providers } from '../providers/index.js';
 import { extractCodeSnippet } from './snippet.js';
 import {
   SEVERITY_ORDER,
+  ruleLanguages,
   scoreToSeverityLabel,
   type DetectedProvider,
   type Finding,
   type ProviderCoverage,
   type Report,
   type ReportSummary,
+  type RuleLanguage,
   type ScanResult,
 } from '../types.js';
 
@@ -27,6 +29,7 @@ export interface BuildReportInput {
   scannedAt?: Date;
   /** Informational SDK usage; never affects summary or findings. */
   coverage?: ProviderCoverage[];
+  languagesScanned?: RuleLanguage[];
 }
 
 /** Same scoring as the terminal report: info findings do not affect the score. */
@@ -96,12 +99,32 @@ export function buildReport(input: BuildReportInput): Report {
     return toFinding(result, next, content);
   });
 
+  // When languagesScanned is omitted (unit tests / older callers), count every
+  // rule. Otherwise only count rules that apply to languages present in the scan.
+  const langs = input.languagesScanned?.length
+    ? new Set(input.languagesScanned)
+    : null;
   const providersDetected = input.detected.map((d) => {
     const manifest = providers.find((p) => p.name === d.name);
+    let rulesRun = 0;
+    if (d.checked && manifest) {
+      rulesRun = new Set(
+        manifest.rules
+          .filter((rule) => {
+            if (!langs) return true;
+            const rl = ruleLanguages(rule);
+            return (
+              (langs.has('javascript') && rl.includes('javascript')) ||
+              (langs.has('python') && rl.includes('python'))
+            );
+          })
+          .map((r) => r.key),
+      ).size;
+    }
     return {
       name: d.name,
       detectedVia: d.source,
-      rulesRun: d.checked ? (manifest?.oxlintRules.length ?? 0) : 0,
+      rulesRun,
     };
   });
 
@@ -117,6 +140,7 @@ export function buildReport(input: BuildReportInput): Report {
       scannedAt: (input.scannedAt ?? new Date()).toISOString(),
       durationMs: Math.round(input.durationMs),
       filesScanned: input.filesScanned,
+      languagesScanned: input.languagesScanned,
       providersDetected,
     },
     summary,

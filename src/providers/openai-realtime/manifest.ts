@@ -6,7 +6,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
   detect: {
     urlPatterns: ['api.openai.com/v1/realtime'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'openai-realtime-migrate-beta-to-ga',
       resultRule: 'openai-realtime/correctness/migrate-beta-to-ga',

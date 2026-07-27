@@ -8,7 +8,7 @@ export const auth0Manifest: ProviderManifest = {
     imports: ['jsonwebtoken', 'jwks-rsa', 'express-jwt'],
     urlPatterns: ['auth0.com'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'auth0-required-audience-validation',
       resultRule: 'auth0/security/required-audience-validation',

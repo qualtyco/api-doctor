@@ -1,5 +1,5 @@
 /**
- * Shared contracts for provider detection, oxlint rule mapping, and scan output.
+ * Shared contracts for provider detection, rule mapping, coverage, and scan output.
  */
 
 export type Severity = 'error' | 'warning' | 'info';
@@ -7,6 +7,9 @@ export type Severity = 'error' | 'warning' | 'info';
 export type FindingCategory = 'security' | 'correctness' | 'reliability';
 
 export type ReportSeverityLabel = 'excellent' | 'good' | 'needs-work' | 'critical';
+
+/** Languages api-doctor can analyze. */
+export type RuleLanguage = 'javascript' | 'python';
 
 export interface ScanResult {
   file: string;
@@ -24,9 +27,9 @@ export interface ScanResult {
   docsUrl?: string;
 }
 
-/** Maps a provider to the oxlint rules that should run when it is detected. */
-export interface OxlintRuleMeta {
-  /** Rule key registered in the plugin (e.g. `resend-webhook-signature`). */
+/** Maps a provider rule to message/fix metadata used when reporting findings. */
+export interface RuleMeta {
+  /** Rule key registered in the engine (e.g. `resend-webhook-signature`). */
   key: string;
   /** Human-readable rule id shown in reports (e.g. `resend/webhook-signature-missing`). */
   resultRule: string;
@@ -34,17 +37,36 @@ export interface OxlintRuleMeta {
   fix: string;
   docsUrl?: string;
   severity?: Severity;
+  /**
+   * Which engines implement this rule.
+   * Defaults to `['javascript']` when omitted.
+   */
+  languages?: RuleLanguage[];
+}
+
+/** @deprecated Prefer RuleMeta. Alias kept for gradual migration. */
+export type OxlintRuleMeta = RuleMeta;
+
+/** Languages this rule runs on (default javascript-only). */
+export function ruleLanguages(rule: RuleMeta): RuleLanguage[] {
+  return rule.languages?.length ? rule.languages : ['javascript'];
 }
 
 export interface ProviderManifest {
   name: string;
   displayName: string;
   detect: {
+    /** npm package names in package.json */
     packages?: string[];
+    /** PyPI package names in requirements.txt / pyproject.toml */
+    pythonPackages?: string[];
+    /** JS/TS import/require module strings */
     imports?: string[];
+    /** Python import module names (e.g. `resend`) */
+    pythonImports?: string[];
     urlPatterns?: string[];
   };
-  oxlintRules: OxlintRuleMeta[];
+  rules: RuleMeta[];
   /** SDK surface description driving coverage collection. Optional — coverage is skipped for providers without one. */
   surface?: ProviderSurface;
 }
@@ -93,10 +115,18 @@ export interface CoverageCollection extends ProviderCoverage {
   unknownSdkCalls: number;
 }
 
+export type DetectionSource =
+  | 'package.json'
+  | 'imports'
+  | 'url-patterns'
+  | 'pyproject'
+  | 'requirements'
+  | 'python-imports';
+
 export interface DetectedProvider {
   name: string;
-  source: 'package.json' | 'imports' | 'url-patterns';
-  /** True when api-doctor ran oxlint rules for this provider. */
+  source: DetectionSource;
+  /** True when api-doctor ran at least one rule for this provider. */
   checked: boolean;
   /**
    * Scan-relative paths of source files that reference this provider's SDK
@@ -127,6 +157,8 @@ export interface ScanMeta {
   scannedAt: string;
   durationMs: number;
   filesScanned: number;
+  /** Languages present in the scanned tree. */
+  languagesScanned?: RuleLanguage[];
   providersDetected: Array<{
     name: string;
     detectedVia: DetectedProvider['source'];

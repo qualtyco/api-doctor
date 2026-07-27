@@ -1,66 +1,35 @@
 /**
  * Orchestrates a full project scan:
- * 1) walks source files and detects API providers/SDKs,
- * 2) enables matching oxlint rules from the bundled plugin,
- * 3) shells out to oxlint and parses JSON diagnostics,
- * 4) maps diagnostics into ScanResult objects for the reporter.
+ * 1) walks source files and classifies each by language,
+ * 2) detects API providers/SDKs,
+ * 3) collects JS SDK surface coverage (informational),
+ * 4) runs the JS (oxlint) and/or Python (stdlib ast) engines,
+ * 5) merges diagnostics into ScanResult objects for the reporter.
  */
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import os from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
-import { PLUGIN_NAME } from './constants.js';
+import { join, relative, resolve } from 'node:path';
 import { collectCoverage } from './coverage/collect.js';
-import { detectProviders, type DetectResult } from './detector.js';
-import { providers } from './providers/index.js';
-import type { CoverageCollection, DetectedProvider, OxlintRuleMeta, ScanResult } from './types.js';
+import { detectProviders } from './detector.js';
+import { classifyFileLanguage, isJavascriptFile, isPythonFile } from './engines/classify.js';
+import { buildJsRuleConfig, runJsEngine } from './engines/js/runner.js';
+import { buildPythonRuleConfig, runPythonEngine } from './engines/python/runner.js';
+import { ScanError } from './scan-error.js';
+import type { CoverageCollection, DetectedProvider, RuleLanguage, ScanResult } from './types.js';
 
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.next']);
-const SOURCE_EXT = /\.(tsx?|jsx?)$/;
+export { ScanError } from './scan-error.js';
 
-/**
- * Runs oxlint asynchronously (rather than spawnSync) so the event loop stays
- * free — this is what lets the CLI's spinner actually animate while it waits.
- *
- * oxlint runs as `node <oxlint-bin>` instead of through npx: spawning npx.cmd
- * on Windows throws EINVAL since Node's CVE-2024-27980 fix (batch files now
- * require shell: true), and a shell would reintroduce the quoting risks that
- * fix exists to prevent. Running the dependency's JS bin under our own Node
- * binary also pins oxlint to the version this package declares, rather than
- * whatever npx happens to resolve.
- */
-function runOxlint(
-  oxlintBin: string,
-  args: string[],
-  cwd: string,
-): Promise<{ stdout: string; stderr: string; error?: Error }> {
-  return new Promise((resolveRun) => {
-    const child = spawn(process.execPath, [oxlintBin, ...args], { cwd });
-    let stdout = '';
-    let stderr = '';
-    child.stdout?.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr?.on('data', (chunk) => {
-      stderr += chunk;
-    });
-    child.on('error', (error) => resolveRun({ stdout, stderr, error }));
-    child.on('close', () => resolveRun({ stdout, stderr }));
-  });
-}
+export const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  'build',
+  '.next',
+  '__pycache__',
+  '.venv',
+  'venv',
+  '.tox',
+  '.mypy_cache',
+]);
 
-/**
- * Recursively walks a directory tree and collects relative paths to source files.
- * Skips hidden files/dirs (names starting with `.`) and dirs in SKIP_DIRS.
- * Mutates the `files` array in place — callers pass an empty array to fill.
- *
- * Nested directories that can't be read (permission denied, broken/looping
- * symlinks, deleted mid-scan) are skipped rather than aborting the whole walk.
- * The `isRoot` flag lets the caller distinguish an unreadable target directory
- * (a hard error) from an unreadable subdirectory (silently skipped).
- */
 async function walk(
   dir: string,
   root: string,
@@ -71,9 +40,6 @@ async function walk(
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch (err) {
-    // The target directory itself being unreadable is a real failure; a nested
-    // subdir that we can't read just gets skipped so one bad folder doesn't
-    // sink the entire scan.
     if (isRoot) throw err;
     return;
   }
@@ -83,74 +49,30 @@ async function walk(
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       await walk(full, root, files);
-    } else if (SOURCE_EXT.test(entry.name)) {
+    } else if (classifyFileLanguage(entry.name) !== null) {
       files.push(relative(root, full));
     }
   }
 }
 
-/** Options passed from the CLI into `scan()`. */
 export interface ScanOptions {
-  /** When set, only run checks for these provider names (from `--provider`). */
   onlyProviders?: string[];
 }
 
-/** Return value of `scan()` — findings plus which SDKs were detected. */
 export interface ScanOutput {
   results: ScanResult[];
   detected: DetectedProvider[];
-  /** All package names from the project's package.json — used for unsupported-package hints. */
   rawPackages: string[];
-  /** Absolute path that was scanned. */
   directory: string;
-  /** Number of source files walked. */
   filesScanned: number;
-  /** Relative file path -> file contents, for snippet extraction downstream. */
   filesContent: Map<string, string>;
-  /** Informational SDK usage per provider; undefined when no detected provider qualifies. */
   coverage?: CoverageCollection[];
-}
-
-/** Thrown on tool-level failures (unreadable directory, oxlint crash). Maps to exit 2. */
-export class ScanError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
-    super(message);
-    this.name = 'ScanError';
-  }
-}
-
-/**
- * Builds the oxlint config for a scan based on which providers were detected.
- * Returns two things:
- *   - oxlintRules: rule ids → severity, written into the temp .oxlintrc.json
- *   - ruleMetaByKey: rule key → message/fix/docs, used when mapping diagnostics back
- */
-function buildOxlintConfig(detectedNames: Set<string>): {
-  oxlintRules: Record<string, 'error' | 'warn' | 'off'>;
-  ruleMetaByKey: Map<string, OxlintRuleMeta>;
-} {
-  const oxlintRules: Record<string, 'error' | 'warn' | 'off'> = {};
-  const ruleMetaByKey = new Map<string, OxlintRuleMeta>();
-
-  for (const provider of providers) {
-    if (!detectedNames.has(provider.name)) continue;
-    for (const rule of provider.oxlintRules) {
-      // oxlint has no `info` level; warnings and info both map to `warn`.
-      // The declared severity is preserved in ruleMetaByKey for reporting.
-      oxlintRules[`${PLUGIN_NAME}/${rule.key}`] =
-        rule.severity === 'error' || rule.severity === undefined ? 'error' : 'warn';
-      ruleMetaByKey.set(rule.key, rule);
-    }
-  }
-
-  return { oxlintRules, ruleMetaByKey };
+  languagesScanned: RuleLanguage[];
 }
 
 export async function scan(directory: string, options: ScanOptions = {}): Promise<ScanOutput> {
-  // Resolve the target directory to an absolute path.
   const absRoot = resolve(directory);
 
-  // Collect every .ts/.tsx/.js/.jsx file under absRoot (skipping node_modules, etc.).
   const paths: string[] = [];
   try {
     await walk(absRoot, absRoot, paths, true);
@@ -158,158 +80,69 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     throw new ScanError(`Could not read directory: ${absRoot}`, err);
   }
 
-  // Read each file's contents into memory — used for provider detection and line snippets.
   const filesContent = new Map<string, string>();
   for (const rel of paths) {
-    const content = await readFile(join(absRoot, rel), 'utf-8');
-    filesContent.set(rel, content);
+    filesContent.set(rel, await readFile(join(absRoot, rel), 'utf-8'));
   }
 
-  // Detect which API SDKs are present (package.json deps, imports, URL patterns).
+  const jsFiles = paths.filter(isJavascriptFile);
+  const pyFiles = paths.filter(isPythonFile);
+  const languagesScanned: RuleLanguage[] = [];
+  if (jsFiles.length) languagesScanned.push('javascript');
+  if (pyFiles.length) languagesScanned.push('python');
+
+  // Coverage uses oxc-parser — only feed JS/TS sources.
+  const jsFilesContent = new Map(
+    [...filesContent.entries()].filter(([path]) => isJavascriptFile(path)),
+  );
+
   let { detected, rawPackages } = await detectProviders(absRoot, filesContent);
 
-  // If --provider was passed, narrow detection to only those providers.
   if (options.onlyProviders?.length) {
     const allowed = new Set(options.onlyProviders.map((p) => p.toLowerCase()));
     detected = detected.filter((d) => allowed.has(d.name));
   }
 
-  // Collect informational SDK surface usage — separate from linting so it
-  // also runs when no rules are enabled for a provider.
-  const coverage = collectCoverage(detected, filesContent);
+  const coverage = collectCoverage(detected, jsFilesContent);
 
-  // Look up which oxlint rules to enable based on detected providers.
   const detectedNames = new Set(detected.map((d) => d.name));
-  const { oxlintRules, ruleMetaByKey } = buildOxlintConfig(detectedNames);
+  const { ruleMetaByKey: jsRules } = buildJsRuleConfig(detectedNames);
+  const pyRules = buildPythonRuleConfig(detectedNames);
 
-  // Nothing to lint — e.g. no supported SDK found, or provider has no rules yet.
-  if (Object.keys(oxlintRules).length === 0) {
-    return {
-      results: [],
-      detected,
-      rawPackages,
-      directory: absRoot,
-      filesScanned: paths.length,
-      filesContent,
-      coverage,
-    };
-  }
+  const results: ScanResult[] = [];
 
-  // Resolve the bundled oxlint plugin on disk (dist/plugin.js).
-  const require = createRequire(import.meta.url);
-  const pluginEntry = require.resolve('@api-doctor/cli/plugin');
-
-  // Resolve oxlint's bin script from its own manifest rather than hardcoding
-  // the path — oxlint's exports map only exposes package.json, and following
-  // the declared `bin` field keeps this working if a future release moves the
-  // script. The bin is a plain Node ESM shim, safe to run via execPath.
-  let oxlintBin: string;
-  try {
-    const oxlintPkgPath = require.resolve('oxlint/package.json');
-    const oxlintPkg = require(oxlintPkgPath);
-    const binRel =
-      typeof oxlintPkg.bin === 'string' ? oxlintPkg.bin : oxlintPkg.bin?.oxlint;
-    if (!binRel) throw new Error('oxlint package.json declares no "oxlint" bin');
-    oxlintBin = join(dirname(oxlintPkgPath), binRel);
-  } catch (err) {
-    throw new ScanError(
-      'Could not locate the bundled oxlint package — try reinstalling @api-doctor/cli',
-      err,
+  if (jsFiles.length > 0 && jsRules.size > 0) {
+    results.push(
+      ...(await runJsEngine({
+        absRoot,
+        files: jsFiles,
+        filesContent,
+        detectedNames,
+        ruleMetaByKey: jsRules,
+      })),
     );
   }
 
-  // Write a temporary oxlint config — we don't require users to have one in their project.
-  const tmpDir = mkdtempSync(join(os.tmpdir(), 'api-doctor-oxlint-'));
-  const configPath = join(tmpDir, 'oxlintrc.json');
-
-  const config = {
-    jsPlugins: [pluginEntry],
-    rules: oxlintRules,
-    ignorePatterns: Array.from(SKIP_DIRS),
-  };
-
-  writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-
-  // Run oxlint against the target project; diagnostics come back as JSON on stdout.
-  const res = await runOxlint(
-    oxlintBin,
-    ['--config', configPath, '--format', 'json', '.'],
-    absRoot,
-  );
-
-  try {
-    // `error` is set when the process couldn't start at all.
-    if (res.error) {
-      throw new ScanError('Failed to run oxlint', res.error);
-    }
-    let parsed: any;
-    try {
-      parsed = JSON.parse(res.stdout);
-    } catch (err) {
-      const stderr = (res.stderr ?? '').toString().trim();
-      throw new ScanError(
-        `oxlint produced no parseable output${stderr ? `: ${stderr}` : ''}`,
-        err,
-      );
-    }
-    const diagnostics: any[] = parsed.diagnostics ?? [];
-
-    // Convert oxlint diagnostics into ScanResult objects for the reporter.
-    const results: ScanResult[] = [];
-    for (const d of diagnostics) {
-      const code = String(d.code ?? '');
-      // Skip built-in oxlint rules (e.g. no-unused-vars) — only keep our plugin rules.
-      const matched = [...ruleMetaByKey.entries()].find(([key]) => code.includes(key));
-      if (!matched) continue;
-      const [ruleKey, meta] = matched;
-
-      // Normalize the file path to be relative to the scanned directory.
-      const relFile = (() => {
-        const filename = String(d.filename ?? '');
-        if (!filename) return '';
-        if (filename.startsWith(absRoot)) return relative(absRoot, filename);
-        return filename.replace(/^[.\\/]+/, '');
-      })();
-
-      const span = d.labels?.[0]?.span;
-      const line = typeof span?.line === 'number' ? span.line : 1;
-      const column = typeof span?.column === 'number' ? span.column : 1;
-      const endLine = typeof span?.endLine === 'number' ? span.endLine : undefined;
-      const endColumn = typeof span?.endColumn === 'number' ? span.endColumn : undefined;
-
-      // Pull the offending source line for --verbose output.
-      const content = filesContent.get(relFile) ?? '';
-      const snippet = content.split(/\r?\n/)[line - 1]?.trim() ?? '';
-
-      results.push({
-        file: relFile,
-        line,
-        column,
-        endLine,
-        endColumn,
-        snippet,
-        ruleKey,
-        rule: meta.resultRule,
-        // The manifest declares the intended severity (including `info`, which
-        // oxlint reports as a warning). Fall back to oxlint's severity.
-        severity: meta.severity ?? (d.severity === 'warning' ? 'warning' : 'error'),
-        message: meta.message,
-        fix: meta.fix,
-        docsUrl: meta.docsUrl,
-      });
-    }
-
-    return {
-      results,
-      detected,
-      rawPackages,
-      directory: absRoot,
-      filesScanned: paths.length,
-      filesContent,
-      coverage,
-    };
-  } finally {
-    // Clean up the temp config directory regardless of success or failure.
-    rmSync(tmpDir, { recursive: true, force: true });
+  if (pyFiles.length > 0 && pyRules.size > 0) {
+    results.push(
+      ...(await runPythonEngine({
+        absRoot,
+        files: pyFiles,
+        filesContent,
+        detectedNames,
+        ruleMetaByKey: pyRules,
+      })),
+    );
   }
+
+  return {
+    results,
+    detected,
+    rawPackages,
+    directory: absRoot,
+    filesScanned: paths.length,
+    filesContent,
+    coverage,
+    languagesScanned,
+  };
 }

@@ -8,7 +8,7 @@ export const firebaseManifest: ProviderManifest = {
     imports: ['firebase/app', 'firebase/auth', 'firebase/database', 'firebase/app-check'],
     urlPatterns: ['firebaseio.com', 'firebaseapp.com'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'firebase-missing-app-check',
       resultRule: 'firebase/security/missing-app-check',

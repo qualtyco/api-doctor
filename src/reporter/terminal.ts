@@ -46,6 +46,12 @@ function detectionSourceLabel(source: DetectedProvider['source']): string {
       return 'imports';
     case 'url-patterns':
       return 'URL patterns';
+    case 'pyproject':
+      return 'pyproject.toml';
+    case 'requirements':
+      return 'requirements.txt';
+    case 'python-imports':
+      return 'Python imports';
   }
 }
 
@@ -57,7 +63,7 @@ async function printDetectedProviders(detected: DetectedProvider[]): Promise<voi
     const via = pc.dim(`via ${detectionSourceLabel(d.source)}`);
 
     if (d.checked) {
-      const ruleCount = manifest?.oxlintRules.length ?? 0;
+      const ruleCount = manifest?.rules.length ?? 0;
       const checks = pc.dim(`— ${ruleCount} check${ruleCount === 1 ? '' : 's'}`);
       console.log(`  ${pc.green('✓')} ${label} ${via} ${checks}`);
     } else {

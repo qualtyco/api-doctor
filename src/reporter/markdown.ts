@@ -12,7 +12,7 @@ import type { Finding, ProviderCoverage, Report } from '../types.js';
 function rationaleByRule(): Map<string, string> {
   const map = new Map<string, string>();
   for (const provider of providers) {
-    for (const rule of provider.oxlintRules) {
+    for (const rule of provider.rules) {
       const docs = getRuleDocsMeta(rule.key);
       if (docs?.rationale) map.set(rule.resultRule, docs.rationale);
     }

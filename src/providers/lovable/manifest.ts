@@ -8,7 +8,7 @@ export const lovableManifest: ProviderManifest = {
     imports: ['lovable-tagger'],
     urlPatterns: ['lovable.dev', 'lovable.app'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'lovable-no-client-side-secret-fetch',
       resultRule: 'lovable/security/no-client-side-secret-fetch',

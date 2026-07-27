@@ -8,7 +8,7 @@ export const elevenlabsManifest: ProviderManifest = {
     imports: ['@11labs/client', 'elevenlabs', '@elevenlabs/elevenlabs-js'],
     urlPatterns: ['api.elevenlabs.io'],
   },
-  oxlintRules: [
+  rules: [
     {
       key: 'elevenlabs-validate-signed-url-response',
       resultRule: 'elevenlabs/correctness/validate-signed-url-response',
