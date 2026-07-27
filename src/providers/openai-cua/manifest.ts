@@ -5,7 +5,9 @@ export const openaiCuaManifest: ProviderManifest = {
   displayName: 'OpenAI Computer Use',
   detect: {
     packages: ['openai'],
+    pythonPackages: ['openai'],
     imports: ['openai'],
+    pythonImports: ['openai'],
     urlPatterns: ['api.openai.com'],
   },
   rules: [
@@ -16,6 +18,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Check the page origin against a configured allowlist before executing click/type/fill actions, and require explicit opt-in for cross-domain navigation.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-cua-scroll-delta-default-zero',
@@ -24,6 +27,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Default the missing scroll delta to 0 on both axes, matching the reference scroll handler.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-cua-structured-step-metadata-not-text-json',
@@ -32,6 +36,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Add a function tool (e.g. report_step) or use structured output (text.format) instead of parsing JSON found via indexOf/lastIndexOf in the message text.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'warning',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-cua-no-blind-safety-check-ack',
@@ -40,6 +45,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Evaluate each check\'s code/message against an actual policy before acknowledging it, or omit acknowledged_safety_checks entirely if you rely on harness-level confirmation instead.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'warning',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-cua-retry-transient-turn-errors',
@@ -48,6 +54,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Catch typed transient exceptions (RateLimitError, APIConnectionError, InternalServerError) and retry that turn with backoff before falling back to ending the run.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-cua-check-response-status-incomplete',
@@ -56,6 +63,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Check response.status === "incomplete" before treating a tool-call-free response as a successful completion; retry with a larger token budget or fail the run explicitly otherwise.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-cua-set-safety-identifier',
@@ -64,6 +72,7 @@ export const openaiCuaManifest: ProviderManifest = {
       fix: 'Thread a stable, hashed per-customer identifier through to every responses.create() call as safety_identifier.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/safety-best-practices',
       severity: 'warning',
+      languages: ['javascript', 'python'],
     },
   ],
 };

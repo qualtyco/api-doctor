@@ -4,6 +4,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
   name: 'openai-realtime',
   displayName: 'OpenAI Realtime API',
   detect: {
+    pythonImports: ['websockets', 'websocket'],
     urlPatterns: ['api.openai.com/v1/realtime'],
   },
   rules: [
@@ -14,6 +15,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: 'Remove the OpenAI-Beta header and migrate the session/event shapes to the GA interface (session.type, audio.output nesting, response.output_audio.delta event names).',
       docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-no-log-raw-message-payloads',
@@ -22,6 +24,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: 'Log only derived fields (e.g. { type: message.type }) at info level; log full payloads only at trace level behind an explicit opt-in.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-handle-error-server-event',
@@ -30,6 +33,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: "Add an explicit branch for message.type === 'error' that logs the error and surfaces/fails over, instead of letting it fall through silently.",
       docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/server-events',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-reconnect-on-drop',
@@ -38,6 +42,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: 'On close, attempt a bounded number of reconnects with a fresh session.update, and proactively end/flag the call if reconnection ultimately fails.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
       severity: 'error',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-avoid-dated-preview-snapshots',
@@ -46,6 +51,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: "Use the GA model id (e.g. 'gpt-realtime') or a current dated snapshot tracked against OpenAI's deprecation notices.",
       docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets',
       severity: 'warning',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-verify-deprecated-session-fields',
@@ -54,6 +60,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: 'Re-verify this field against the current sessions reference before relying on it, or drop it and control determinism via turn_detection/instructions instead.',
       docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets',
       severity: 'warning',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-buffer-audio-until-session-ready',
@@ -62,6 +69,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: 'Queue outbound input_audio_buffer.append messages until the open event fires, then flush them in order.',
       docsUrl: 'https://developers.openai.com/api/reference/resources/realtime/client-events',
       severity: 'warning',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-send-safety-identifier',
@@ -70,6 +78,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: 'Add an OpenAI-Safety-Identifier header with a stable, privacy-preserving value (e.g. a hashed account/call id) to support abuse/safety monitoring.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/realtime',
       severity: 'info',
+      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-realtime-transcription-model-choice',
@@ -78,6 +87,7 @@ export const openaiRealtimeManifest: ProviderManifest = {
       fix: "Switch to 'gpt-realtime-whisper' if transcription output is consumed, or drop input_audio_transcription entirely if it isn't.",
       docsUrl: 'https://developers.openai.com/api/docs/guides/realtime-transcription',
       severity: 'info',
+      languages: ['javascript', 'python'],
     },
   ],
 };
