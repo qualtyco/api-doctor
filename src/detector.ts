@@ -101,7 +101,7 @@ export async function detectProviders(
   const jsEntries = [...filesContent.entries()].filter(([path]) => isJavascriptFile(path));
   const pyEntries = [...filesContent.entries()].filter(([path]) => isPythonFile(path));
   const jsSources = jsEntries.map(([, src]) => src);
-  const pySources = pyEntries.map(([, src]) => src);
+  // PYTHON-DORMANT: const pySources = pyEntries.map(([, src]) => src);
   const allSources = [...filesContent.values()].join('\n');
 
   let deps: Record<string, string> = {};
@@ -116,13 +116,18 @@ export async function detectProviders(
     // missing package.json
   }
 
-  const { packages: pyPackages, source: pyPkgSource } = await loadPythonPackages(directory);
+  // PYTHON-DORMANT: this is the one Python trigger that does NOT depend on file
+  // classification — it reads pyproject.toml / requirements*.txt straight off
+  // disk, so it would still fire on a Python repo with no scannable .py files.
+  // Keep it off until the Python rule pack ships.
+  // const { packages: pyPackages, source: pyPkgSource } = await loadPythonPackages(directory);
+  // (loadPythonPackages is left unreferenced on purpose so it tree-shakes out of dist.)
 
   for (const provider of providers) {
     if (detected.has(provider.name)) continue;
 
     const jsImports = provider.detect.imports ?? [];
-    const pyImports = provider.detect.pythonImports ?? [];
+    // PYTHON-DORMANT: const pyImports = provider.detect.pythonImports ?? [];
     const urls = provider.detect.urlPatterns ?? [];
 
     const matchedFiles = [...filesContent.entries()]
@@ -133,12 +138,13 @@ export async function detectProviders(
             urls.some((u) => source.includes(u))
           );
         }
-        if (isPythonFile(path)) {
-          return (
-            pyImports.some((p) => hasPythonImportPattern(source, p)) ||
-            urls.some((u) => source.includes(u))
-          );
-        }
+        // PYTHON-DORMANT: unreachable while classifyFileLanguage's .py branch is off.
+        // if (isPythonFile(path)) {
+        //   return (
+        //     pyImports.some((p) => hasPythonImportPattern(source, p)) ||
+        //     urls.some((u) => source.includes(u))
+        //   );
+        // }
         return false;
       })
       .map(([file]) => file);
@@ -158,23 +164,25 @@ export async function detectProviders(
       continue;
     }
 
-    const pythonPackages = (provider.detect.pythonPackages ?? []).map((p) =>
-      p.toLowerCase().replace(/_/g, '-'),
-    );
-    if (pythonPackages.some((p) => pyPackages.has(p))) {
-      mark(pyPkgSource === 'requirements' ? 'requirements' : 'pyproject');
-      continue;
-    }
+    // PYTHON-DORMANT: pyproject / requirements detection stage.
+    // const pythonPackages = (provider.detect.pythonPackages ?? []).map((p) =>
+    //   p.toLowerCase().replace(/_/g, '-'),
+    // );
+    // if (pythonPackages.some((p) => pyPackages.has(p))) {
+    //   mark(pyPkgSource === 'requirements' ? 'requirements' : 'pyproject');
+    //   continue;
+    // }
 
     if (jsImports.some((p) => jsSources.some((s) => hasJsImportPattern(s, p)))) {
       mark('imports');
       continue;
     }
 
-    if (pyImports.some((p) => pySources.some((s) => hasPythonImportPattern(s, p)))) {
-      mark('python-imports');
-      continue;
-    }
+    // PYTHON-DORMANT: Python import detection stage.
+    // if (pyImports.some((p) => pySources.some((s) => hasPythonImportPattern(s, p)))) {
+    //   mark('python-imports');
+    //   continue;
+    // }
 
     const matchedUrl = urls.find((u) => {
       if (!allSources.includes(u)) return false;

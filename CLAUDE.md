@@ -46,7 +46,37 @@ Two outputs from a single build (`tsup.config.ts`):
 | `dist/cli.{mjs,cjs}` | `src/cli.ts` | CLI binary (`api-doctor` bin) |
 | `dist/plugin.js` | `src/plugin/index.ts` | Oxlint JS plugin (consumed by the CLI and directly by users) |
 
-Python rules ship under `src/providers/*/rules/python/` with a stdlib runtime in `src/engines/python/runtime/` (spawned by the CLI). Scanning `.py` files requires Python 3.10+ on PATH.
+### Python engine — present but dormant
+
+Python rule sources live under `src/providers/*/rules/python/` with a stdlib runtime in
+`src/engines/python/runtime/`, **but the shipped product is TypeScript-only.** Every call
+site that could classify, walk, detect, or lint a `.py` file is commented out behind a
+`PYTHON-DORMANT` marker:
+
+```bash
+grep -rn PYTHON-DORMANT src tests    # every switch, in one command
+```
+
+The master switch is the `.py` branch in `src/engines/classify.ts` — while it is off,
+`.py` files are never walked, read, classified, or linted. `src/detector.ts` needs its
+own switch because pyproject/requirements detection reads disk directly and does not go
+through file classification. `src/scanner.ts` does not import the Python runner at all,
+so `dist/` contains no code that can spawn a Python process, and `package.json` `files`
+ships no `.py` at all.
+
+Rules for keeping it dormant:
+
+- **Never re-enable one site alone** — the switches are a set; flip them together.
+- Python rule tests (`tests/rules/*-python-rules.test.ts`) drive the runtime directly via
+  `lintPythonFixture` and bypass `scan()`, so they keep running and keep the rule pack
+  under test. Only `tests/scanner-python.test.ts` (end-to-end through `scan()`) is skipped.
+- Do not add `src/providers` or `src/engines/python/runtime` to `package.json` `files`:
+  an explicit `files` entry force-includes everything beneath it, which `.gitignore`
+  cannot override — that leaks local `__pycache__/*.pyc` and every provider `.ts` source
+  into the published tarball.
+- When Python does ship: a repo containing `.py` files but no `python3` on PATH must
+  degrade to a JS-only report, never abort the whole scan (today `runPythonEngine`
+  throws `ScanError` → exit 2, discarding valid JS findings).
 
 ### Source layout
 

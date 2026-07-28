@@ -4,13 +4,21 @@
 import type { RuleLanguage } from '../types.js';
 
 const JS_EXT = /\.(tsx?|jsx?)$/;
-const PY_EXT = /\.py$/;
+// PYTHON-DORMANT: const PY_EXT = /\.py$/;
 
-/** Returns the analysis language for a file path, or null if unsupported. */
+/**
+ * Returns the analysis language for a file path, or null if unsupported.
+ *
+ * PYTHON-DORMANT: this is the master kill switch for the Python engine. While
+ * the `.py` branch stays commented out this function never returns 'python',
+ * so `.py` files are not walked, not read, not classified, and never reach an
+ * engine. Re-enable it (with the other PYTHON-DORMANT sites) when the Python
+ * rule pack ships. Run `grep -rn PYTHON-DORMANT src tests` to find them all.
+ */
 export function classifyFileLanguage(filePath: string): RuleLanguage | null {
   const base = filePath.split(/[/\\]/).pop() ?? filePath;
   if (JS_EXT.test(base)) return 'javascript';
-  if (PY_EXT.test(base)) return 'python';
+  // PYTHON-DORMANT: if (PY_EXT.test(base)) return 'python';
   return null;
 }
 

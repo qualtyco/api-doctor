@@ -5,7 +5,15 @@ import { scan } from '../src/scanner';
 
 const fixtures = join(dirname(fileURLToPath(import.meta.url)), 'fixtures/resend');
 
-describe('scan() mixed JS + Python', () => {
+// PYTHON-DORMANT: intended behavior changed for the TypeScript-only release —
+// scan() no longer classifies, walks, or lints .py files, so this end-to-end
+// expectation is deliberately suspended rather than deleted. Reverting the
+// commit that disabled the Python engine un-skips it and it passes again.
+//
+// The per-rule Python tests (tests/rules/*-python-rules.test.ts) still run:
+// they drive the runtime directly via lintPythonFixture and never touch scan(),
+// so the Python rule pack stays under test while the product ships without it.
+describe.skip('scan() mixed JS + Python', () => {
   it('runs both engines and flags a dual-language rule in each language', async () => {
     const { results, languagesScanned, detected } = await scan(
       join(fixtures, 'mixed-js-py-broken'),

@@ -10,9 +10,12 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
 import { collectCoverage } from './coverage/collect.js';
 import { detectProviders } from './detector.js';
-import { classifyFileLanguage, isJavascriptFile, isPythonFile } from './engines/classify.js';
+import { classifyFileLanguage, isJavascriptFile } from './engines/classify.js';
 import { buildJsRuleConfig, runJsEngine } from './engines/js/runner.js';
-import { buildPythonRuleConfig, runPythonEngine } from './engines/python/runner.js';
+// PYTHON-DORMANT: importing the Python runner is what pulls a `spawn('python3')`
+// call site into dist/cli — leaving it commented out keeps the shipped bundle
+// free of any code that can start a Python process.
+// import { buildPythonRuleConfig, runPythonEngine } from './engines/python/runner.js';
 import { ScanError } from './scan-error.js';
 import type { CoverageCollection, DetectedProvider, RuleLanguage, ScanResult } from './types.js';
 
@@ -86,10 +89,12 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   }
 
   const jsFiles = paths.filter(isJavascriptFile);
-  const pyFiles = paths.filter(isPythonFile);
   const languagesScanned: RuleLanguage[] = [];
   if (jsFiles.length) languagesScanned.push('javascript');
-  if (pyFiles.length) languagesScanned.push('python');
+  // PYTHON-DORMANT: `paths` cannot contain .py while classifyFileLanguage's
+  // python branch is off, so pyFiles would always be empty anyway.
+  // const pyFiles = paths.filter(isPythonFile);
+  // if (pyFiles.length) languagesScanned.push('python');
 
   // Coverage uses oxc-parser — only feed JS/TS sources.
   const jsFilesContent = new Map(
@@ -107,7 +112,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   const detectedNames = new Set(detected.map((d) => d.name));
   const { ruleMetaByKey: jsRules } = buildJsRuleConfig(detectedNames);
-  const pyRules = buildPythonRuleConfig(detectedNames);
+  // PYTHON-DORMANT: const pyRules = buildPythonRuleConfig(detectedNames);
 
   const results: ScanResult[] = [];
 
@@ -123,17 +128,19 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     );
   }
 
-  if (pyFiles.length > 0 && pyRules.size > 0) {
-    results.push(
-      ...(await runPythonEngine({
-        absRoot,
-        files: pyFiles,
-        filesContent,
-        detectedNames,
-        ruleMetaByKey: pyRules,
-      })),
-    );
-  }
+  // PYTHON-DORMANT: the Python engine is not wired up for the TypeScript-only
+  // release. Restore this block together with the other PYTHON-DORMANT sites.
+  // if (pyFiles.length > 0 && pyRules.size > 0) {
+  //   results.push(
+  //     ...(await runPythonEngine({
+  //       absRoot,
+  //       files: pyFiles,
+  //       filesContent,
+  //       detectedNames,
+  //       ruleMetaByKey: pyRules,
+  //     })),
+  //   );
+  // }
 
   return {
     results,
