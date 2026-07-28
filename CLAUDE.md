@@ -2,15 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git policy
+
+**Never commit or push without being explicitly asked.** Finish the work, leave all changes uncommitted in the working tree, and summarize what changed so it can be reviewed first. Plan or task approval is not commit authorization. If a commit split would help, propose the split and messages and wait for the go-ahead.
+
 ## Commands
 
 ```bash
 pnpm install        # install deps
 pnpm build          # compile src/ → dist/ (tsup bundles cli.ts + plugin/index.ts)
 pnpm dev            # watch mode
-pnpm test           # vitest run (builds once via globalSetup before workers)
-pnpm check:links    # validate every docs URL in src/providers (404s, soft 404s, stale redirects) — network-bound, run before releases
+pnpm test           # full check: test:unit + check:links + check:surface — network-bound
+pnpm test:unit      # vitest run only (builds once via globalSetup) — fast, offline, for the inner loop
+pnpm check:links    # validate every docs URL in src/providers (404s, soft 404s, stale redirects)
+pnpm check:surface  # diff surface.methods manifests against the latest SDK type declarations (drift guard)
 ```
+
+**Run `pnpm test` before committing.** The two network-bound guards catch what the
+unit suite structurally cannot, because both compare the repo against the outside
+world: a provider moving a docs page (`check:links`), and an SDK growing or
+renaming methods the surface manifest doesn't list (`check:surface`). Both have
+already caught real problems. Nothing enforces this automatically — use
+`pnpm test:unit` while iterating and the full `pnpm test` before you commit.
 
 Run a single rule's tests (requires a prior build):
 
@@ -117,6 +130,10 @@ tests/
 ```
 
 Fixture files may be named `*.test.ts` to exercise test-file detection; vitest excludes `tests/fixtures/**`.
+
+### Test suite policy
+
+The test suite is the contract for rule behavior — **never edit existing tests or fixtures to make a failing run pass**. If a test fails, the bug is in the rule or source code; fix it there. Adding new tests and fixtures for new rules is expected (see the checklists below). The only legitimate reason to change an existing test is that the intended behavior itself changed — in that case, call the change out explicitly in the PR description and explain why the old expectation was wrong; never adjust expectations silently.
 
 ## Adding a rule (checklist)
 
