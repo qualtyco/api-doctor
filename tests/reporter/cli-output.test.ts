@@ -6,7 +6,13 @@ import { describe, expect, it } from 'vitest';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const cli = join(repoRoot, 'dist/cli.mjs');
 
-const ERROR_FIXTURE = join(repoRoot, 'tests/fixtures/resend/resend-api-key-hardcoded-broken');
+// RULE-DISABLED 2026-07-28: was resend-api-key-hardcoded-broken, but that rule
+// is commented out in the resend manifest pre-launch and it was the only
+// error-severity finding on that fixture — leaving it here would have made
+// "exits 1 when errors are found" silently assert nothing. Repointed at a
+// fixture that still produces an error. Both are equally valid for the other
+// three usages below, which only need at least one finding.
+const ERROR_FIXTURE = join(repoRoot, 'tests/fixtures/resend/resend-api-key-in-client-bundle-broken');
 const WARNING_FIXTURE = join(
   repoRoot,
   'tests/fixtures/resend/resend-missing-idempotency-key-broken',

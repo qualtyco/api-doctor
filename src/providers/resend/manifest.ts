@@ -140,15 +140,21 @@ export const resendManifest: ProviderManifest = {
       severity: 'error',
       languages: ['javascript', 'python'],
     },
-    {
-      key: 'resend-api-key-hardcoded',
-      resultRule: 'resend/security/api-key-hardcoded',
-      message: 'Hardcoded Resend API key found in source code.',
-      fix: 'Move the key to an environment variable and read it via process.env.RESEND_API_KEY.',
-      docsUrl: 'https://resend.com/docs/send-with-nextjs#prerequisites',
-      severity: 'error',
-      languages: ['javascript', 'python'],
-    },
+    // RULE-DISABLED 2026-07-28 (pre-launch): overfitting, 46/47 (98%) false
+    // positives in review. Disables both engines at once (the JS rule and its
+    // dormant Python port share this key). Rule, tests and fixtures are intact.
+    // NOTE: tests/fixtures/resend/docs-examples/send-batch.ts had this rule in
+    // its `docs-example-expected` list; that entry is commented out there too
+    // and must be restored in the same change that re-enables this rule.
+    // {
+    //   key: 'resend-api-key-hardcoded',
+    //   resultRule: 'resend/security/api-key-hardcoded',
+    //   message: 'Hardcoded Resend API key found in source code.',
+    //   fix: 'Move the key to an environment variable and read it via process.env.RESEND_API_KEY.',
+    //   docsUrl: 'https://resend.com/docs/send-with-nextjs#prerequisites',
+    //   severity: 'error',
+    //   languages: ['javascript', 'python'],
+    // },
     {
       key: 'resend-api-key-in-client-bundle',
       resultRule: 'resend/security/api-key-in-client-bundle',

@@ -85,7 +85,10 @@ describe('buildReport', () => {
     expect(report.scanMeta.providersDetected[0]).toEqual({
       name: 'resend',
       detectedVia: 'imports',
-      rulesRun: 13,
+      // Tracks the number of enabled rules in the resend manifest.
+      // RULE-DISABLED 2026-07-28: 13 -> 12 when resend-api-key-hardcoded was
+      // commented out pre-launch; restore to 13 when it is re-enabled.
+      rulesRun: 12,
     });
   });
 });
