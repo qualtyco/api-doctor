@@ -11,15 +11,20 @@ export const openaiCuaManifest: ProviderManifest = {
     urlPatterns: ['api.openai.com'],
   },
   rules: [
-    {
-      key: 'openai-cua-no-domain-allowlist',
-      resultRule: 'openai-cua/security/no-domain-allowlist',
-      message: 'Computer-use actions execute against the current page with no domain/origin allowlist check.',
-      fix: 'Check the page origin against a configured allowlist before executing click/type/fill actions, and require explicit opt-in for cross-domain navigation.',
-      docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
-      severity: 'error',
-      languages: ['javascript', 'python'],
-    },
+    // RULE-DISABLED 2026-07-28 (pre-launch): overfitting, 295/307 (96%) false
+    // positives in review. Commenting out the entry disables the rule for BOTH
+    // engines at once (the JS rule and its dormant Python port share this key),
+    // so it cannot quietly come back when the Python engine is switched on.
+    // Rule, tests and fixtures are intact.
+    // {
+    //   key: 'openai-cua-no-domain-allowlist',
+    //   resultRule: 'openai-cua/security/no-domain-allowlist',
+    //   message: 'Computer-use actions execute against the current page with no domain/origin allowlist check.',
+    //   fix: 'Check the page origin against a configured allowlist before executing click/type/fill actions, and require explicit opt-in for cross-domain navigation.',
+    //   docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
+    //   severity: 'error',
+    //   languages: ['javascript', 'python'],
+    // },
     {
       key: 'openai-cua-scroll-delta-default-zero',
       resultRule: 'openai-cua/correctness/scroll-delta-default-zero',
