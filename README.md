@@ -7,7 +7,6 @@ api-doctor scans AI-generated code for bad API integrations.
 
 Deterministic AST rules. Not a prompt. Same input, same output, every time.
 
-Supports **JavaScript/TypeScript** (oxlint) and **Python** (stdlib `ast`). Mixed repos are classified per file; both engines can run in one scan. Python scans require Python 3.10+ on PATH. Resend is the first provider with Python rules.
 
 **<u>[Website](https://apidoctor.co) → </u>**
 
