@@ -9,14 +9,18 @@ export const twilioManifest: ProviderManifest = {
     urlPatterns: ['api.twilio.com'],
   },
   rules: [
-    {
-      key: 'twilio-validate-webhook-signature',
-      resultRule: 'twilio/security/validate-webhook-signature',
-      message: 'A POST webhook route reads req.body but never validates the X-Twilio-Signature header.',
-      fix: 'Validate the X-Twilio-Signature header with twilio.validateRequest()/RequestValidator before trusting the body.',
-      docsUrl: 'https://www.twilio.com/docs/usage/webhooks/webhooks-security',
-      severity: 'error',
-    },
+    // RULE-DISABLED 2026-07-28 (pre-launch): overfitting, 662/706 (94%) false
+    // positives in review. The rule, its tests and its fixtures are all intact —
+    // only this manifest entry is commented out, so nothing enables it for a
+    // scan. Re-enable by uncommenting once the heuristic is tightened.
+    // {
+    //   key: 'twilio-validate-webhook-signature',
+    //   resultRule: 'twilio/security/validate-webhook-signature',
+    //   message: 'A POST webhook route reads req.body but never validates the X-Twilio-Signature header.',
+    //   fix: 'Validate the X-Twilio-Signature header with twilio.validateRequest()/RequestValidator before trusting the body.',
+    //   docsUrl: 'https://www.twilio.com/docs/usage/webhooks/webhooks-security',
+    //   severity: 'error',
+    // },
     {
       key: 'twilio-taskrouter-attributes-match-consumer',
       resultRule: 'twilio/correctness/taskrouter-attributes-match-consumer',
@@ -65,14 +69,17 @@ export const twilioManifest: ProviderManifest = {
       docsUrl: 'https://www.twilio.com/docs/api/errors/31931',
       severity: 'warning',
     },
-    {
-      key: 'twilio-validate-all-request-inputs',
-      resultRule: 'twilio/correctness/validate-all-request-inputs',
-      message: 'A webhook route reads a request field that is not covered by its schema (or has no schema at all).',
-      fix: 'Add a querystring/body schema covering every field the handler reads, and reject the request with a 400 if a required field is missing.',
-      docsUrl: 'https://www.twilio.com/docs/voice/twiml/stream',
-      severity: 'warning',
-    },
+    // RULE-DISABLED 2026-07-28 (pre-launch): overfitting, 81/89 (91%) false
+    // positives in review. Rule, tests and fixtures intact — see the note on
+    // twilio-validate-webhook-signature above.
+    // {
+    //   key: 'twilio-validate-all-request-inputs',
+    //   resultRule: 'twilio/correctness/validate-all-request-inputs',
+    //   message: 'A webhook route reads a request field that is not covered by its schema (or has no schema at all).',
+    //   fix: 'Add a querystring/body schema covering every field the handler reads, and reject the request with a 400 if a required field is missing.',
+    //   docsUrl: 'https://www.twilio.com/docs/voice/twiml/stream',
+    //   severity: 'warning',
+    // },
     {
       key: 'twilio-media-streams-mark-name-string',
       resultRule: 'twilio/correctness/media-streams-mark-name-string',
