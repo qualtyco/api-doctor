@@ -51,10 +51,6 @@ import { firebaseOnSnapshotMissingErrorCallbackRule } from '../providers/firebas
 import { firebaseFirestoreDocumentSizeGuardRule } from '../providers/firebase/rules/js/firestore-document-size-guard.js';
 import { firebaseUseTimestampNowRule } from '../providers/firebase/rules/js/use-timestamp-now.js';
 
-import { lovableNoClientSideSecretFetchRule } from '../providers/lovable/rules/js/no-client-side-secret-fetch.js';
-import { lovablePaidFlagWithoutEdgeFunctionRule } from '../providers/lovable/rules/js/paid-flag-without-edge-function.js';
-import { lovableExpiryColumnNeverCheckedRule } from '../providers/lovable/rules/js/expiry-column-never-checked.js';
-import { lovableSilentCatchOnProviderCallRule } from '../providers/lovable/rules/js/silent-catch-on-provider-call.js';
 import { browserbaseNoConditionalAuthzOnAnonymousUserRule } from '../providers/browserbase/rules/js/no-conditional-authz-on-anonymous-user.js';
 import { browserbaseNoConnectUrlInApiResponseRule } from '../providers/browserbase/rules/js/no-connect-url-in-api-response.js';
 import { browserbaseSessionIdRequiresOwnershipCheckRule } from '../providers/browserbase/rules/js/session-id-requires-ownership-check.js';
@@ -198,10 +194,6 @@ const plugin = {
     'firebase-firestore-document-size-guard': firebaseFirestoreDocumentSizeGuardRule,
     'firebase-use-timestamp-now': firebaseUseTimestampNowRule,
 
-    'lovable-no-client-side-secret-fetch': lovableNoClientSideSecretFetchRule,
-    'lovable-paid-flag-without-edge-function': lovablePaidFlagWithoutEdgeFunctionRule,
-    'lovable-expiry-column-never-checked': lovableExpiryColumnNeverCheckedRule,
-    'lovable-silent-catch-on-provider-call': lovableSilentCatchOnProviderCallRule,
 
     'browserbase-no-conditional-authz-on-anonymous-user': browserbaseNoConditionalAuthzOnAnonymousUserRule,
     'browserbase-no-connect-url-in-api-response': browserbaseNoConnectUrlInApiResponseRule,
