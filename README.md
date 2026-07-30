@@ -37,7 +37,7 @@ npx @api-doctor/cli install
 | [Auth0](https://auth0.com/docs)                                                         | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md)        |
 | [Firebase](https://firebase.google.com/docs)                                            | [19 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md)    |
 | [Browserbase](https://docs.browserbase.com)                                             | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) |
-| [OpenAI](https://developers.openai.com/api/docs/guides/tools-computer-use)              | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai/README.md)   |
+| [OpenAI](https://platform.openai.com/docs/api-reference)                                | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai/README.md)       |
 | [Tiptap](https://tiptap.dev/docs)                                                       | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md)      |
 | [ElevenLabs](https://elevenlabs.io/docs)                                                | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md)  |
 | [Twilio](https://www.twilio.com/docs)                                                   | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md)       |
@@ -77,6 +77,7 @@ api-doctor sends anonymous usage data to PostHog so we can see whether the tool 
 - Run context: local, CI, or agent
 - Which API SDKs were detected (e.g. `resend`, `supabase`) — provider names only
 - Which rules fired — rule names only, no code
+- Which documented SDK methods the scanned code calls (`sdk_used`, e.g. `emails.send`), plus a count of unrecognized calls on those clients (`unknown_sdk_calls`) — method names come from a fixed per-provider list shipped with the tool, never from your code
 - Which AI model (or agent) most likely wrote the scanned code (`ai_model`), plus which signal determined it (`ai_model_source`). This is inferred locally from agent config files (e.g. `CLAUDE.md`, `.cursor/`), AI co-author trailers in git history (e.g. `Co-Authored-By: Claude Opus 4.8`), model ids in local agent session state for this project (Claude Code's `~/.claude/projects/`, aider's `.aider.chat.history.md`, Codex's `~/.codex/sessions/`), and the `--agent-model` flag (or `API_DOCTOR_AGENT_MODEL`) that the installed agent skill asks coding agents to pass. Only the single resolved name is sent — never session content, commit data, or the underlying evidence
 - Score and finding counts
 - Score delta between runs on the same project (stored locally in that project's `.api-doctor/run-history.json`)
