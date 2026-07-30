@@ -142,7 +142,10 @@ export async function runJsEngine(input: EngineInput): Promise<ScanResult[]> {
     configPath,
     JSON.stringify(
       {
-        jsPlugins: [pluginEntry],
+        // Alias form pins the plugin name: without it oxlint derives the name
+        // from the surrounding package (`@api-doctor/cli`), and every
+        // `api-doctor/<rule>` entry fails with "Plugin 'api-doctor' not found".
+        jsPlugins: [{ name: PLUGIN_NAME, specifier: pluginEntry }],
         rules: oxlintRules,
         ignorePatterns: ENGINE_SKIP_DIRS,
       },

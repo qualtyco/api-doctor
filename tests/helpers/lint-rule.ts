@@ -52,7 +52,14 @@ export function lintFileForRule(ruleKey: string, filePath: string): any[] {
   const configPath = join(tmp, 'oxlintrc.json');
   writeFileSync(
     configPath,
-    JSON.stringify({ jsPlugins: [pluginDist], rules: { [ruleId]: 'error' } }, null, 2),
+    JSON.stringify(
+      // Alias form pins the plugin name to PLUGIN_NAME; without it oxlint
+      // derives the name from the surrounding package (`@api-doctor/cli`)
+      // and no `api-doctor/<rule>` id resolves.
+      { jsPlugins: [{ name: PLUGIN_NAME, specifier: pluginDist }], rules: { [ruleId]: 'error' } },
+      null,
+      2,
+    ),
     'utf-8',
   );
 
