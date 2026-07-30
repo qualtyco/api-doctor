@@ -33,9 +33,9 @@ export const elevenlabsManifest: ProviderManifest = {
     // and overrides music/speechToText/speechEngine/webhooks with same-surface
     // subclasses). Cross-checked against api.elevenlabs.io/openapi.json:
     // every method below maps 1:1 to a live spec endpoint (voices.search is
-    // GET /v2/voices); two spec endpoints have no SDK method yet (GET
-    // /v1/voices/accents, POST /v1/voices/{id}/replicate-to-isolated-
-    // environment). Spec-deprecated but still-typed methods are kept because
+    // GET /v2/voices; voices.accents.get and
+    // voices.replicateToIsolatedEnvironment landed in the SDK in 2.60.0).
+    // Spec-deprecated but still-typed methods are kept because
     // real code still calls them: dubbing.resource.* (closed-beta resource
     // endpoints, docs now under Legacy), dubbing.transcript.getTranscriptForDub
     // (superseded by dubbing.transcripts.get), textToVoice.createPreviews
@@ -139,6 +139,7 @@ export const elevenlabsManifest: ProviderManifest = {
       'textToVoice.design',
       'textToVoice.preview.stream',
       'textToVoice.remix',
+      'voices.accents.get',
       'voices.delete',
       'voices.findSimilarVoices',
       'voices.get',
@@ -159,6 +160,7 @@ export const elevenlabsManifest: ProviderManifest = {
       'voices.pvc.verification.captcha.get',
       'voices.pvc.verification.captcha.verify',
       'voices.pvc.verification.request',
+      'voices.replicateToIsolatedEnvironment',
       'voices.samples.audio.get',
       'voices.search',
       'voices.settings.get',

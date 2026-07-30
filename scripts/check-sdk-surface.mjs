@@ -175,6 +175,17 @@ const TARGETS = [
     manifest: 'src/providers/s2/manifest.ts',
   },
   {
+    // Stainless layout (same family as browserbase): root `OpenAI` class in
+    // client.d.ts (index.d.ts only re-exports), resources wired via
+    // `import * as API` namespace aliases and per-file re-exports.
+    provider: 'openai',
+    pkg: 'openai',
+    rootClass: 'OpenAI',
+    dts: ['client.d.ts'],
+    multiFile: true,
+    manifest: 'src/providers/openai/manifest.ts',
+  },
+  {
     // Stainless layout: resources/**/*.d.ts wired via `import * as` namespace
     // aliases and re-exports; class names collide across files (two different
     // `Downloads` classes) so resolution is per-file — handled by the

@@ -93,3 +93,16 @@ These patterns require prompt-content verification or external knowledge — not
 
 - **Specific confirmation/consent language in system prompt** — Requires evaluating whether prompt text "adequately" covers a safety framework for risky actions (e.g., deleting data, modifying sensitive settings). AST rules cannot judge prompt quality.
 - **Prompt-injection defense** — Distinguishing user instructions from on-screen page content in a prompt requires semantic understanding of page structure and user intent, not a code pattern.
+
+## SDK surface coverage
+
+`manifest.ts` also declares a `surface` — the hand-written list of every SDK method
+path (verified against `openai@7.2.0` type declarations and cross-checked against
+the SDK's method↔endpoint catalog, `api.md` in `openai/openai-node`), which drives
+the CLI's informational coverage section and the `sdk_used` telemetry prop.
+Coverage is **not a rule**: it never produces findings, never affects the score,
+and never reports counts or ratios. The OpenAI Agents SDK (`@openai/agents`) is
+deliberately out of scope — its free-function API has no client root the collector
+could attribute calls to — and `@openai/agents-realtime` belongs to the
+`openai-realtime` provider. Coverage fixtures live in
+`tests/fixtures/openai/coverage-*` with tests under `tests/coverage/`.
