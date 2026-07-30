@@ -1,6 +1,10 @@
-# OpenAI Computer Use
+# OpenAI
 
-7 oxlint rules for OpenAI Responses API computer-use (CUA) integrations — `client.responses.create({ tools: [{ type: 'computer' }], ... })`.
+7 oxlint rules for OpenAI Responses API integrations. Three apply to every
+Responses API user (`retry-transient-turn-errors`,
+`check-response-status-incomplete`, `set-safety-identifier`); four are specific
+to computer-use (CUA) flows — `client.responses.create({ tools: [{ type: 'computer' }], ... })` —
+and additionally require computer-use evidence before firing.
 
 |                          |                                      |
 | ------------------------ | ------------------------------------ |
