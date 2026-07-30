@@ -1,4 +1,4 @@
-"""openai-cua-scroll-delta-default-zero
+"""openai-scroll-delta-default-zero
 
 Parity with the JS rule: a missing vertical scroll delta (dy/delta_y/scroll_y)
 must default to 0, not an arbitrary non-zero literal. Covers the two common
@@ -17,7 +17,7 @@ _PROVIDER = Path(__file__).resolve().parents[2]
 if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 
-RULE_KEY = "openai-cua-scroll-delta-default-zero"
+RULE_KEY = "openai-scroll-delta-default-zero"
 
 VERTICAL_DELTA_NAME_RE = re.compile(r"^(dy|delta_?y|scroll_?y)$", re.I)
 

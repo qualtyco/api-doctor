@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { fixtureFiles, lintFileForRule } from '../helpers/lint-rule.js';
 
-const ruleKey = 'openai-cua-no-blind-safety-check-ack';
+const ruleKey = 'openai-check-response-status-incomplete';
 
-describe('openai-cua-no-blind-safety-check-ack rule', () => {
+describe('openai-check-response-status-incomplete rule', () => {
   it('flags both broken fixtures', () => {
-    for (const file of fixtureFiles(ruleKey, 'broken', 'openai-cua')) {
+    for (const file of fixtureFiles(ruleKey, 'broken', 'openai')) {
       const diags = lintFileForRule(ruleKey, file);
       expect(diags.length, `expected a diagnostic in ${file}`).toBeGreaterThanOrEqual(1);
-      expect(diags.some((d: any) => /never inspects/.test(d.message))).toBe(true);
+      expect(diags.some((d: any) => /response\.status/.test(d.message))).toBe(true);
     }
   });
 
-  it('does not flag either fixed fixture (code allowlist, and message denylist)', () => {
-    for (const file of fixtureFiles(ruleKey, 'fixed', 'openai-cua')) {
+  it('does not flag either fixed fixture (status check adjacent, and early guard far from success branch)', () => {
+    for (const file of fixtureFiles(ruleKey, 'fixed', 'openai')) {
       const diags = lintFileForRule(ruleKey, file);
       expect(diags, `unexpected diagnostic in ${file}`).toHaveLength(0);
     }

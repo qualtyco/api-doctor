@@ -1,4 +1,4 @@
-"""openai-cua-set-safety-identifier
+"""openai-set-safety-identifier
 
 Parity with the JS rule: `responses.create()` with no `safety_identifier` (or
 the older `user`) keyword argument attributes policy violations to the whole
@@ -17,7 +17,7 @@ if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 from utils import is_responses_create_call, kwarg_names  # noqa: E402
 
-RULE_KEY = "openai-cua-set-safety-identifier"
+RULE_KEY = "openai-set-safety-identifier"
 
 
 def check(tree: ast.AST, path: str, source: str) -> list[dict]:

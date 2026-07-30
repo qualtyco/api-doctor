@@ -120,4 +120,4 @@ const rule = {
   },
 };
 
-export const openaiCuaStructuredStepMetadataNotTextJsonRule = rule;
+export const openaiStructuredStepMetadataNotTextJsonRule = rule;

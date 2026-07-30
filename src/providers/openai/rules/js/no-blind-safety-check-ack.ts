@@ -74,4 +74,4 @@ const rule = {
   },
 };
 
-export const openaiCuaNoBlindSafetyCheckAckRule = rule;
+export const openaiNoBlindSafetyCheckAckRule = rule;

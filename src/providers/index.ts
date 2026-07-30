@@ -8,7 +8,7 @@ import { supabaseManifest } from './supabase/manifest.js';
 import { auth0Manifest } from './auth0/manifest.js';
 import { firebaseManifest } from './firebase/manifest.js';
 import { browserbaseManifest } from './browserbase/manifest.js';
-import { openaiCuaManifest } from './openai-cua/manifest.js';
+import { openaiManifest } from './openai/manifest.js';
 import { tiptapManifest } from './tiptap/manifest.js';
 import { elevenlabsManifest } from './elevenlabs/manifest.js';
 import { twilioManifest } from './twilio/manifest.js';
@@ -22,7 +22,7 @@ export const providers: ProviderManifest[] = [
   auth0Manifest,
   firebaseManifest,
   browserbaseManifest,
-  openaiCuaManifest,
+  openaiManifest,
   tiptapManifest,
   elevenlabsManifest,
   twilioManifest,

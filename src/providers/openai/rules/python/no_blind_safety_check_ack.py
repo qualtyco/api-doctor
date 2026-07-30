@@ -1,4 +1,4 @@
-"""openai-cua-no-blind-safety-check-ack
+"""openai-no-blind-safety-check-ack
 
 Parity with the JS rule: flags a comprehension/filter over a safety-checks
 collection whose predicate never inspects `.code`/`.message` (or the dict-key
@@ -18,7 +18,7 @@ _PROVIDER = Path(__file__).resolve().parents[2]
 if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 
-RULE_KEY = "openai-cua-no-blind-safety-check-ack"
+RULE_KEY = "openai-no-blind-safety-check-ack"
 
 SAFETY_CHECK_NAME_RE = re.compile(r"safety[_-]?check", re.I)
 CODE_OR_MESSAGE_KEYS = frozenset({"code", "message"})

@@ -62,13 +62,13 @@ import { browserbaseDontStackCustomRetryOnSdkRetryRule } from '../providers/brow
 import { browserbaseNoOverbroadErrorSubstringMatchRule } from '../providers/browserbase/rules/js/no-overbroad-error-substring-match.js';
 import { browserbaseUseSdkNotRawRequestsRule } from '../providers/browserbase/rules/js/use-sdk-not-raw-requests.js';
 import { browserbaseCentralizeRequestReleaseRule } from '../providers/browserbase/rules/js/centralize-request-release.js';
-import { openaiCuaNoDomainAllowlistRule } from '../providers/openai-cua/rules/js/no-domain-allowlist.js';
-import { openaiCuaScrollDeltaDefaultZeroRule } from '../providers/openai-cua/rules/js/scroll-delta-default-zero.js';
-import { openaiCuaStructuredStepMetadataNotTextJsonRule } from '../providers/openai-cua/rules/js/structured-step-metadata-not-text-json.js';
-import { openaiCuaNoBlindSafetyCheckAckRule } from '../providers/openai-cua/rules/js/no-blind-safety-check-ack.js';
-import { openaiCuaRetryTransientTurnErrorsRule } from '../providers/openai-cua/rules/js/retry-transient-turn-errors.js';
-import { openaiCuaCheckResponseStatusIncompleteRule } from '../providers/openai-cua/rules/js/check-response-status-incomplete.js';
-import { openaiCuaSetSafetyIdentifierRule } from '../providers/openai-cua/rules/js/set-safety-identifier.js';
+import { openaiNoDomainAllowlistRule } from '../providers/openai/rules/js/no-domain-allowlist.js';
+import { openaiScrollDeltaDefaultZeroRule } from '../providers/openai/rules/js/scroll-delta-default-zero.js';
+import { openaiStructuredStepMetadataNotTextJsonRule } from '../providers/openai/rules/js/structured-step-metadata-not-text-json.js';
+import { openaiNoBlindSafetyCheckAckRule } from '../providers/openai/rules/js/no-blind-safety-check-ack.js';
+import { openaiRetryTransientTurnErrorsRule } from '../providers/openai/rules/js/retry-transient-turn-errors.js';
+import { openaiCheckResponseStatusIncompleteRule } from '../providers/openai/rules/js/check-response-status-incomplete.js';
+import { openaiSetSafetyIdentifierRule } from '../providers/openai/rules/js/set-safety-identifier.js';
 import { tiptapUploadValidateFnVoidRule } from '../providers/tiptap/rules/js/upload-validate-fn-void.js';
 import { tiptapScriptSrcHardcodedApiKeyRule } from '../providers/tiptap/rules/js/script-src-hardcoded-api-key.js';
 import { tiptapDynamicScriptNoSriRule } from '../providers/tiptap/rules/js/dynamic-script-no-sri.js';
@@ -194,7 +194,6 @@ const plugin = {
     'firebase-firestore-document-size-guard': firebaseFirestoreDocumentSizeGuardRule,
     'firebase-use-timestamp-now': firebaseUseTimestampNowRule,
 
-
     'browserbase-no-conditional-authz-on-anonymous-user': browserbaseNoConditionalAuthzOnAnonymousUserRule,
     'browserbase-no-connect-url-in-api-response': browserbaseNoConnectUrlInApiResponseRule,
     'browserbase-session-id-requires-ownership-check': browserbaseSessionIdRequiresOwnershipCheckRule,
@@ -207,13 +206,13 @@ const plugin = {
     'browserbase-use-sdk-not-raw-requests': browserbaseUseSdkNotRawRequestsRule,
     'browserbase-centralize-request-release': browserbaseCentralizeRequestReleaseRule,
 
-    'openai-cua-no-domain-allowlist': openaiCuaNoDomainAllowlistRule,
-    'openai-cua-scroll-delta-default-zero': openaiCuaScrollDeltaDefaultZeroRule,
-    'openai-cua-structured-step-metadata-not-text-json': openaiCuaStructuredStepMetadataNotTextJsonRule,
-    'openai-cua-no-blind-safety-check-ack': openaiCuaNoBlindSafetyCheckAckRule,
-    'openai-cua-retry-transient-turn-errors': openaiCuaRetryTransientTurnErrorsRule,
-    'openai-cua-check-response-status-incomplete': openaiCuaCheckResponseStatusIncompleteRule,
-    'openai-cua-set-safety-identifier': openaiCuaSetSafetyIdentifierRule,
+    'openai-no-domain-allowlist': openaiNoDomainAllowlistRule,
+    'openai-scroll-delta-default-zero': openaiScrollDeltaDefaultZeroRule,
+    'openai-structured-step-metadata-not-text-json': openaiStructuredStepMetadataNotTextJsonRule,
+    'openai-no-blind-safety-check-ack': openaiNoBlindSafetyCheckAckRule,
+    'openai-retry-transient-turn-errors': openaiRetryTransientTurnErrorsRule,
+    'openai-check-response-status-incomplete': openaiCheckResponseStatusIncompleteRule,
+    'openai-set-safety-identifier': openaiSetSafetyIdentifierRule,
 
     'tiptap-upload-validate-fn-void': tiptapUploadValidateFnVoidRule,
     'tiptap-script-src-hardcoded-api-key': tiptapScriptSrcHardcodedApiKeyRule,

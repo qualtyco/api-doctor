@@ -94,4 +94,4 @@ const rule = {
   },
 };
 
-export const openaiCuaScrollDeltaDefaultZeroRule = rule;
+export const openaiScrollDeltaDefaultZeroRule = rule;

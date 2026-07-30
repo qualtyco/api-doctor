@@ -135,4 +135,4 @@ const rule = {
   },
 };
 
-export const openaiCuaCheckResponseStatusIncompleteRule = rule;
+export const openaiCheckResponseStatusIncompleteRule = rule;

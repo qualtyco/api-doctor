@@ -1,4 +1,4 @@
-"""openai-cua-no-domain-allowlist
+"""openai-no-domain-allowlist
 
 Parity with the JS rule: a function that executes computer-use page actions
 (click/type/goto/fill/...) with no origin/domain allowlist check anywhere in
@@ -17,7 +17,7 @@ _PROVIDER = Path(__file__).resolve().parents[2]
 if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 
-RULE_KEY = "openai-cua-no-domain-allowlist"
+RULE_KEY = "openai-no-domain-allowlist"
 
 ACTION_METHOD_NAMES = frozenset(
     {"click", "type", "press", "move", "goto", "fill", "dblclick", "drag_and_drop", "hover"}

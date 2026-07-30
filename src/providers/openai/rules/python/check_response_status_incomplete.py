@@ -1,4 +1,4 @@
-"""openai-cua-check-response-status-incomplete
+"""openai-check-response-status-incomplete
 
 Parity with the JS rule: a function that calls responses.create() and treats
 the absence of tool calls as a successful completion, without ever checking
@@ -17,7 +17,7 @@ if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 from utils import is_responses_create_call  # noqa: E402
 
-RULE_KEY = "openai-cua-check-response-status-incomplete"
+RULE_KEY = "openai-check-response-status-incomplete"
 
 SUCCESS_KEYS = frozenset({"success", "completed"})
 

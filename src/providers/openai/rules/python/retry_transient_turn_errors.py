@@ -1,4 +1,4 @@
-"""openai-cua-retry-transient-turn-errors
+"""openai-retry-transient-turn-errors
 
 Parity with the JS rule: a `responses.create()` call inside a `try` block
 with no turn-level retry — neither a surrounding loop nor a retry call in any
@@ -19,7 +19,7 @@ if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 from utils import find_responses_create_call  # noqa: E402
 
-RULE_KEY = "openai-cua-retry-transient-turn-errors"
+RULE_KEY = "openai-retry-transient-turn-errors"
 
 RETRY_NAME_RE = re.compile(r"retry", re.I)
 

@@ -101,4 +101,4 @@ const rule = {
   },
 };
 
-export const openaiCuaRetryTransientTurnErrorsRule = rule;
+export const openaiRetryTransientTurnErrorsRule = rule;

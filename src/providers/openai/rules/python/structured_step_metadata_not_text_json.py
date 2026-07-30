@@ -1,4 +1,4 @@
-"""openai-cua-structured-step-metadata-not-text-json
+"""openai-structured-step-metadata-not-text-json
 
 Parity with the JS rule: flags a function that both (a) searches free text for
 a brace via str.find/rfind/index/rindex, and (b) calls json.loads on a slice
@@ -17,7 +17,7 @@ _PROVIDER = Path(__file__).resolve().parents[2]
 if str(_PROVIDER) not in sys.path:
     sys.path.insert(0, str(_PROVIDER))
 
-RULE_KEY = "openai-cua-structured-step-metadata-not-text-json"
+RULE_KEY = "openai-structured-step-metadata-not-text-json"
 
 BRACE_SEARCH_METHODS = frozenset({"find", "rfind", "index", "rindex"})
 

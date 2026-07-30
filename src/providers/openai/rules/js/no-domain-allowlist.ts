@@ -149,4 +149,4 @@ const rule = {
   },
 };
 
-export const openaiCuaNoDomainAllowlistRule = rule;
+export const openaiNoDomainAllowlistRule = rule;

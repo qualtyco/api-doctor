@@ -50,4 +50,4 @@ const rule = {
   },
 };
 
-export const openaiCuaSetSafetyIdentifierRule = rule;
+export const openaiSetSafetyIdentifierRule = rule;
