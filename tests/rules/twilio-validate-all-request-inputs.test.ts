@@ -12,7 +12,7 @@ describe('twilio-validate-all-request-inputs rule', () => {
     }
   });
 
-  it('does not flag either fixed fixture (querystring schema added, and an input-free health check)', () => {
+  it('does not flag any fixed fixture (querystring schema added, input-free health check, and a generic non-Twilio JSON route)', () => {
     for (const file of fixtureFiles(ruleKey, 'fixed', 'twilio')) {
       const diags = lintFileForRule(ruleKey, file);
       expect(diags, `unexpected diagnostic in ${file}`).toHaveLength(0);

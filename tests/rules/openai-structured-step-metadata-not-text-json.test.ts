@@ -12,7 +12,7 @@ describe('openai-structured-step-metadata-not-text-json rule', () => {
     }
   });
 
-  it('does not flag either fixed fixture (structured tool arguments, and indexOf used only for validation)', () => {
+  it('does not flag any fixed fixture (structured tool arguments, validation-only indexOf, and non-CUA log parsing)', () => {
     for (const file of fixtureFiles(ruleKey, 'fixed', 'openai')) {
       const diags = lintFileForRule(ruleKey, file);
       expect(diags, `unexpected diagnostic in ${file}`).toHaveLength(0);

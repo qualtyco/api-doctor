@@ -3,7 +3,12 @@
  * X-Twilio-Signature header via twilio.validateRequest()/RequestValidator
  * anywhere in the file (CWE-345, Finding A).
  */
-import { isPostRouteRegistration, referencesRequestBody, findInSubtree } from '../../utils.js';
+import {
+  isPostRouteRegistration,
+  referencesRequestBody,
+  findInSubtree,
+  routeHasTwilioEvidence,
+} from '../../utils.js';
 
 const rule = {
   meta: {
@@ -41,9 +46,14 @@ const rule = {
           !!findInSubtree(program, isValidateRequestCall) || !!findInSubtree(program, isRequestValidatorConstruction);
         if (hasValidation) return;
 
+        // Only routes with positive Twilio evidence qualify — a POST route
+        // reading req.body is otherwise a completely generic web idiom
+        // (logins, Stripe webhooks…) that has nothing to do with Twilio.
         const postRoutes: any[] = [];
         findInSubtree(program, (n) => {
-          if (isPostRouteRegistration(n) && referencesRequestBody(n)) postRoutes.push(n);
+          if (isPostRouteRegistration(n) && referencesRequestBody(n) && routeHasTwilioEvidence(n, program)) {
+            postRoutes.push(n);
+          }
           return false;
         });
 

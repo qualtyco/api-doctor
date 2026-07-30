@@ -5,7 +5,7 @@
  *  - a route with no `schema` object at all, while the handler reads
  *    `req.body.<field>`
  */
-import { isPostRouteRegistration, findInSubtree } from '../../utils.js';
+import { isPostRouteRegistration, findInSubtree, routeHasTwilioEvidence } from '../../utils.js';
 
 const rule = {
   meta: {
@@ -69,9 +69,18 @@ const rule = {
       return fields;
     }
 
+    let programNode: any = null;
+
     return {
+      Program(node: any) {
+        programNode = node;
+      },
+
       CallExpression(node: any) {
         if (!isPostRouteRegistration(node)) return;
+        // A schema-less POST route reading req.body is a generic web idiom;
+        // only flag routes that are verifiably Twilio webhook routes.
+        if (!routeHasTwilioEvidence(node, programNode)) return;
 
         const optionsArg = getOptionsArg(node);
         const handler = getHandlerArg(node);

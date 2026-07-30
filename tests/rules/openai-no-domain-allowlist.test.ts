@@ -12,7 +12,7 @@ describe('openai-no-domain-allowlist rule', () => {
     }
   });
 
-  it('does not flag either fixed fixture (hostname allowlist, and origin comparison)', () => {
+  it('does not flag any fixed fixture (hostname allowlist, origin comparison, plain Playwright test, chat-completions-only file)', () => {
     for (const file of fixtureFiles(ruleKey, 'fixed', 'openai')) {
       const diags = lintFileForRule(ruleKey, file);
       expect(diags, `unexpected diagnostic in ${file}`).toHaveLength(0);
