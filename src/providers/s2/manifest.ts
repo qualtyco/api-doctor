@@ -8,6 +8,52 @@ export const s2Manifest: ProviderManifest = {
     imports: ['@s2-dev/streamstore', '@s2-dev/streamstore-patterns', '@s2-dev/resumable-stream'],
     urlPatterns: ['s2.dev'],
   },
+  surface: {
+    // Only the core SDK exports the S2 client. @s2-dev/streamstore-patterns
+    // and @s2-dev/resumable-stream are standalone helpers that neither depend
+    // on nor re-export it, so they cannot verify a client construction.
+    packages: ['@s2-dev/streamstore'],
+    clientConstructors: ['S2'],
+    clientNamePattern: /^s2([-_]?client)?$/i,
+    docsUrl: 'https://s2.dev/docs/api/protocol',
+    // Verified against @s2-dev/streamstore@0.25.0 dist/esm/*.d.ts (S2 root
+    // class: readonly resource props basins/accessTokens/locations/metrics
+    // plus the basin() accessor) and cross-checked against the official
+    // OpenAPI spec (github.com/s2-streamstore/s2-specs, s2/v1/openapi.json):
+    // all 15 account-level endpoints map to a method below. Three entries are
+    // SDK-side extras with no 1:1 endpoint: `basin` (local accessor returning
+    // the basin-scoped client — no HTTP call of its own) and
+    // basins.listAll / accessTokens.listAll (auto-pagination helpers over
+    // list). The nine basin/stream-scoped endpoints (streams list/create/
+    // get_config/ensure/delete/reconfigure, plus append, read, check_tail)
+    // are reachable only through `s2.basin(name)` scoped clients; the
+    // coverage collector deliberately drops calls chained through an
+    // intermediate call (`s2.basin('b').stream('s').append()`) or made on a
+    // scoped-client variable, so their SDK methods (basin.streams.*,
+    // stream.append/read/checkTail/appendSession/readSession/...) are not
+    // listed — `basin` appearing in `used` is the signal that data-plane
+    // usage exists. Re-verify on SDK bumps (`pnpm check:surface`).
+    methods: [
+      'accessTokens.issue',
+      'accessTokens.list',
+      'accessTokens.listAll',
+      'accessTokens.revoke',
+      'basin',
+      'basins.create',
+      'basins.delete',
+      'basins.ensure',
+      'basins.getConfig',
+      'basins.list',
+      'basins.listAll',
+      'basins.reconfigure',
+      'locations.getDefault',
+      'locations.list',
+      'locations.setDefault',
+      'metrics.account',
+      'metrics.basin',
+      'metrics.stream',
+    ],
+  },
   rules: [
     {
       key: 's2-scoped-token-for-client',

@@ -8,6 +8,73 @@ export const firebaseManifest: ProviderManifest = {
     imports: ['firebase/app', 'firebase/auth', 'firebase/database', 'firebase/app-check'],
     urlPatterns: ['firebaseio.com', 'firebaseapp.com'],
   },
+  surface: {
+    // Import sources are the modular per-product entry points — client code
+    // imports from 'firebase/<product>', never from the bare 'firebase' root.
+    packages: [
+      'firebase/app',
+      'firebase/auth',
+      'firebase/database',
+      'firebase/firestore',
+      'firebase/firestore/lite',
+      'firebase/functions',
+      'firebase/storage',
+    ],
+    // Service factories, not classes: the collector treats calls to these as
+    // client constructions, so `const auth = getAuth(app)` verifies `auth`.
+    clientConstructors: [
+      'initializeApp',
+      'getApp',
+      'getAuth',
+      'initializeAuth',
+      'getFirestore',
+      'initializeFirestore',
+      'getDatabase',
+      'getFunctions',
+      'getStorage',
+    ],
+    clientNamePattern: /^firebase([-_.]?(app|client|config|admin))?$/i,
+    docsUrl: 'https://firebase.google.com/docs/reference/node',
+    // Scope: the `firebase` client SDK (modular v9+ API), app/auth/database/
+    // firestore/functions/storage namespaces only, per the Node client
+    // reference above. Verified against the @firebase/* type declarations
+    // pinned by firebase@12.16.0: @firebase/auth@1.13.3 (dist/auth-public.d.ts
+    // Auth + User), @firebase/firestore@4.16.0 (dist/index.d.ts Firestore),
+    // @firebase/app@0.15.1, @firebase/database@1.1.3, @firebase/functions@0.13.5,
+    // @firebase/storage@0.14.3.
+    //
+    // This is deliberately the *instance-reachable* subset. The modular API is
+    // free-function-first (signInWithEmailAndPassword(auth, ..),
+    // collection(db, ..), ref(db, ..), httpsCallable(fns, ..)); free-function
+    // calls have no client root, so the collector cannot attribute them —
+    // they are structurally untrackable, not omitted by choice, and they never
+    // inflate unknown_sdk_calls either (no member chain is ever recorded).
+    // What remains client-rooted: the Auth instance methods, the User methods
+    // reachable as `currentUser.*`, and Firestore's toJSON — the FirebaseApp,
+    // Database, Functions, and FirebaseStorage instances declare no methods at
+    // all. Compat (`firebase/compat/*`) and firebase-admin are out of scope
+    // (detection and the rule pack target the modular client SDK). Calls on a
+    // verified instance outside this list — e.g. compat-style
+    // `auth.signInWithEmailAndPassword(..)` or `db.ref(..)` on a modular
+    // instance — count as unknown_sdk_calls, which is the drift signal we
+    // want. Re-verify on firebase majors (`pnpm check:surface`).
+    methods: [
+      'authStateReady',
+      'beforeAuthStateChanged',
+      'currentUser.delete',
+      'currentUser.getIdToken',
+      'currentUser.getIdTokenResult',
+      'currentUser.reload',
+      'currentUser.toJSON',
+      'onAuthStateChanged',
+      'onIdTokenChanged',
+      'setPersistence',
+      'signOut',
+      'toJSON',
+      'updateCurrentUser',
+      'useDeviceLanguage',
+    ],
+  },
   rules: [
     {
       key: 'firebase-missing-app-check',

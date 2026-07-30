@@ -8,6 +8,72 @@ export const browserbaseManifest: ProviderManifest = {
     imports: ['@browserbasehq/sdk'],
     urlPatterns: ['api.browserbase.com'],
   },
+  surface: {
+    packages: ['@browserbasehq/sdk'],
+    clientConstructors: ['Browserbase'],
+    clientNamePattern: /^(bb|browserbase([-_]?client)?)$/i,
+    docsUrl: 'https://docs.browserbase.com/reference/api/overview',
+    // Verified against @browserbasehq/sdk@2.16.0 type declarations
+    // (index.d.ts root class + resources/**/*.d.ts — multi-file Stainless
+    // layout, resource classes resolved per file so the two distinct
+    // `Downloads` classes map to sessions.downloads vs
+    // sessions.recording.downloads) and cross-checked against the published
+    // OpenAPI spec (https://docs.browserbase.com/reference/api/openapi.v1.yaml).
+    // One SDK-side extra with no endpoint in the current spec copy:
+    // sessions.downloads.list (GET /v1/sessions/{id}/downloads, the
+    // per-session downloads archive — the spec now documents the newer
+    // account-level /v1/downloads endpoints instead, which the SDK does not
+    // wrap yet). Spec-side endpoints with no SDK method (SDK lags; nothing to
+    // list here because no SDK call path exists): POST
+    // /v1/agents/runs/{runId}/stop, the /v1/downloads trio, and the eleven
+    // /v1/functions/* endpoints. Docs-page naming differs from the SDK in two
+    // places: "Upload an Extension"/"Upload a Certificate" are
+    // extensions.create/certificates.create, and "Fetch a Page" is
+    // fetchAPI.create. Stagehand (@browserbasehq/stagehand) is deliberately
+    // out of scope: it is an automation framework (page.act/extract/observe),
+    // not a resource client for this API — its method paths would break the
+    // closed endpoint vocabulary. Re-verify on SDK majors (`pnpm check:surface`).
+    methods: [
+      'agents.create',
+      'agents.delete',
+      'agents.list',
+      'agents.retrieve',
+      'agents.runs.create',
+      'agents.runs.list',
+      'agents.runs.listMessages',
+      'agents.runs.retrieve',
+      'agents.update',
+      'certificates.create',
+      'certificates.delete',
+      'certificates.list',
+      'certificates.retrieve',
+      'contexts.create',
+      'contexts.delete',
+      'contexts.retrieve',
+      'contexts.update',
+      'extensions.create',
+      'extensions.delete',
+      'extensions.retrieve',
+      'fetchAPI.create',
+      'projects.list',
+      'projects.retrieve',
+      'projects.usage',
+      'search.web',
+      'sessions.create',
+      'sessions.debug',
+      'sessions.downloads.list',
+      'sessions.list',
+      'sessions.logs.list',
+      'sessions.recording.downloads.create',
+      'sessions.recording.downloads.list',
+      'sessions.recording.retrieve',
+      'sessions.replays.retrieve',
+      'sessions.replays.retrievePage',
+      'sessions.retrieve',
+      'sessions.update',
+      'sessions.uploads.create',
+    ],
+  },
   rules: [
     {
       key: 'browserbase-no-conditional-authz-on-anonymous-user',

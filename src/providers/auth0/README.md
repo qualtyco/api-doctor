@@ -79,3 +79,19 @@ JWKS cache refresh on key rotation.
 | Correctness | 1     | 1          | 1              |
 | Reliability | 1     | 1          | 1              |
 | **Total**   | **4** | **4**      | **4**          |
+
+---
+
+## SDK surface coverage
+
+`manifest.ts` also declares a `surface` — the hand-written list of every SDK method
+path of the `auth0` package (node-auth0, verified against `auth0@6.1.0` type
+declarations and cross-checked against the Fern-generated `reference.md` shipped in
+the same package), spanning `ManagementClient`, `AuthenticationClient`, and
+`UserInfoClient`. It drives the CLI's informational coverage section and the
+`sdk_used` telemetry prop. Coverage is **not a rule**: it never produces findings,
+never affects the score, and never reports counts or ratios. Note the split scope:
+the four lint rules above target the JWT-verification stack (`jsonwebtoken` /
+`jwks-rsa` / `express-jwt`), while the surface tracks usage of the `auth0` SDK
+itself. Coverage fixtures live in `tests/fixtures/auth0/coverage-*` with tests
+under `tests/coverage/`.

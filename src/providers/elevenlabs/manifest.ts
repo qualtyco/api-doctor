@@ -8,6 +8,166 @@ export const elevenlabsManifest: ProviderManifest = {
     imports: ['@11labs/client', 'elevenlabs', '@elevenlabs/elevenlabs-js'],
     urlPatterns: ['api.elevenlabs.io'],
   },
+  surface: {
+    packages: ['@elevenlabs/elevenlabs-js', 'elevenlabs'],
+    clientConstructors: ['ElevenLabsClient'],
+    clientNamePattern: /^(eleven[-_]?labs|11labs)([-_]?client)?$/i,
+    docsUrl: 'https://elevenlabs.io/docs/api-reference/introduction',
+    // ElevenAPI surface only; agents/ConvAI excluded by scope decision
+    // 2026-07-29. The docs nav (llms.txt breadcrumbs) splits the API
+    // reference into sibling groups — ElevenAPI, ElevenAgents, ElevenCreative,
+    // Core Resources, Workspace, Legacy — and this list covers the ElevenAPI
+    // group's root resources: textToSpeech, speechToText, music, speechEngine,
+    // voices (incl. settings/ivc/pvc/samples), textToDialogue, speechToSpeech
+    // (Voice Changer), textToVoice (Voice Design), textToSoundEffects,
+    // audioIsolation, dubbing, forcedAlignment, pronunciationDictionaries,
+    // audioNative, plus the standalone samples client (docs: Voices > Samples).
+    // Out-of-scope roots deliberately omitted: conversationalAi (ElevenAgents),
+    // studio/productions (ElevenCreative), workspace/webhooks/serviceAccounts/
+    // user/usage/workspaces/environmentVariables (Workspace/ElevenAgents
+    // admin), history/models/tokens (Core Resources) — calls to them land in
+    // unknown_sdk_calls, by design.
+    // Verified against @elevenlabs/elevenlabs-js@2.59.0 (Client.d.ts root
+    // getters walked into every per-resource client declaration; the exported
+    // ElevenLabsClient in wrapper/ElevenLabsClient.d.ts extends the Fern base
+    // and overrides music/speechToText/speechEngine/webhooks with same-surface
+    // subclasses). Cross-checked against api.elevenlabs.io/openapi.json:
+    // every method below maps 1:1 to a live spec endpoint (voices.search is
+    // GET /v2/voices); two spec endpoints have no SDK method yet (GET
+    // /v1/voices/accents, POST /v1/voices/{id}/replicate-to-isolated-
+    // environment). Spec-deprecated but still-typed methods are kept because
+    // real code still calls them: dubbing.resource.* (closed-beta resource
+    // endpoints, docs now under Legacy), dubbing.transcript.getTranscriptForDub
+    // (superseded by dubbing.transcripts.get), textToVoice.createPreviews
+    // (superseded by textToVoice.design). Deliberately excluded: the root
+    // fetch() passthrough (the escape hatch unknown_sdk_calls exists to
+    // reveal) and the wrapper-only WebSocket helpers speechToText.realtime.
+    // connect and speechEngine.attach (not derivable from the Fern resource
+    // types; their use lands in unknown_sdk_calls). WebSocket-only channels
+    // (TTS stream-input, STT realtime, speech-engine upstream) ship types but
+    // no client methods and are not listed. Re-verify on SDK bumps
+    // (`pnpm check:surface`).
+    methods: [
+      'audioIsolation.convert',
+      'audioIsolation.delete',
+      'audioIsolation.list',
+      'audioIsolation.stream',
+      'audioNative.create',
+      'audioNative.getSettings',
+      'audioNative.update',
+      'audioNative.updateContentFromUrl',
+      'dubbing.audio.get',
+      'dubbing.create',
+      'dubbing.delete',
+      'dubbing.get',
+      'dubbing.list',
+      'dubbing.project.create',
+      'dubbing.project.delete',
+      'dubbing.project.get',
+      'dubbing.project.language.create',
+      'dubbing.project.language.delete',
+      'dubbing.project.language.get',
+      'dubbing.project.language.list',
+      'dubbing.project.language.transcript.get',
+      'dubbing.project.language.transcript.regenerate',
+      'dubbing.project.language.transcript.updateSegment',
+      'dubbing.project.list',
+      'dubbing.project.transcript.createSegment',
+      'dubbing.project.transcript.deleteSegment',
+      'dubbing.project.transcript.get',
+      'dubbing.project.transcript.updateSegment',
+      'dubbing.resource.dub',
+      'dubbing.resource.get',
+      'dubbing.resource.language.add',
+      'dubbing.resource.migrateSegments',
+      'dubbing.resource.render',
+      'dubbing.resource.segment.delete',
+      'dubbing.resource.segment.update',
+      'dubbing.resource.speaker.create',
+      'dubbing.resource.speaker.findSimilarVoices',
+      'dubbing.resource.speaker.segment.create',
+      'dubbing.resource.speaker.update',
+      'dubbing.resource.transcribe',
+      'dubbing.resource.translate',
+      'dubbing.transcript.getTranscriptForDub',
+      'dubbing.transcripts.get',
+      'forcedAlignment.create',
+      'music.compose',
+      'music.composeDetailed',
+      'music.composeDetailedStream',
+      'music.compositionPlan.create',
+      'music.finetunes.create',
+      'music.finetunes.delete',
+      'music.finetunes.get',
+      'music.finetunes.list',
+      'music.finetunes.update',
+      'music.separateStems',
+      'music.stream',
+      'music.upload',
+      'music.videoToMusic',
+      'pronunciationDictionaries.createFromFile',
+      'pronunciationDictionaries.createFromRules',
+      'pronunciationDictionaries.download',
+      'pronunciationDictionaries.get',
+      'pronunciationDictionaries.list',
+      'pronunciationDictionaries.rules.add',
+      'pronunciationDictionaries.rules.remove',
+      'pronunciationDictionaries.rules.set',
+      'pronunciationDictionaries.update',
+      'samples.delete',
+      'speechEngine.create',
+      'speechEngine.delete',
+      'speechEngine.get',
+      'speechEngine.list',
+      'speechEngine.update',
+      'speechToSpeech.convert',
+      'speechToSpeech.stream',
+      'speechToText.convert',
+      'speechToText.transcripts.delete',
+      'speechToText.transcripts.get',
+      'textToDialogue.convert',
+      'textToDialogue.convertWithTimestamps',
+      'textToDialogue.stream',
+      'textToDialogue.streamWithTimestamps',
+      'textToSoundEffects.convert',
+      'textToSpeech.convert',
+      'textToSpeech.convertWithTimestamps',
+      'textToSpeech.stream',
+      'textToSpeech.streamWithTimestamps',
+      'textToVoice.create',
+      'textToVoice.createPreviews',
+      'textToVoice.design',
+      'textToVoice.preview.stream',
+      'textToVoice.remix',
+      'voices.delete',
+      'voices.findSimilarVoices',
+      'voices.get',
+      'voices.getAll',
+      'voices.getShared',
+      'voices.ivc.create',
+      'voices.pvc.create',
+      'voices.pvc.samples.audio.get',
+      'voices.pvc.samples.create',
+      'voices.pvc.samples.delete',
+      'voices.pvc.samples.speakers.audio.get',
+      'voices.pvc.samples.speakers.get',
+      'voices.pvc.samples.speakers.separate',
+      'voices.pvc.samples.update',
+      'voices.pvc.samples.waveform.get',
+      'voices.pvc.train',
+      'voices.pvc.update',
+      'voices.pvc.verification.captcha.get',
+      'voices.pvc.verification.captcha.verify',
+      'voices.pvc.verification.request',
+      'voices.samples.audio.get',
+      'voices.search',
+      'voices.settings.get',
+      'voices.settings.getDefault',
+      'voices.settings.update',
+      'voices.share',
+      'voices.update',
+    ],
+  },
   rules: [
     {
       key: 'elevenlabs-validate-signed-url-response',

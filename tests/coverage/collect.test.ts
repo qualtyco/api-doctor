@@ -220,10 +220,11 @@ describe('collectCoverage', () => {
   });
 
   it('skips providers without a surface manifest', () => {
+    // tiptap has no surface block (supabase, the previous example, gained one).
     const detected: DetectedProvider[] = [
-      { name: 'supabase', source: 'imports', checked: true, files: ['src/db.ts'] },
+      { name: 'tiptap', source: 'imports', checked: true, files: ['src/editor.ts'] },
     ];
-    const files = contents({ 'src/db.ts': `import { createClient } from '@supabase/supabase-js';` });
+    const files = contents({ 'src/editor.ts': `import { Editor } from '@tiptap/core';` });
     expect(collectCoverage(detected, files)).toBeUndefined();
   });
 
