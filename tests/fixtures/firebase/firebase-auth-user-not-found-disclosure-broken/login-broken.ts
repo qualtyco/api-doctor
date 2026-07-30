@@ -1,3 +1,5 @@
+import type { AuthError } from 'firebase/auth';
+
 export function getAuthErrorMessage(code: string): string {
   switch (code) {
     case 'auth/user-not-found':
@@ -8,3 +10,5 @@ export function getAuthErrorMessage(code: string): string {
       return 'Authentication failed.';
   }
 }
+
+export const messageForAuthError = (error: AuthError) => getAuthErrorMessage(error.code);

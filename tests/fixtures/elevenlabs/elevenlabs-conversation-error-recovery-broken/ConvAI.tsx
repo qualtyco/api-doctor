@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getSignedUrl } from './lib/elevenlabs';
 
 export function ConvAI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -18,5 +19,4 @@ export function ConvAI() {
   return <button onClick={startConversation}>{isLoading ? 'Loading...' : 'Start'}</button>;
 }
 
-declare function getSignedUrl(agentId: string): Promise<string>;
 declare function connect(url: string): Promise<void>;

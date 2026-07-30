@@ -4,6 +4,7 @@ import AudioInterceptor from '@/services/AudioInterceptor';
 const flexReservationAccepted: FastifyPluginAsync = async (server) => {
   server.post('/reservation-accepted', {}, async (req, res) => {
     const callSid = req.body.CallSid;
+    server.log.info(`TaskRouter reservation accepted for CallSid ${callSid}`);
     const { from } = JSON.parse(req.body.TaskAttributes);
     const map = req.diScope.resolve<Map<string, AudioInterceptor>>('audioInterceptors');
 

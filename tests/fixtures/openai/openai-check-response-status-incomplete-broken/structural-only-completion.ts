@@ -1,4 +1,6 @@
-export async function runTurn(client: any, model: string, input: any[]) {
+import OpenAI from 'openai';
+
+export async function runTurn(client: OpenAI, model: string, input: any[]) {
   const response = await client.responses.create({ model, input, tools: [{ type: 'computer' }] });
 
   const computerCalls = (response.output ?? []).filter((item: any) => item.type === 'computer_call');

@@ -3,6 +3,7 @@ export function loadAnalyticsScript(trackingId: string) {
   const script = document.createElement('script');
   script.src = `https://cdn.analytics-provider.com/track.js?id=${trackingId}`;
   script.defer = true;
+  script.dataset.page = 'tiptap-editor';
   // Appended without setting integrity attribute
   document.head.appendChild(script);
 }

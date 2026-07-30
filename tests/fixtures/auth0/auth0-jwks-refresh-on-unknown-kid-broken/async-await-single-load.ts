@@ -20,3 +20,5 @@ export const resolveSigningKey = async (domain: string, kid: string) => {
   }
   return match;
 };
+
+export const resolveQualtySigningKey = (kid: string) => resolveSigningKey('qualty.us.auth0.com', kid);

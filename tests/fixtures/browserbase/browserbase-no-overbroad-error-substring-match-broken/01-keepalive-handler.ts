@@ -1,3 +1,7 @@
+import Browserbase from '@browserbasehq/sdk';
+
+export const bb = new Browserbase({ apiKey: process.env.BROWSERBASE_API_KEY! });
+
 export function handleKeepaliveError(keepaliveError: unknown, sessionId: string) {
   const errStr = String(keepaliveError).toLowerCase();
   if (errStr.includes('not found') || errStr.includes('404') || errStr.includes('session')) {

@@ -1,4 +1,4 @@
-type Conversation = { endSession: () => Promise<void> };
+import type { Conversation } from '@11labs/client';
 
 export function attachUnmountCleanup(conversation: Conversation): () => void {
   return () => {

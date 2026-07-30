@@ -21,3 +21,6 @@ export async function linkWorkspaceUserFromUserinfo(domain: string, token: strin
 
   return existing;
 }
+
+export const linkFromDefaultTenant = (token: string, sub: string) =>
+  linkWorkspaceUserFromUserinfo('qualty.us.auth0.com', token, sub);

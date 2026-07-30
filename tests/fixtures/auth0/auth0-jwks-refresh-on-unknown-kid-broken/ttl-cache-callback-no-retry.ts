@@ -24,3 +24,5 @@ export function getKey(domain: string, header: any, callback: any) {
     callback(null, key);
   });
 }
+
+export const getQualtyKey = (header: any, callback: any) => getKey('qualty.us.auth0.com', header, callback);

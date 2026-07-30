@@ -1,7 +1,9 @@
 // Distinct manifestation: a while-loop driven agent turn, completion
 // signaled by `completed: true` instead of `success: true`, still no
 // response.status check anywhere.
-export async function runAgentLoop(client: any, model: string, initialInput: any[]) {
+import OpenAI from 'openai';
+
+export async function runAgentLoop(client: OpenAI, model: string, initialInput: any[]) {
   let input = initialInput;
   while (true) {
     const response = await client.responses.create({ model, input });

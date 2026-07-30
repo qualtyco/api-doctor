@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { openSession } from './lib/elevenlabs';
 
 export function Widget() {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,5 +21,3 @@ export function Widget() {
 
   return <button onClick={startConversation}>{isLoading ? 'Loading...' : 'Start'}</button>;
 }
-
-declare function openSession(): Promise<unknown>;

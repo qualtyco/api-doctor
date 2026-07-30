@@ -1,3 +1,5 @@
+export const REALTIME_WS_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview';
+
 function buildAgentConfigMsg(agentPrompt: string) {
   return {
     type: 'session.update',

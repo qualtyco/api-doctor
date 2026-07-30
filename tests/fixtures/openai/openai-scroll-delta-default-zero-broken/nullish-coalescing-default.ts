@@ -5,3 +5,7 @@ export function normalizeScroll(action: { deltaX?: number; deltaY?: number }) {
   const dy = action.deltaY ?? 700;
   return { dx, dy };
 }
+
+export function scrollDeltasFor(item: { type: string; action: any }) {
+  return item.type === 'computer_call' ? normalizeScroll(item.action) : null;
+}

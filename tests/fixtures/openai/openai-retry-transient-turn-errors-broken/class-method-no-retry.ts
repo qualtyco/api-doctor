@@ -1,7 +1,9 @@
+import OpenAI from 'openai';
+
 // Distinct manifestation: a class method using `this.client`, catch sets a
 // failure flag and breaks out instead of returning directly.
 export class CuaAgent {
-  client: any;
+  client: OpenAI;
   model: string;
 
   async executeTurn(input: any[]) {
