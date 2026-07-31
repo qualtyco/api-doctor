@@ -6,23 +6,13 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import os from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import { PLUGIN_NAME } from '../../constants.js';
+import { PLUGIN_NAME, SKIP_DIR_NAMES } from '../../constants.js';
 import { providers } from '../../providers/index.js';
 import { ScanError } from '../../scan-error.js';
 import { ruleLanguages, type RuleMeta, type ScanResult } from '../../types.js';
 import type { EngineInput } from '../types.js';
 
-export const ENGINE_SKIP_DIRS = [
-  'node_modules',
-  'dist',
-  'build',
-  '.next',
-  '__pycache__',
-  '.venv',
-  'venv',
-  '.tox',
-  '.mypy_cache',
-];
+export const ENGINE_SKIP_DIRS = SKIP_DIR_NAMES;
 
 /** Builds oxlint rule config for javascript-capable rules on detected providers. */
 export function buildJsRuleConfig(detectedNames: Set<string>): {

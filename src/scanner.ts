@@ -8,6 +8,7 @@
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
+import { SKIP_DIR_NAMES } from './constants.js';
 import { collectCoverage } from './coverage/collect.js';
 import { detectProviders } from './detector.js';
 import { classifyFileLanguage, isJavascriptFile } from './engines/classify.js';
@@ -21,17 +22,7 @@ import type { CoverageCollection, DetectedProvider, RuleLanguage, ScanResult } f
 
 export { ScanError } from './scan-error.js';
 
-export const SKIP_DIRS = new Set([
-  'node_modules',
-  'dist',
-  'build',
-  '.next',
-  '__pycache__',
-  '.venv',
-  'venv',
-  '.tox',
-  '.mypy_cache',
-]);
+export const SKIP_DIRS = new Set(SKIP_DIR_NAMES);
 
 async function walk(
   dir: string,
