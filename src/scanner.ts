@@ -8,7 +8,7 @@
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve } from 'node:path';
-import { collectCoverage } from './coverage/collect.js';
+import { collectClientBindings, collectCoverage } from './coverage/collect.js';
 import { detectProviders } from './detector.js';
 import { classifyFileLanguage, isJavascriptFile } from './engines/classify.js';
 import { buildJsRuleConfig, runJsEngine } from './engines/js/runner.js';
@@ -110,6 +110,11 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   const coverage = collectCoverage(detected, jsFilesContent);
 
+  // Verified client identities per file, including clients constructed in one
+  // module and imported into another. Passed to the JS engine so the lint
+  // plugin can recognise them; purely additive.
+  const clientBindings = collectClientBindings(detected, jsFilesContent);
+
   const detectedNames = new Set(detected.map((d) => d.name));
   const { ruleMetaByKey: jsRules } = buildJsRuleConfig(detectedNames);
   // PYTHON-DORMANT: const pyRules = buildPythonRuleConfig(detectedNames);
@@ -124,6 +129,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
         filesContent,
         detectedNames,
         ruleMetaByKey: jsRules,
+        clientBindings,
       })),
     );
   }
