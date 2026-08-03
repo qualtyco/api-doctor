@@ -240,6 +240,7 @@ export const openaiManifest: ProviderManifest = {
       'containers.files.retrieve',
       'containers.list',
       'containers.retrieve',
+      'contentProvenanceChecks.create',
       'conversations.create',
       'conversations.delete',
       'conversations.items.create',
