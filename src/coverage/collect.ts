@@ -126,6 +126,24 @@ interface FileFacts {
   exportedInits: Array<{ exported: string; init: any }>;
   /** `export { Resend } from 'resend'` — constructor re-exported straight from the SDK. */
   sdkCtorReexports: Set<string>;
+  /**
+   * Named functions whose return value is a client: `function db() { return cached }`.
+   * The lazy-singleton factory is the most common way production code shares a
+   * client, so callers of these count as holding one.
+   */
+  clientFactoryLocals: Set<string>;
+  /** Function bodies parked for a second pass, once clientVars is settled. */
+  functionNodes: Array<{ name: string; node: any }>;
+  /**
+   * Bindings positively traced to a NON-provider origin: an import from another
+   * vendor's package, or from a project module that exports no client. Used to
+   * rule a receiver out — never to rule one in.
+   */
+  nonClientLocals: Set<string>;
+  /** Bare-package imports: local -> package, kept for the negative check. */
+  packageImports: Array<{ local: string; source: string }>;
+  /** `const { supabase } = <expr>` — names pulled off a client-bearing value. */
+  destructures: Array<{ names: string[]; from: any }>;
 }
 
 interface ParsedFile {
@@ -190,8 +208,10 @@ function visitImport(node: any, surface: ProviderSurface, facts: FileFacts): voi
     } else if (spec.type === 'ImportSpecifier') {
       const imported = spec.imported?.name ?? spec.imported?.value;
       facts.moduleImports.push({ local, imported, source });
+      if (!source.startsWith('.')) facts.packageImports.push({ local, source });
     } else if (spec.type === 'ImportDefaultSpecifier') {
       facts.moduleImports.push({ local, imported: 'default', source });
+      if (!source.startsWith('.')) facts.packageImports.push({ local, source });
     }
     // Namespace imports of wrapper modules (`import * as mail from './lib'`)
     // are a punt — resolving `mail.resend.emails.send` would need per-member
@@ -223,6 +243,17 @@ function visitExport(node: any, surface: ProviderSurface, facts: FileFacts): voi
       }
       return;
     }
+    // `export function db() { … }` / `export class Db { … }` — the lazy-factory
+    // form. Without this the most common way to share a client is invisible.
+    if (
+      (node.declaration?.type === 'FunctionDeclaration' ||
+        node.declaration?.type === 'ClassDeclaration') &&
+      node.declaration.id?.type === 'Identifier'
+    ) {
+      const name = node.declaration.id.name;
+      facts.exportedNames.push({ exported: name, local: name });
+      return;
+    }
     for (const spec of node.specifiers ?? []) {
       const local = spec.local?.name ?? spec.local?.value;
       const exported = spec.exported?.name ?? spec.exported?.value;
@@ -232,6 +263,10 @@ function visitExport(node: any, surface: ProviderSurface, facts: FileFacts): voi
   }
   if (node.type === 'ExportDefaultDeclaration') {
     const decl = unwrapExpr(node.declaration);
+    if (decl?.type === 'FunctionDeclaration' && decl.id?.type === 'Identifier') {
+      facts.exportedNames.push({ exported: 'default', local: decl.id.name });
+      return;
+    }
     if (decl?.type === 'Identifier') {
       facts.exportedNames.push({ exported: 'default', local: decl.name });
     } else if (decl) {
@@ -289,9 +324,26 @@ function collectFileFacts(program: any, surface: ProviderSurface): FileFacts {
     exportedNames: [],
     exportedInits: [],
     sdkCtorReexports: new Set(),
+    clientFactoryLocals: new Set(),
+    functionNodes: [],
+    nonClientLocals: new Set(),
+    packageImports: [],
+    destructures: [],
   };
 
   walkAst(program, (node) => {
+    if (
+      node.type === 'FunctionDeclaration' ||
+      node.type === 'FunctionExpression' ||
+      node.type === 'ArrowFunctionExpression'
+    ) {
+      let name: string | null = null;
+      if (node.id?.type === 'Identifier') name = node.id.name;
+      else if (node.parent?.type === 'VariableDeclarator' && node.parent.id?.type === 'Identifier') {
+        name = node.parent.id.name;
+      }
+      if (name) facts.functionNodes.push({ name, node });
+    }
     switch (node.type) {
       case 'ImportDeclaration': {
         visitImport(node, surface, facts);
@@ -322,8 +374,27 @@ function collectFileFacts(program: any, surface: ProviderSurface): FileFacts {
             }
           }
         } else if (node.id?.type === 'Identifier') {
+          // `const createClient = async () => {…}` — the walker carries no
+          // parent pointers, so the name has to be taken here or the function
+          // is never attributable.
+          if (
+            init.type === 'FunctionExpression' ||
+            init.type === 'ArrowFunctionExpression'
+          ) {
+            facts.functionNodes.push({ name: node.id.name, node: init });
+          }
           if (init.type === 'Identifier') facts.aliases.push([node.id.name, init.name]);
           else facts.newAssigns.push({ name: node.id.name, init });
+        } else if (node.id?.type === 'ObjectPattern') {
+          // `const { supabase } = ctx` — the client arrives as a property of
+          // something else, which is how helper functions usually hand it over.
+          const names: string[] = [];
+          for (const prop of node.id.properties ?? []) {
+            if (prop?.type === 'Property' && prop.value?.type === 'Identifier') {
+              names.push(prop.value.name);
+            }
+          }
+          if (names.length) facts.destructures.push({ names, from: init });
         }
         break;
       }
@@ -362,6 +433,44 @@ function collectFileFacts(program: any, surface: ProviderSurface): FileFacts {
  * imports, `this.<p>` assignments, and alias chains. Idempotent — called
  * again after cross-module imports add ctorLocals/clientVars.
  */
+/**
+ * Extra local shapes that carry a client, applied alongside alias resolution:
+ *   const db = getClient();        — call of a local factory
+ *   const db = await getClient();  — awaited factory
+ *   const db = a ?? b;             — nullish/logical fallback
+ *   const { supabase } = ctx;      — destructured off a client-bearing object
+ */
+function resolveExtraShapes(facts: FileFacts, surface: ProviderSurface): boolean {
+  let changed = false;
+  for (const { names, from } of facts.destructures) {
+    if (names.every((n) => facts.clientVars.has(n))) continue;
+    const src = unwrapExpr(from);
+    // `const { emails } = resend` pulls a NAMESPACE off a client, not another
+    // client, and coverage counts that as a documented punt. Only a container
+    // that merely *holds* a client propagates — `const { supabase } = locals`.
+    if (src?.type === 'Identifier' && facts.clientVars.has(src.name)) continue;
+    if (yieldsClient(src, facts, surface)) {
+      for (const n of names) facts.clientVars.add(n);
+      changed = true;
+    }
+  }
+  for (const { name, init } of facts.newAssigns) {
+    if (facts.clientVars.has(name)) continue;
+    const e = unwrapExpr(init);
+    if (!e) continue;
+    let hit = yieldsClient(e, facts, surface);
+    if (!hit && (e.type === 'LogicalExpression' || e.type === 'ConditionalExpression')) {
+      const parts = e.type === 'LogicalExpression' ? [e.left, e.right] : [e.consequent, e.alternate];
+      hit = parts.some((x: any) => yieldsClient(unwrapExpr(x), facts, surface));
+    }
+    if (hit) {
+      facts.clientVars.add(name);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function resolveLocalBindings(facts: FileFacts, surface: ProviderSurface): void {
   for (const { name, init } of facts.newAssigns) {
     if (isClientConstruction(init, facts, surface)) facts.clientVars.add(name);
@@ -399,6 +508,54 @@ function normalizePath(p: string): string {
  * unresolvable sources return null — a wrapper we cannot verify is a wrapper
  * we do not trust.
  */
+/**
+ * True when `source` names a file that exists in the project but was never
+ * parsed for this provider.
+ *
+ * Phase A parses every file containing an SDK reference, and Phase B pulls in
+ * anything importing a known exporter, iterating to a fixpoint — so a project
+ * file still absent from `byPath` provably holds no client. That makes it safe
+ * negative evidence: a binding imported from it is not this provider's client.
+ */
+function resolvesToUnparsedProjectFile(
+  source: string,
+  fromPath: string,
+  byPath: Map<string, ParsedFile>,
+  projectPaths: Set<string>,
+): boolean {
+  if (!isProjectSpecifier(source)) return false;
+  const src = source.replace(/\.[cm]?[jt]sx?$/, '');
+  if (src.startsWith('.')) {
+    const dir = normalizePath(fromPath).split('/').slice(0, -1).join('/');
+    const target = normalizePath(`${dir}/${src}`);
+    if (byPath.has(target) || byPath.has(`${target}/index`)) return false;
+    return projectPaths.has(target) || projectPaths.has(`${target}/index`);
+  }
+  // Alias form — match by suffix, the same way resolveImportTarget does, and
+  // only deny when exactly one project file matches and it was never parsed.
+  const bare = src.replace(/^[@~]\//, '').replace(/^[$#][^/]*\//, '');
+  const hits = [...projectPaths].filter((p) => p === bare || p.endsWith(`/${bare}`));
+  if (hits.length !== 1) return false;
+  return !byPath.has(hits[0]) && !byPath.has(`${hits[0]}/index`);
+}
+
+/**
+ * True when a specifier points inside the project rather than at a package:
+ * a relative path, or a path alias (`@/x`, `~/x`, `$lib/x`, `#x`).
+ *
+ * `@/lib/supabase` is an alias, `@supabase/supabase-js` is a package — the
+ * distinction is the slash straight after `@`.
+ */
+function isProjectSpecifier(source: string): boolean {
+  return (
+    source.startsWith('.') ||
+    source.startsWith('@/') ||
+    source.startsWith('~/') ||
+    source.startsWith('#') ||
+    /^\$[^/]+\//.test(source)
+  );
+}
+
 function resolveImportTarget(
   source: string,
   fromPath: string,
@@ -412,6 +569,13 @@ function resolveImportTarget(
   }
   const candidates = [src];
   if (/^[@~]\//.test(src)) candidates.push(src.slice(2));
+  // Framework aliases resolved by convention rather than tsconfig:
+  //   SvelteKit `$lib/x` → src/lib/x, Nuxt `~/x`, Vite `#x`.
+  // Stripping the alias segment is enough — the matcher below is suffix-based.
+  if (/^[$#]/.test(src)) {
+    const stripped = src.replace(/^[$#][^/]*\//, '');
+    if (stripped && stripped !== src) candidates.push(stripped);
+  }
   for (const cand of candidates) {
     const matches = [...byPath.keys()].filter(
       (p) =>
@@ -439,15 +603,86 @@ function parseFile(relPath: string, content: string, surface: ProviderSurface): 
   }
 }
 
+/** True when `e` evaluates to a client: the binding itself, a construction, or a factory call. */
+function yieldsClient(e: any, facts: FileFacts, surface: ProviderSurface): boolean {
+  if (!e) return false;
+  if (e.type === 'Identifier' && facts.clientVars.has(e.name)) return true;
+  if (isClientConstruction(e, facts, surface)) return true;
+  // `return dbFactory()` — calling a factory yields a client, so the enclosing
+  // function is a factory too. This is what makes wrapper chains resolve.
+  if (e.type === 'CallExpression') {
+    const callee = unwrapExpr(e.callee);
+    // A factory declared here, or one imported from a wrapper module (those
+    // arrive in clientVars, since the exporter cannot say which it was).
+    if (
+      callee?.type === 'Identifier' &&
+      (facts.clientFactoryLocals.has(callee.name) || facts.clientVars.has(callee.name))
+    ) {
+      return true;
+    }
+  }
+  if (e.type === 'AwaitExpression') return yieldsClient(unwrapExpr(e.argument), facts, surface);
+  // `const services = { db: makeDb(), mail: makeMail() }` — a container whose
+  // properties are clients. Callers reach the client as `services.db.…`, and
+  // the chain walker bottoms out at `services`, so the container itself counts.
+  if (e.type === 'ObjectExpression') {
+    for (const prop of e.properties ?? []) {
+      if (prop?.type !== 'Property') continue;
+      if (yieldsClient(unwrapExpr(prop.value), facts, surface)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Marks functions that hand back a client: `function db() { return cached }`
+ * or `const get = () => createClient(...)`. Runs after resolveLocalBindings so
+ * `clientVars` is already settled.
+ */
+function findClientFactories(facts: FileFacts, surface: ProviderSurface): void {
+  for (const { name, node } of facts.functionNodes) {
+    const body = node.body;
+    if (!body) continue;
+    let yields = false;
+    if (body.type !== 'BlockStatement') {
+      // arrow shorthand: () => client / () => createClient(...)
+      const e = unwrapExpr(body);
+      yields = yieldsClient(e, facts, surface);
+    } else {
+      walkAst(body, (n: any) => {
+        if (yields || n.type !== 'ReturnStatement' || !n.argument) return;
+        if (yieldsClient(unwrapExpr(n.argument), facts, surface)) yields = true;
+      });
+    }
+    if (yields) facts.clientFactoryLocals.add(name);
+  }
+}
+
+/** Alias resolution + factories + extra shapes, repeated until nothing new appears. */
+function settleBindings(facts: FileFacts, surface: ProviderSurface): void {
+  for (let round = 0; round < 6; round++) {
+    const before = facts.clientVars.size + facts.clientFactoryLocals.size;
+    resolveLocalBindings(facts, surface);
+    findClientFactories(facts, surface);
+    resolveExtraShapes(facts, surface);
+    if (facts.clientVars.size + facts.clientFactoryLocals.size === before) break;
+  }
+}
+
 function computeExports(file: ParsedFile, surface: ProviderSurface): void {
   const { facts } = file;
   for (const name of facts.sdkCtorReexports) file.ctorExports.add(name);
   for (const { exported, local } of facts.exportedNames) {
-    if (facts.clientVars.has(local)) file.clientExports.add(exported);
+    if (facts.clientVars.has(local) || facts.clientFactoryLocals.has(local)) file.clientExports.add(exported);
     if (facts.ctorLocals.has(local)) file.ctorExports.add(exported);
   }
   for (const { exported, init } of facts.exportedInits) {
     if (isClientConstruction(init, facts, surface)) file.clientExports.add(exported);
+    // `export const handle = makeDb` — an alias of a factory is still a factory.
+    const e = unwrapExpr(init);
+    if (e?.type === 'Identifier' && facts.clientFactoryLocals.has(e.name)) {
+      file.clientExports.add(exported);
+    }
   }
 }
 
@@ -483,28 +718,17 @@ function resolveCalls(
   }
 }
 
+
 /**
- * Collects SDK surface usage for every detected provider that declares a
- * surface manifest and was detected via an actual SDK reference. Providers
- * detected from a URL string alone are skipped entirely (there is no client
- * to walk, and an empty `used` would be misleading). Returns undefined when
- * no provider qualifies — the report omits the section rather than emitting
- * an empty one.
+ * Parses and cross-resolves every file that could hold a client for `surface`.
+ * Shared by coverage collection and by the gate's client-module map, so both
+ * see the same verified client identities.
  */
-export function collectCoverage(
-  detected: DetectedProvider[],
+function buildParsedFiles(
+  d: DetectedProvider,
+  surface: ProviderSurface,
   filesContent: Map<string, string>,
-): CoverageCollection[] | undefined {
-  const coverage: CoverageCollection[] = [];
-
-  for (const d of detected) {
-    const surface = providers.find((p) => p.name === d.name)?.surface;
-    if (!surface || d.source === 'url-patterns') continue;
-
-    const methodSet = new Set(surface.methods);
-    const used = new Set<string>();
-    const counters = { unknown: 0 };
-
+): ParsedFile[] {
     // Phase A: files that reference the SDK directly (detection's list plus a
     // content check, so the pass does not depend on the detector's coverage).
     const sdkImport = sdkImportMatcher(surface);
@@ -527,61 +751,166 @@ export function collectCoverage(
       }
     }
     for (const file of parsed) {
-      resolveLocalBindings(file.facts, surface);
+      settleBindings(file.facts, surface);
       computeExports(file, surface);
     }
 
-    // Phase B: wrapper consumers — files importing a module whose stem matches
-    // a client-exporting file or the provider's client-name pattern. The stem
-    // match is only a prefilter; trust requires resolving to a verified export.
-    const exporterStems = new Set<string>();
-    for (const file of parsed) {
-      if (file.clientExports.size === 0 && file.ctorExports.size === 0) continue;
-      const segs = normalizePath(file.relPath).split('/');
-      const stem = (segs.pop() ?? '').replace(/\.[cm]?[jt]sx?$/, '');
-      exporterStems.add(stem === 'index' ? (segs.pop() ?? stem) : stem);
-    }
-    for (const [relPath, content] of filesContent) {
-      if (isInsideTestFile(relPath)) continue;
-      if (parsedPaths.has(relPath)) continue;
-      let isCandidate = false;
-      for (const match of content.matchAll(IMPORT_SOURCE_RE)) {
-        const stem = importSourceStem(match[1]);
-        if (exporterStems.has(stem) || surface.clientNamePattern.test(stem)) {
-          isCandidate = true;
-          break;
-        }
-      }
-      if (!isCandidate) continue;
-      const file = parseFile(relPath, content, surface);
-      if (file) {
-        resolveLocalBindings(file.facts, surface);
-        parsed.push(file);
-        parsedPaths.add(relPath);
-      }
+    // Phase B + cross-module resolution, interleaved and repeated.
+    //
+    // Discovery and resolution feed each other: resolving `mid.ts` makes it an
+    // exporter, which makes `services.ts` a candidate, which once resolved makes
+    // *it* an exporter, and so on. Running each phase once stops at the first
+    // link, so a client two or three wrappers deep is never found — and that is
+    // the shape most projects actually use.
+    /** Every project file, extension-stripped — the universe the importer can reach. */
+    const projectPaths = new Set<string>();
+    for (const relPath of filesContent.keys()) {
+      projectPaths.add(normalizePath(relPath).replace(/\.[cm]?[jt]sx?$/, ''));
     }
 
-    // Cross-module resolution: trust wrapper imports only when they resolve to
-    // a file that verifiably exports a client or the SDK constructor.
     const byPath = new Map<string, ParsedFile>();
-    for (const file of parsed) {
-      byPath.set(normalizePath(file.relPath).replace(/\.[cm]?[jt]sx?$/, ''), file);
-    }
-    for (const file of parsed) {
-      let added = false;
-      for (const { local, imported, source } of file.facts.moduleImports) {
-        const target = resolveImportTarget(source, file.relPath, byPath);
-        if (!target) continue;
-        if (target.clientExports.has(imported)) {
-          file.facts.clientVars.add(local);
-          added = true;
-        } else if (target.ctorExports.has(imported)) {
-          file.facts.ctorLocals.add(local);
-          added = true;
+    const indexParsed = (): void => {
+      for (const file of parsed) {
+        byPath.set(normalizePath(file.relPath).replace(/\.[cm]?[jt]sx?$/, ''), file);
+      }
+    };
+    indexParsed();
+
+    for (let round = 0; round < 6; round++) {
+      let progressed = false;
+
+      // (1) pull in files that import from a known client exporter
+      const exporterStems = new Set<string>();
+      for (const file of parsed) {
+        if (file.clientExports.size === 0 && file.ctorExports.size === 0) continue;
+        const segs = normalizePath(file.relPath).split('/');
+        const stem = (segs.pop() ?? '').replace(/\.[cm]?[jt]sx?$/, '');
+        exporterStems.add(stem === 'index' ? (segs.pop() ?? stem) : stem);
+      }
+      for (const [relPath, content] of filesContent) {
+        if (isInsideTestFile(relPath)) continue;
+        if (parsedPaths.has(relPath)) continue;
+        let isCandidate = false;
+        for (const match of content.matchAll(IMPORT_SOURCE_RE)) {
+          const stem = importSourceStem(match[1]);
+          if (exporterStems.has(stem) || surface.clientNamePattern.test(stem)) {
+            isCandidate = true;
+            break;
+          }
+        }
+        if (!isCandidate) continue;
+        const file = parseFile(relPath, content, surface);
+        if (file) {
+          settleBindings(file.facts, surface);
+          computeExports(file, surface);
+          parsed.push(file);
+          parsedPaths.add(relPath);
+          progressed = true;
         }
       }
-      if (added) resolveLocalBindings(file.facts, surface);
+      if (progressed) indexParsed();
+
+      // (2a) negative evidence: a binding whose origin is positively NOT this
+      // provider. Two safe sources — an import from another vendor's package,
+      // and an import from a project module that exports no client at all.
+      // Only ever used to rule a receiver out, so a gap here costs nothing.
+      for (const file of parsed) {
+        for (const { local, source } of file.facts.packageImports) {
+          if (file.facts.clientVars.has(local) || file.facts.ctorLocals.has(local)) continue;
+          if (isProjectSpecifier(source)) continue; // an alias, not a package
+          if (!surface.packages.some((pkg) => source === pkg || source.startsWith(`${pkg}/`))) {
+            file.facts.nonClientLocals.add(local);
+          }
+        }
+        for (const { local, imported, source } of file.facts.moduleImports) {
+          if (!isProjectSpecifier(source)) continue;
+          if (file.facts.clientVars.has(local) || file.facts.ctorLocals.has(local)) continue;
+          const target = resolveImportTarget(source, file.relPath, byPath);
+          if (target) {
+            // Deny only when the target module is provably unrelated to the
+            // provider. "Resolved but this particular export isn't recognised"
+            // is not enough: a module can hold a client in a form this pass
+            // does not model (a lazy `new Proxy(...)` wrapper, for one), and
+            // denying there would silence real findings.
+            const targetHasAnyClient =
+              target.clientExports.size > 0 ||
+              target.ctorExports.size > 0 ||
+              target.facts.clientVars.size > 0 ||
+              target.facts.ctorLocals.size > 0 ||
+              target.facts.clientFactoryLocals.size > 0;
+            if (!targetHasAnyClient) file.facts.nonClientLocals.add(local);
+            continue;
+          }
+          // Resolves to a project file that was never parsed → no client in it.
+          if (resolvesToUnparsedProjectFile(source, file.relPath, byPath, projectPaths)) {
+            file.facts.nonClientLocals.add(local);
+          }
+          // Anything else is genuinely unresolved → stay silent, never guess.
+        }
+      }
+
+      // (2b) trust a wrapper import only when it resolves to a verified export
+      for (const file of parsed) {
+        let added = false;
+        for (const { local, imported, source } of file.facts.moduleImports) {
+          const target = resolveImportTarget(source, file.relPath, byPath);
+          if (!target) continue;
+          if (target.clientExports.has(imported) && !file.facts.clientVars.has(local)) {
+            file.facts.clientVars.add(local);
+            added = true;
+          } else if (target.ctorExports.has(imported) && !file.facts.ctorLocals.has(local)) {
+            file.facts.ctorLocals.add(local);
+            added = true;
+          }
+        }
+        if (added) {
+          settleBindings(file.facts, surface);
+          computeExports(file, surface);
+          progressed = true;
+        }
+      }
+
+      // (3) propagate: `const store = makeOrm()` where makeOrm is a non-client
+      for (const file of parsed) {
+        for (const { name, init } of file.facts.newAssigns) {
+          if (file.facts.clientVars.has(name)) continue;
+          const e = unwrapExpr(init);
+          const callee = e?.type === 'CallExpression' ? unwrapExpr(e.callee) : null;
+          if (callee?.type === 'Identifier' && file.facts.nonClientLocals.has(callee.name)) {
+            file.facts.nonClientLocals.add(name);
+          }
+        }
+      }
+
+      if (!progressed) break;
     }
+
+  return parsed;
+}
+
+/**
+ * Collects SDK surface usage for every detected provider that declares a
+ * surface manifest and was detected via an actual SDK reference. Providers
+ * detected from a URL string alone are skipped entirely (there is no client
+ * to walk, and an empty `used` would be misleading). Returns undefined when
+ * no provider qualifies — the report omits the section rather than emitting
+ * an empty one.
+ */
+export function collectCoverage(
+  detected: DetectedProvider[],
+  filesContent: Map<string, string>,
+): CoverageCollection[] | undefined {
+  const coverage: CoverageCollection[] = [];
+
+  for (const d of detected) {
+    const surface = providers.find((p) => p.name === d.name)?.surface;
+    if (!surface || d.source === 'url-patterns') continue;
+
+    const methodSet = new Set(surface.methods);
+    const used = new Set<string>();
+    const counters = { unknown: 0 };
+
+    const parsed = buildParsedFiles(d, surface, filesContent);
 
     for (const file of parsed) {
       resolveCalls(file, surface, methodSet, used, counters);
@@ -595,4 +924,44 @@ export function collectCoverage(
   }
 
   return coverage.length ? coverage : undefined;
+}
+
+
+/**
+ * Map of file -> verified client binding names, per provider.
+ *
+ * Same verification as coverage: a binding counts only when it traces to the
+ * SDK, including through one wrapper module (`export const db = createClient()`
+ * in `lib/db.ts`, imported elsewhere as `db`). This is what lets the lint gate
+ * recognise a client that was constructed in a different file — the one thing
+ * the plugin-side tracker cannot work out on its own.
+ *
+ * Consumed additively: it can only add evidence, never remove it, so a gap
+ * here degrades to the tracker's existing single-file behaviour.
+ */
+export function collectClientBindings(
+  detected: DetectedProvider[],
+  filesContent: Map<string, string>,
+): Record<string, Record<string, { yes: string[]; no: string[] }>> {
+  const out: Record<string, Record<string, { yes: string[]; no: string[] }>> = {};
+
+  for (const d of detected) {
+    const surface = providers.find((p) => p.name === d.name)?.surface;
+    if (!surface) continue;
+
+    const perFile: Record<string, { yes: string[]; no: string[] }> = {};
+    for (const file of buildParsedFiles(d, surface, filesContent)) {
+      const yes = [
+        ...file.facts.clientVars,
+        ...file.facts.thisClientProps,
+        ...file.facts.clientFactoryLocals,
+      ];
+      const yesSet = new Set(yes);
+      const no = [...file.facts.nonClientLocals].filter((n) => !yesSet.has(n));
+      if (yes.length || no.length) perFile[normalizePath(file.relPath)] = { yes, no };
+    }
+    if (Object.keys(perFile).length) out[d.name] = perFile;
+  }
+
+  return out;
 }

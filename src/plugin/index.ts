@@ -138,10 +138,14 @@ import { agentmailNoMessageIdAsThreadIdRule } from '../providers/agentmail/rules
 import { agentmailPreferWebhooksInProductionRule } from '../providers/agentmail/rules/js/prefer-webhooks-in-production.js';
 import { agentmailHtmlRequiresTextRule } from '../providers/agentmail/rules/js/html-requires-text.js';
 import { agentmailAttachmentSizeGuardRule } from '../providers/agentmail/rules/js/attachment-size-guard.js';
+import { gateAll } from './gate.js';
 
 const plugin = {
   meta: { name: PLUGIN_NAME, version: '0.0.1' },
-  rules: {
+  // Every rule is wrapped by the provider gate: reports are held until the
+  // file is shown to use this provider, and each report is dropped only when
+  // its receiver is verifiably a DIFFERENT provider's client. See gate.ts.
+  rules: gateAll({
     'resend-webhook-signature': resendWebhookSignatureRule,
     'resend-api-key-hardcoded': resendApiKeyHardcodedRule,
     'resend-api-key-in-client-bundle': resendApiKeyInClientBundleRule,
@@ -288,8 +292,8 @@ const plugin = {
     'agentmail-prefer-webhooks-in-production': agentmailPreferWebhooksInProductionRule,
     'agentmail-html-requires-text': agentmailHtmlRequiresTextRule,
     'agentmail-attachment-size-guard': agentmailAttachmentSizeGuardRule,
-  },
-} as const;
+  }),
+};
 
 export { plugin };
 export default plugin;

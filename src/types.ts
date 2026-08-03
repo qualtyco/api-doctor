@@ -215,3 +215,25 @@ export function scoreToSeverityLabel(score: number): ReportSeverityLabel {
   if (score >= 40) return 'needs-work';
   return 'critical';
 }
+export interface ProviderAnchor {
+  /** Provider name — must equal the manifest name and the rule-key prefix. */
+  provider: string;
+  /**
+   * Import/require sources counting as direct SDK evidence. An entry matches
+   * the exact source or any subpath of it (`firebase` matches `firebase/auth`);
+   * entries ending in `/` are pure prefixes (`@s2-dev/`).
+   */
+  packages: string[];
+  /** Client class / factory export names: `new X(...)` or `X(...)` yields a client. */
+  clientConstructors: string[];
+  /** The SDK's default export is itself a client factory (`import twilio from 'twilio'`). */
+  defaultIsFactory?: boolean;
+  /** Local binding names that look like this provider's client (wrapper-import fallback). */
+  clientNamePattern?: RegExp;
+  /** Non-SDK import sources that look like a wrapper module for this provider. */
+  wrapperSourcePattern?: RegExp;
+  /** Provider-distinctive URL substrings in string/template literals. */
+  urlSubstrings: string[];
+  /** Provider-distinctive tokens in literals (webhook headers, env vars, event types…). */
+  tokenPattern?: RegExp;
+}

@@ -39,9 +39,15 @@ function runOxlint(
   oxlintBin: string,
   args: string[],
   cwd: string,
+  clientMapPath?: string,
 ): Promise<{ stdout: string; stderr: string; error?: Error }> {
   return new Promise((resolveRun) => {
-    const child = spawn(process.execPath, [oxlintBin, ...args], { cwd });
+    const child = spawn(process.execPath, [oxlintBin, ...args], {
+      cwd,
+      env: clientMapPath
+        ? { ...process.env, API_DOCTOR_CLIENT_MODULES: clientMapPath }
+        : process.env,
+    });
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (chunk) => {
@@ -145,11 +151,36 @@ export async function runJsEngine(input: EngineInput): Promise<ScanResult[]> {
     'utf-8',
   );
 
+  // Cross-file client identities, resolved in the CLI process where module
+  // resolution is available. The plugin-side tracker cannot compute these —
+  // it never leaves the file it is linting — so they are handed over as an
+  // extra, purely additive evidence source.
+  let clientMapPath: string | undefined;
+  if (process.env.API_DOCTOR_DUMP_CLIENT_MODULES && !Object.keys(input.clientBindings ?? {}).length) {
+    writeFileSync(process.env.API_DOCTOR_DUMP_CLIENT_MODULES, '{"__EMPTY__":true}', 'utf-8');
+  }
+  if (input.clientBindings && Object.keys(input.clientBindings).length > 0) {
+    try {
+      clientMapPath = join(tmpDir, 'client-modules.json');
+      writeFileSync(clientMapPath, JSON.stringify(input.clientBindings), 'utf-8');
+      if (process.env.API_DOCTOR_DUMP_CLIENT_MODULES) {
+        writeFileSync(
+          process.env.API_DOCTOR_DUMP_CLIENT_MODULES,
+          JSON.stringify(input.clientBindings, null, 2),
+          'utf-8',
+        );
+      }
+    } catch {
+      clientMapPath = undefined; // never let this break a scan
+    }
+  }
+
   try {
     const res = await runOxlint(
       oxlintBin,
       ['--config', configPath, '--format', 'json', '.'],
       input.absRoot,
+      clientMapPath,
     );
 
     if (res.error) throw new ScanError('Failed to run oxlint', res.error);
