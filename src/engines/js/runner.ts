@@ -42,12 +42,12 @@ function runOxlint(
   clientMapPath?: string,
 ): Promise<{ stdout: string; stderr: string; error?: Error }> {
   return new Promise((resolveRun) => {
-    const child = spawn(process.execPath, [oxlintBin, ...args], {
-      cwd,
-      env: clientMapPath
-        ? { ...process.env, API_DOCTOR_CLIENT_MODULES: clientMapPath }
-        : process.env,
-    });
+    // Always own this variable: a stale API_DOCTOR_CLIENT_MODULES inherited
+    // from the parent environment must never leak into the subprocess.
+    const env = { ...process.env };
+    delete env.API_DOCTOR_CLIENT_MODULES;
+    if (clientMapPath) env.API_DOCTOR_CLIENT_MODULES = clientMapPath;
+    const child = spawn(process.execPath, [oxlintBin, ...args], { cwd, env });
     let stdout = '';
     let stderr = '';
     child.stdout?.on('data', (chunk) => {
@@ -156,20 +156,10 @@ export async function runJsEngine(input: EngineInput): Promise<ScanResult[]> {
   // it never leaves the file it is linting — so they are handed over as an
   // extra, purely additive evidence source.
   let clientMapPath: string | undefined;
-  if (process.env.API_DOCTOR_DUMP_CLIENT_MODULES && !Object.keys(input.clientBindings ?? {}).length) {
-    writeFileSync(process.env.API_DOCTOR_DUMP_CLIENT_MODULES, '{"__EMPTY__":true}', 'utf-8');
-  }
   if (input.clientBindings && Object.keys(input.clientBindings).length > 0) {
     try {
       clientMapPath = join(tmpDir, 'client-modules.json');
       writeFileSync(clientMapPath, JSON.stringify(input.clientBindings), 'utf-8');
-      if (process.env.API_DOCTOR_DUMP_CLIENT_MODULES) {
-        writeFileSync(
-          process.env.API_DOCTOR_DUMP_CLIENT_MODULES,
-          JSON.stringify(input.clientBindings, null, 2),
-          'utf-8',
-        );
-      }
     } catch {
       clientMapPath = undefined; // never let this break a scan
     }

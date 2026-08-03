@@ -1,0 +1,7 @@
+{
+  "name": "data-flow-denial-fixture",
+  "private": true,
+  "dependencies": {
+    "firebase": "^10.0.0"
+  }
+}

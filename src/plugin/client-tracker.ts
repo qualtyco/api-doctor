@@ -317,7 +317,9 @@ export function createClientTracker(
   }
 
   function visitPropertyDefinition(node: any): void {
-    if (node?.key?.type !== 'Identifier' || !node.value) return;
+    if (node?.key?.type !== 'Identifier') return;
+    scanIdentifierName(node.key.name);
+    if (!node.value) return;
     const init = unwrapExpr(node.value);
     for (const s of states) {
       if (isClientConstruction(init, s)) {
@@ -339,6 +341,31 @@ export function createClientTracker(
       if (s.anchor.urlSubstrings.some((u) => text.includes(u)) || s.anchor.tokenPattern?.test(text)) {
         s.literal = true;
       }
+    }
+  }
+
+  /**
+   * Identifier-position evidence (property keys, member accesses, class
+   * fields) for anchors that opt in via `identifierPattern`. Protocol-level
+   * integrations — a Twilio Media Streams handler speaking the wire format
+   * over a raw WebSocket — often carry no import and no distinctive string,
+   * but do read and write the provider's field names.
+   */
+  function scanIdentifierName(name: unknown): void {
+    if (typeof name !== 'string' || !name) return;
+    for (const s of states) {
+      if (s.literal || !s.anchor.identifierPattern) continue;
+      if (s.anchor.identifierPattern.test(name)) s.literal = true;
+    }
+  }
+
+  function visitPropertyKey(node: any): void {
+    if (node?.key?.type === 'Identifier') scanIdentifierName(node.key.name);
+  }
+
+  function visitMemberProp(node: any): void {
+    if (!node?.computed && node?.property?.type === 'Identifier') {
+      scanIdentifierName(node.property.name);
     }
   }
 
@@ -375,6 +402,8 @@ export function createClientTracker(
    * enclosing call is recovered by span containment instead.
    */
   const callSpans: Array<{ start: number; end: number; node: any }> = [];
+  /** Spans of every function body, for the same-scope bound in enclosingCall. */
+  const functionSpans: Array<{ start: number; end: number }> = [];
 
   function visitCallSpan(node: any): void {
     if (typeof node?.start === 'number' && typeof node?.end === 'number') {
@@ -382,13 +411,32 @@ export function createClientTracker(
     }
   }
 
-  /** Innermost call whose span contains `node`, or null. */
+  function visitFunctionSpan(node: any): void {
+    if (typeof node?.start === 'number' && typeof node?.end === 'number') {
+      functionSpans.push({ start: node.start, end: node.end });
+    }
+  }
+
+  /**
+   * Innermost call whose span contains `node`, or null — but never across a
+   * function boundary. A call that wraps the *function* containing the node
+   * (`internalAction({ handler: async () => { …node… } })`, `router.post(...)`,
+   * any higher-order wrapper) is scaffolding, not the expression the rule
+   * flagged; attributing the finding to the wrapper's callee misattributes it
+   * to whatever framework the wrapper came from.
+   */
   function enclosingCall(node: any): any {
     if (typeof node?.start !== 'number' || typeof node?.end !== 'number') return null;
+    let fn: { start: number; end: number } | null = null;
+    for (const f of functionSpans) {
+      if (f.start > node.start || f.end < node.end) continue;
+      if (!fn || f.end - f.start < fn.end - fn.start) fn = f;
+    }
     let best: { start: number; end: number; node: any } | null = null;
     for (const c of callSpans) {
       if (c.start > node.start || c.end < node.end) continue;
       if (c.node === node) continue;
+      if (fn && (c.start < fn.start || c.end > fn.end)) continue;
       if (!best || c.end - c.start < best.end - best.start) best = c;
     }
     return best?.node ?? null;
@@ -527,7 +575,7 @@ export function createClientTracker(
 
   return {
     visitors() {
-      return {
+      const visitors: Record<string, (node: any) => void> = {
         ImportDeclaration: visitImport,
         VariableDeclarator: visitVariableDeclarator,
         AssignmentExpression: visitAssignment,
@@ -536,7 +584,17 @@ export function createClientTracker(
         CallExpression: visitCallSpan,
         Literal: visitLiteral,
         TemplateLiteral: visitTemplateLiteral,
+        FunctionDeclaration: visitFunctionSpan,
+        FunctionExpression: visitFunctionSpan,
+        ArrowFunctionExpression: visitFunctionSpan,
       };
+      // Property/member handlers fire on nearly every node in a file — only
+      // pay for them when some anchor actually declares identifier evidence.
+      if (states.some((s) => s.anchor.identifierPattern)) {
+        visitors.Property = visitPropertyKey;
+        visitors.MemberExpression = visitMemberProp;
+      }
+      return visitors;
     },
     finalize,
     hasDirectEvidence(provider: string): boolean {
@@ -569,6 +627,12 @@ export function createClientTracker(
         const call = enclosingCall(node);
         if (call) ({ root, firstSegment } = rootOf(call));
       }
+      // A denial is a claim about a receiver: "the client this method was
+      // called on is verifiably someone else's". Without a method segment
+      // there is no receiver claim to refute — a bare call (`setCookie(token)`,
+      // `fetch(url)`) was flagged for its arguments or data flow, and foreign
+      // attribution of the callee itself proves nothing about the finding.
+      if (firstSegment === null) return false;
       if (root?.type === 'Identifier' && target.nonClientVars.has(root.name)) return true;
       if (ownershipIn(target, root, firstSegment) !== null) return false; // ours
       for (const s of states) {

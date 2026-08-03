@@ -1,0 +1,7 @@
+{
+  "name": "hof-wrapper-fixture",
+  "private": true,
+  "dependencies": {
+    "agentmail": "^0.1.0"
+  }
+}

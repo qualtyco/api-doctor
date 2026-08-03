@@ -21,4 +21,9 @@ export const twilioAnchor: ProviderAnchor = {
   urlSubstrings: [...(twilioManifest.detect.urlPatterns ?? [])],
   tokenPattern:
     /twiml|x-twilio-signature|TWILIO_|MessagingResponse|VoiceResponse|taskrouter|CallSid|StreamSid/i,
+  // Media Streams protocol files speak Twilio's wire format over a raw
+  // WebSocket: no SDK import, no distinctive string — but they always read
+  // and write `streamSid`/`callSid` fields. Identifier-position evidence is
+  // the only tell such files have.
+  identifierPattern: /^(streamSid|callSid|twiml\w*)$/i,
 };

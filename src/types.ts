@@ -236,4 +236,13 @@ export interface ProviderAnchor {
   urlSubstrings: string[];
   /** Provider-distinctive tokens in literals (webhook headers, env vars, event types…). */
   tokenPattern?: RegExp;
+  /**
+   * Provider-distinctive identifier names (property keys, member accesses,
+   * class fields) counting as file evidence. For protocol-level integrations
+   * that never import the SDK or write a distinctive string — e.g. a Twilio
+   * Media Streams handler whose only tell is the `streamSid` field it reads
+   * and writes. Matched against the whole name, so keep entries anchored
+   * (`/^streamSid$/i`), never substrings.
+   */
+  identifierPattern?: RegExp;
 }
