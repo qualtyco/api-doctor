@@ -87,8 +87,9 @@ describe('buildReport', () => {
       detectedVia: 'imports',
       // Tracks the number of enabled rules in the resend manifest.
       // RULE-DISABLED 2026-07-28: 13 -> 12 when resend-api-key-hardcoded was
-      // commented out pre-launch; restore to 13 when it is re-enabled.
-      rulesRun: 12,
+      // commented out pre-launch; restore to 14 when it is re-enabled.
+      // 12 -> 13 on 2026-08-05: resend-unchecked-send-error added.
+      rulesRun: 13,
     });
   });
 });

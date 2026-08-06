@@ -12,6 +12,7 @@ import { resendFromAddressNotFriendlyFormatRule } from '../providers/resend/rule
 import { resendBatchSizeNotEnforcedRule } from '../providers/resend/rules/js/batch-size-not-enforced.js';
 import { resendMissingIdempotencyKeyRule } from '../providers/resend/rules/js/missing-idempotency-key.js';
 import { resendNoErrorCodeMappingRule } from '../providers/resend/rules/js/no-error-code-mapping.js';
+import { resendUncheckedSendErrorRule } from '../providers/resend/rules/js/unchecked-send-error.js';
 import { resendWebhookNoIdempotencyRule } from '../providers/resend/rules/js/webhook-no-idempotency.js';
 import { resendMissingTagsRule } from '../providers/resend/rules/js/missing-tags.js';
 import { resendRequestIdNotLoggedRule } from '../providers/resend/rules/js/request-id-not-logged.js';
@@ -156,6 +157,7 @@ const plugin = {
     'resend-batch-size-not-enforced': resendBatchSizeNotEnforcedRule,
     'resend-missing-idempotency-key': resendMissingIdempotencyKeyRule,
     'resend-no-error-code-mapping': resendNoErrorCodeMappingRule,
+    'resend-unchecked-send-error': resendUncheckedSendErrorRule,
     'resend-webhook-no-idempotency': resendWebhookNoIdempotencyRule,
     'resend-missing-tags': resendMissingTagsRule,
     'resend-request-id-not-logged': resendRequestIdNotLoggedRule,

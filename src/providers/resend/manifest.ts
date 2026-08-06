@@ -219,6 +219,17 @@ export const resendManifest: ProviderManifest = {
       languages: ['javascript', 'python'],
     },
     {
+      key: 'resend-unchecked-send-error',
+      resultRule: 'resend/correctness/unchecked-send-error',
+      message: 'Resend call never checks the returned error — the SDK does not throw.',
+      fix: 'Bind the result and check it: const { data, error } = await resend.emails.send(...); if (error) throw new Error(error.message);',
+      docsUrl: 'https://resend.com/docs/api-reference/errors',
+      severity: 'error',
+      // JavaScript only: the Python SDK raises resend.exceptions.ResendError
+      // instead of returning { data, error }, so there is no unchecked field.
+      languages: ['javascript'],
+    },
+    {
       key: 'resend-no-error-code-mapping',
       resultRule: 'resend/reliability/no-error-code-mapping',
       message: 'Resend errors are returned as a blanket HTTP 500.',

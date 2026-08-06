@@ -48,11 +48,12 @@ Hard-coded credentials, client-bundle exposure, and unverified webhook payloads.
 
 ### Correctness
 
-Wrong API choice for marketing, compliance gaps, and test-only sender domains in production paths.
+Wrong API choice for marketing, compliance gaps, unchecked failures, and test-only sender domains in production paths.
 
 
 | Rule                           | Severity | Resend docs                                                                           | Rule file                                                                                        | Test                                                                                                                |
 | ------------------------------ | -------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Unchecked send error           | error    | [Errors](https://resend.com/docs/api-reference/errors)                                | [unchecked-send-error.ts](rules/js/unchecked-send-error.ts)                  | [resend-unchecked-send-error.test.ts](../../../tests/rules/resend-unchecked-send-error.test.ts)                     |
 | Marketing via batch send       | error    | [Batch sending — when to use](https://resend.com/docs/dashboard/emails/batch-sending) | [marketing-via-batch-send.ts](rules/marketing-via-batch-send.ts)             | [resend-marketing-via-batch-send.test.ts](../../../tests/rules/resend-marketing-via-batch-send.test.ts)             |
 | Marketing missing unsubscribe  | error    | [Broadcasts](https://resend.com/docs/dashboard/broadcasts/introduction)               | [marketing-missing-unsubscribe.ts](rules/marketing-missing-unsubscribe.ts)   | [resend-marketing-missing-unsubscribe.test.ts](../../../tests/rules/resend-marketing-missing-unsubscribe.test.ts)   |
 | Test domain in production path | warning  | [Send with Next.js](https://resend.com/docs/send-with-nextjs)                         | [test-domain-in-production-path.ts](rules/test-domain-in-production-path.ts) | [resend-test-domain-in-production-path.test.ts](../../../tests/rules/resend-test-domain-in-production-path.test.ts) |
@@ -63,6 +64,7 @@ Wrong API choice for marketing, compliance gaps, and test-only sender domains in
 
 | Rule                          | Broken                                                                                                | Fixed                                                                                                   |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Unchecked send error          | `resend-unchecked-send-error-broken/01-discarded-await.ts`, `02-try-catch-is-not-a-check.ts`, `03-data-only-destructure.ts`, `04-result-bound-error-never-read.ts`, `05-non-send-mutations.ts` | `resend-unchecked-send-error-fixed/01-destructured-error.ts`, `02-renamed-error-adversarial.ts`, `03-result-error-read-later.ts`, `04-returned-to-caller-adversarial.ts`, `05-rest-and-then-adversarial.ts`, `06-reads-are-not-mutations-adversarial.ts` |
 | Marketing via batch send      | `batch-send-broken/campaign/route.ts`, `newsletter-blast.ts`                                          | `batch-send-fixed/campaign-via-broadcasts.ts`, `order-receipts.ts`                                      |
 | Marketing missing unsubscribe | `resend-marketing-missing-unsubscribe-broken/01-emails-send-no-unsub.ts`, `02-batch-send-no-unsub.ts` | `resend-marketing-missing-unsubscribe-fixed/01-marketing-with-unsub.ts`, `02-transactional-no-unsub.ts` |
 | Test domain in production     | `resend-test-domain-in-production-path-broken/01-direct-literal.ts`, `02-env-fallback.ts`             | `resend-test-domain-in-production-path-fixed/01-verified-domain.ts`, `02-send.test.ts`                  |
@@ -91,7 +93,7 @@ Idempotency, batch limits, error mapping, webhook retry safety, deliverability c
 
 | Rule                    | Broken                                                                                   | Fixed                                                                                   |
 | ----------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Missing idempotency key | `resend-missing-idempotency-key-broken/01-emails-send.ts`, `02-batch-send.ts`            | `resend-missing-idempotency-key-fixed/01-key-in-payload.ts`, `02-key-in-options-arg.ts` |
+| Missing idempotency key | `resend-missing-idempotency-key-broken/01-emails-send.ts`, `02-batch-send.ts`, `03-named-operation-adversarial.ts` | `resend-missing-idempotency-key-fixed/01-key-in-payload.ts`, `02-key-in-options-arg.ts`, `03-generic-transport-wrapper-adversarial.ts` |
 | Batch size not enforced | `resend-batch-size-not-enforced-broken/01-direct-request-array.ts`, `02-mapped-array.ts` | `resend-batch-size-not-enforced-fixed/01-length-guarded.ts`, `02-chunked-loop.ts`       |
 | No error code mapping   | `resend-no-error-code-mapping-broken/01-nextresponse-500.ts`, `02-res-status-500.ts`     | `resend-no-error-code-mapping-fixed/01-mapped-status.ts`, `02-non-resend-500.ts`        |
 | Webhook no idempotency  | `resend-webhook-no-idempotency-broken/01-no-dedup.ts`, `02-switch-no-dedup.ts`           | `resend-webhook-no-idempotency-fixed/01-set-dedup.ts`, `02-redis-dedup.ts`              |
