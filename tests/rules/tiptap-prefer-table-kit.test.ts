@@ -17,4 +17,11 @@ describe('tiptap-prefer-table-kit rule', () => {
       expect(diags, `unexpected diagnostic in ${file}`).toHaveLength(0);
     }
   });
+
+  it('reports once per file, not once per import', () => {
+    for (const file of fixtureFiles(ruleKey, 'broken', 'tiptap')) {
+      const diags = lintFileForRule(ruleKey, file);
+      expect(diags, `expected a single diagnostic in ${file}`).toHaveLength(1);
+    }
+  });
 });

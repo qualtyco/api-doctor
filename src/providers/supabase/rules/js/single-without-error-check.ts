@@ -8,7 +8,7 @@
  * whole-result binding whose `.error` is read later, and chains ending in
  * `.throwOnError()` (documented opt-in to exceptions).
  */
-import { chainHasMethod, destructuredNames, memberPropName } from '../../utils.js';
+import { chainHasMethod, destructuresKey, memberPropName } from '../../utils.js';
 
 function isSingleSupabaseQuery(awaitArg: any): boolean {
   return awaitArg?.type === 'CallExpression' && chainHasMethod(awaitArg, 'single');
@@ -44,8 +44,7 @@ const rule = {
         deferredBindings.push({ node, name: pattern.name });
         return;
       }
-      const names = destructuredNames(pattern);
-      if (names.has('error')) return;
+      if (destructuresKey(pattern, 'error')) return;
       context.report({ node, messageId: 'missingErrorCheck' });
     }
 
@@ -63,7 +62,7 @@ const rule = {
       VariableDeclarator(node: any) {
         // `const { error } = result;` — result object destructured after the fact
         if (node.init?.type === 'Identifier' && node.id?.type === 'ObjectPattern') {
-          if (destructuredNames(node.id).has('error')) errorReadNames.add(node.init.name);
+          if (destructuresKey(node.id, 'error')) errorReadNames.add(node.init.name);
         }
         if (node.init?.type !== 'AwaitExpression') return;
         checkAwaitBinding(node, node.id, node.init);

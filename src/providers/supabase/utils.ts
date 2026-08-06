@@ -114,6 +114,22 @@ export function isUserMetadataAuthzRead(node: any): boolean {
   return typeof field === 'string' && USER_METADATA_AUTHZ_KEYS.has(field);
 }
 
+/**
+ * True when `pattern` destructures property `key`, whatever local name it is
+ * bound to — `{ error }` and `{ error: modelError }` both count. Renaming is
+ * forced whenever one scope holds two Supabase results, so matching on the
+ * local name (see `destructuredNames`) misses correctly written code.
+ */
+export function destructuresKey(pattern: any, key: string): boolean {
+  if (pattern?.type !== 'ObjectPattern') return false;
+  return (pattern.properties ?? []).some((prop: any) => {
+    if (prop?.type !== 'Property' || prop.computed) return false;
+    if (prop.key?.type === 'Identifier') return prop.key.name === key;
+    if (prop.key?.type === 'Literal') return prop.key.value === key;
+    return false;
+  });
+}
+
 /** Returns binding names destructured from `pattern` (ObjectPattern or Identifier). */
 export function destructuredNames(pattern: any): Set<string> {
   const names = new Set<string>();
