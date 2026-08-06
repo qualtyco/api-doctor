@@ -39,8 +39,8 @@ export const tiptapManifest: ProviderManifest = {
     {
       key: 'tiptap-addAttributes-missing-renderHTML',
       resultRule: 'tiptap/correctness/addAttributes-missing-renderHTML',
-      message: 'Tiptap attribute defines parseHTML but no renderHTML — attribute lost on HTML round-trip.',
-      fix: 'Add renderHTML: (attrs) => ({ "data-<name>": attrs.<name> }) to the attribute descriptor.',
+      message: 'Tiptap attribute parses from a different name than it renders — value lost on HTML round-trip.',
+      fix: 'Add renderHTML to the attribute descriptor, writing back the same name parseHTML reads.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node#attributes',
       severity: 'error',
       languages: ['javascript', 'python'],
