@@ -4,7 +4,7 @@
  * Client-side delete-all-then-insert-all child rows without checking either
  * step's error can silently wipe data when a mid-loop insert fails.
  */
-import { fromTableName, isSupabaseMutationKind, destructuredNames } from '../../utils.js';
+import { fromTableName, isSupabaseMutationKind, destructuresKey } from '../../utils.js';
 
 interface MutationSite {
   node: any;
@@ -46,7 +46,7 @@ const rule = {
       const fn = currentFunction();
       if (!fn) return;
       if (!isSupabaseTableMutation(awaitExpr.argument, kind)) return;
-      const checksError = pattern ? destructuredNames(pattern).has('error') : false;
+      const checksError = pattern ? destructuresKey(pattern, 'error') : false;
       const list = mutationsByFunction.get(fn) ?? [];
       list.push({ node, table: fromTableName(awaitExpr.argument), kind, checksError });
       mutationsByFunction.set(fn, list);

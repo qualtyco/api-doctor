@@ -10,7 +10,7 @@
  *     if (res.error) ...`, or `const { error } = res` afterwards)
  *   - a chain ending in `.throwOnError()` (documented opt-in to exceptions)
  */
-import { chainHasMethod, destructuredNames, isSupabaseMutationKind } from '../../utils.js';
+import { chainHasMethod, destructuresKey, isSupabaseMutationKind } from '../../utils.js';
 
 const MUTATIONS = ['insert', 'update', 'delete', 'upsert'] as const;
 
@@ -52,8 +52,7 @@ const rule = {
         deferredBindings.push({ node, name: pattern.name });
         return;
       }
-      const names = destructuredNames(pattern);
-      if (!names.has('error')) {
+      if (!destructuresKey(pattern, 'error')) {
         context.report({ node, messageId: 'uncheckedMutation' });
       }
     }
@@ -77,7 +76,7 @@ const rule = {
       VariableDeclarator(node: any) {
         // `const { error } = res;` — result object destructured after the fact
         if (node.init?.type === 'Identifier' && node.id?.type === 'ObjectPattern') {
-          if (destructuredNames(node.id).has('error')) errorReadNames.add(node.init.name);
+          if (destructuresKey(node.id, 'error')) errorReadNames.add(node.init.name);
         }
         if (node.init?.type !== 'AwaitExpression') return;
         checkMutationAwait(node, node.id, node.init);
