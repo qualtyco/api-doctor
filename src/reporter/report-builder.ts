@@ -8,6 +8,7 @@ import { extractCodeSnippet } from './snippet.js';
 import {
   SEVERITY_ORDER,
   ruleLanguages,
+  computeScore,
   scoreToSeverityLabel,
   type DetectedProvider,
   type Finding,
@@ -30,11 +31,6 @@ export interface BuildReportInput {
   /** Informational SDK usage; never affects summary or findings. */
   coverage?: ProviderCoverage[];
   languagesScanned?: RuleLanguage[];
-}
-
-/** Same scoring as the terminal report: info findings do not affect the score. */
-function computeScore(errors: number, warnings: number): number {
-  return Math.max(0, 100 - errors * 15 - warnings * 5);
 }
 
 function buildSummary(results: ScanResult[]): ReportSummary {
@@ -72,6 +68,9 @@ function toFinding(result: ScanResult, sequence: number, content: string): Findi
     severity: result.severity,
     message: result.message,
     fix: result.fix,
+    // Own key, never folded into `fix` — absent entirely on rules that have no
+    // verified hint, so a reader can tell "nothing to check" from "unchecked".
+    ...(result.verifyHint ? { verifyHint: result.verifyHint } : {}),
     docsUrl: result.docsUrl ?? docs?.docsUrl,
     cwe: docs?.cwe,
     owasp: docs?.owasp,

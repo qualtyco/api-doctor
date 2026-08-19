@@ -118,7 +118,7 @@ Idempotency, batch limits, error mapping, webhook retry safety, deliverability c
 ## SDK surface coverage
 
 `manifest.ts` also declares a `surface` — the hand-written list of every SDK method
-path (verified against `resend@6.18.0` type declarations and cross-checked against
+path (verified against `resend@6.20.0` type declarations and cross-checked against
 Resend's OpenAPI spec, `openapi_resend.yaml`), which drives the CLI's informational
 coverage section and the `sdk_used` telemetry prop. Coverage is **not a rule**: it
 never produces findings, never affects the score, and never reports counts or

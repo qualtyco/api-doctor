@@ -1,0 +1,7 @@
+{
+  "name": "s2-removed-symbol-broken",
+  "private": true,
+  "dependencies": {
+    "@s2-dev/streamstore": "0.25.0"
+  }
+}

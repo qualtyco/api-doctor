@@ -13,6 +13,18 @@ export const elevenlabsManifest: ProviderManifest = {
     clientConstructors: ['ElevenLabsClient'],
     clientNamePattern: /^(eleven[-_]?labs|11labs)([-_]?client)?$/i,
     docsUrl: 'https://elevenlabs.io/docs/api-reference/introduction',
+    // The SDK revision this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm sdk:watch` lists every
+    // source commit landed since `commit`, including the logic changes that
+    // leave the method list untouched. elevenlabs-js is regenerated per
+    // release, so most commits are `SDK regeneration` and the diff is where
+    // the actual change is.
+    verified: {
+      version: '2.64.0',
+      commit: 'e0f2a377a279600b6d7ce0bfd64817063422fbd4',
+      at: '2026-08-19',
+      sourceDir: 'src',
+    },
     // ElevenAPI surface only; agents/ConvAI excluded by scope decision
     // 2026-07-29. The docs nav (llms.txt breadcrumbs) splits the API
     // reference into sibling groups — ElevenAPI, ElevenAgents, ElevenCreative,
@@ -27,7 +39,7 @@ export const elevenlabsManifest: ProviderManifest = {
     // user/usage/workspaces/environmentVariables (Workspace/ElevenAgents
     // admin), history/models/tokens (Core Resources) — calls to them land in
     // unknown_sdk_calls, by design.
-    // Verified against @elevenlabs/elevenlabs-js@2.59.0 (Client.d.ts root
+    // Verified against @elevenlabs/elevenlabs-js@2.64.0 (Client.d.ts root
     // getters walked into every per-resource client declaration; the exported
     // ElevenLabsClient in wrapper/ElevenLabsClient.d.ts extends the Fern base
     // and overrides music/speechToText/speechEngine/webhooks with same-surface
@@ -45,8 +57,13 @@ export const elevenlabsManifest: ProviderManifest = {
     // connect and speechEngine.attach (not derivable from the Fern resource
     // types; their use lands in unknown_sdk_calls). WebSocket-only channels
     // (TTS stream-input, STT realtime, speech-engine upstream) ship types but
-    // no client methods and are not listed. Re-verify on SDK bumps
-    // (`pnpm check:surface`).
+    // no client methods and are not listed. Added since 2.59.0, both plain
+    // additions read from the SDK source: the bulk-segment siblings
+    // dubbing.project.transcript.updateSegments and
+    // dubbing.project.language.transcript.updateSegments (PATCH on the
+    // .../transcript/segments collection — the existing singular
+    // updateSegment methods PATCH .../transcript/segment/{segment_id} and
+    // are unchanged). Re-verify on SDK bumps (`pnpm check:surface`).
     methods: [
       'audioIsolation.convert',
       'audioIsolation.delete',
@@ -71,11 +88,13 @@ export const elevenlabsManifest: ProviderManifest = {
       'dubbing.project.language.transcript.get',
       'dubbing.project.language.transcript.regenerate',
       'dubbing.project.language.transcript.updateSegment',
+      'dubbing.project.language.transcript.updateSegments',
       'dubbing.project.list',
       'dubbing.project.transcript.createSegment',
       'dubbing.project.transcript.deleteSegment',
       'dubbing.project.transcript.get',
       'dubbing.project.transcript.updateSegment',
+      'dubbing.project.transcript.updateSegments',
       'dubbing.resource.dub',
       'dubbing.resource.get',
       'dubbing.resource.language.add',

@@ -10,6 +10,9 @@ import {
   sanitizeModelSlug,
 } from './agent-detector.js';
 import { readProjectHistory, writeProjectHistory } from './run-history.js';
+import { getRuleDocsMeta } from './plugin/rule-registry.js';
+import { resolveInstalledVersion } from './plugin/installed-version.js';
+import { compatProviders, symbolFromMessage } from './providers/index.js';
 
 // Public project API key — safe to embed (same as a browser-side PostHog key).
 const POSTHOG_API_KEY = 'phc_odgcBBsio9P5XJ3zT3Hyd6pgawQXW6YvwgJUejUTWhxz';
@@ -128,6 +131,56 @@ export function coverageTelemetryProps(
   };
 }
 
+/**
+ * Compatibility telemetry for a cli_run event. The class exists to answer one
+ * question — do developers act on "this symbol doesn't exist in your installed
+ * version"? — so alongside the counts it reports which symbols disappeared
+ * since the previous run (fix rate falls out of run-history). Privacy holds by
+ * construction: `symbols` is intersected with the closed vocabulary of the
+ * hand-written compat manifests, so only listed symbol names ever leave the
+ * machine, and the installed version is resolved locally from the project.
+ */
+export function compatTelemetry(
+  results: ScanResult[],
+  detected: DetectedProvider[],
+  projectDir: string,
+  prevSymbols: string[] | undefined,
+): { props: Record<string, unknown>; symbols: string[] } {
+  const compatResults = results.filter(
+    (r) =>
+      getRuleDocsMeta(r.ruleKey)?.category === 'compatibility' &&
+      (r.severity === 'error' || r.severity === 'warning'),
+  );
+  // The rendered message starts with the symbol name; the registry's closed
+  // vocabulary drops anything else.
+  const symbols = [
+    ...new Set(compatResults.map((r) => symbolFromMessage(r.message)).filter((s) => s !== null)),
+  ].sort();
+  const fixedSinceLastRun = (prevSymbols ?? []).filter((s) => !symbols.includes(s)).length;
+  // Whichever compat-tracked provider this project actually has. Read from the
+  // manifests rather than naming one provider, so a second provider gaining a
+  // compatibility.ts is a data change and not an edit here. First detected
+  // wins: the prop is one version, and a project with two compat providers is
+  // not a case worth widening the schema for.
+  const compatPackage = compatProviders.find((p) => detected.some((d) => d.name === p.name))
+    ?.compatibility?.package;
+  const installedVersion = compatPackage
+    ? resolveInstalledVersion(join(projectDir, 'package.json'), compatPackage)
+    : null;
+
+  return {
+    props: {
+      compat_findings: compatResults.length,
+      compat_symbols: symbols,
+      compat_fixed_since_last_run: fixedSinceLastRun,
+      // Omitted (not null) when no compat-tracked provider is detected or the
+      // version cannot be resolved — "unknown" and "not applicable" stay apart.
+      ...(installedVersion ? { compat_installed_version: installedVersion } : {}),
+    },
+    symbols,
+  };
+}
+
 export async function trackRun(opts: TrackRunOptions): Promise<void> {
   if (isTelemetryDisabled(opts.noTelemetry)) return;
 
@@ -158,6 +211,13 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       run_context: detectRunContext(),
     };
 
+    const compat = compatTelemetry(
+      opts.results,
+      opts.detected,
+      opts.projectDir,
+      prev?.compat_symbols,
+    );
+
     // 1. Summary event.
     await capture('cli_run', distinctId, {
       ...sharedProps,
@@ -174,6 +234,7 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       run_count: (prev?.run_count ?? 0) + 1,
       ai_model: repoAiModel.model,
       ai_model_source: repoAiModel.source,
+      ...compat.props,
     });
 
     // 2. One event per detected provider.
@@ -215,6 +276,7 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
       last_score: opts.score,
       last_run: new Date().toISOString(),
       run_count: (prev?.run_count ?? 0) + 1,
+      compat_symbols: compat.symbols,
     });
   } catch {
     // Never surface telemetry errors to the user.
@@ -243,6 +305,46 @@ export async function trackInstall(opts: TrackInstallOptions): Promise<void> {
       files_updated: opts.filesUpdated,
       files_skipped: opts.filesSkipped,
       force: opts.force,
+    });
+  } catch {
+    // Never surface telemetry errors to the user.
+  }
+}
+
+export interface TrackFixOptions {
+  version: string;
+  /** Providers whose findings were handed to the agent — names only. */
+  providers: string[];
+  /** Errors the prompt targeted. */
+  targeted: number;
+  /** False when the chosen agent's binary was not found on PATH. */
+  launched: boolean;
+  /** Which agent the user picked from the menu — the id only (claude|cursor|codex). */
+  agent?: string;
+  dryRun: boolean;
+  noTelemetry: boolean;
+}
+
+/**
+ * Records how well an agent-driven fix actually held up against the rules.
+ * `remaining` and `introduced` are the honest signals here: a rule the agent
+ * routinely cannot satisfy is a rule that is too narrow, and that is worth
+ * knowing.
+ */
+export async function trackFix(opts: TrackFixOptions): Promise<void> {
+  if (isTelemetryDisabled(opts.noTelemetry)) return;
+
+  try {
+    const distinctId = getOrCreateInstallId();
+    await capture('fix_command_run', distinctId, {
+      cli_version: opts.version,
+      node_version: process.version,
+      platform: process.platform,
+      providers: opts.providers,
+      findings_targeted: opts.targeted,
+      agent_launched: opts.launched,
+      agent: opts.agent,
+      dry_run: opts.dryRun,
     });
   } catch {
     // Never surface telemetry errors to the user.

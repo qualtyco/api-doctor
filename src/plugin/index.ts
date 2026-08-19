@@ -125,6 +125,7 @@ import { s2CloseStreamClientRule } from '../providers/s2/rules/js/close-stream-c
 import { s2UseS2EnvironmentEndpointsRule } from '../providers/s2/rules/js/use-s2-environment-endpoints.js';
 import { s2MetricsDateArgumentsRule } from '../providers/s2/rules/js/metrics-date-arguments.js';
 import { s2TokenSecretHandlingRule } from '../providers/s2/rules/js/token-secret-handling.js';
+import { s2RemovedSymbolRule } from '../providers/s2/rules/js/removed-symbol.js';
 import { agentmailVerifyApprovalReplySenderRule } from '../providers/agentmail/rules/js/verify-approval-reply-sender.js';
 import { agentmailInboxCreateClientIdRule } from '../providers/agentmail/rules/js/inbox-create-client-id.js';
 import { agentmailHandleSendFailureStatusRule } from '../providers/agentmail/rules/js/handle-send-failure-status.js';
@@ -279,6 +280,7 @@ const plugin = {
     's2-use-s2-environment-endpoints': s2UseS2EnvironmentEndpointsRule,
     's2-metrics-date-arguments': s2MetricsDateArgumentsRule,
     's2-token-secret-handling': s2TokenSecretHandlingRule,
+    's2-removed-symbol': s2RemovedSymbolRule,
 
     'agentmail-verify-approval-reply-sender': agentmailVerifyApprovalReplySenderRule,
     'agentmail-inbox-create-client-id': agentmailInboxCreateClientIdRule,

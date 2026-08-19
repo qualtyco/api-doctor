@@ -17,12 +17,16 @@ Deterministic AST rules. Not a prompt. Same input, same output, every time.
 ## Quick Start
 
 ```bash
-# Scan your project
+# Scan your project — and, if it finds errors, offer to open
+# Claude Code, Cursor, or Codex on them
 npx @api-doctor/cli .
 
 # Or install as an agent skill (Claude Code, Cursor, Windsurf)
 npx @api-doctor/cli install
 ```
+
+One command. The scan prints, and if there is anything it can hand to an agent
+it asks which one — no second incantation to discover.
 
 ## Install In Your Codebase (recommended)
 
@@ -30,20 +34,20 @@ npx @api-doctor/cli install
 
 ## 📦 Supported Providers
 
-| Provider                                                                                | Rules                                                                                            |
-| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| [Resend](https://resend.com/docs)                                                       | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/resend/README.md)      |
-| [Supabase](https://supabase.com/docs)                                                   | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md)    |
-| [Auth0](https://auth0.com/docs)                                                         | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md)        |
-| [Firebase](https://firebase.google.com/docs)                                            | [19 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md)    |
-| [Browserbase](https://docs.browserbase.com)                                             | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) |
-| [OpenAI](https://platform.openai.com/docs/api-reference)                                | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai/README.md)       |
-| [Tiptap](https://tiptap.dev/docs)                                                       | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md)      |
-| [ElevenLabs](https://elevenlabs.io/docs)                                                | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md)  |
-| [Twilio](https://www.twilio.com/docs)                                                   | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md)       |
-| [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime)               | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-realtime/README.md) |
-| [S2](https://s2.dev/docs/intro)                                                         | [17 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/s2/README.md)          |
-| [AgentMail](https://docs.agentmail.to/welcome)                                          | [14 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/agentmail/README.md)   |
+| Provider | Rules | SDK verified |
+| --- | --- | --- |
+| [Resend](https://resend.com/docs) | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/resend/README.md) | `resend` 6.20.0 |
+| [Supabase](https://supabase.com/docs) | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md) | — |
+| [Auth0](https://auth0.com/docs) | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md) | `auth0` 6.3.0 |
+| [Firebase](https://firebase.google.com/docs) | [19 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md) | — |
+| [Browserbase](https://docs.browserbase.com) | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) | — |
+| [OpenAI](https://platform.openai.com/docs/api-reference) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai/README.md) | — |
+| [Tiptap](https://tiptap.dev/docs) | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md) | — |
+| [ElevenLabs](https://elevenlabs.io/docs) | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md) | `@elevenlabs/elevenlabs-js` 2.64.0 |
+| [Twilio](https://www.twilio.com/docs) | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md) | — |
+| [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime) | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-realtime/README.md) | — |
+| [S2](https://s2.dev/docs/intro) | [18 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/s2/README.md) | `@s2-dev/streamstore` 0.26.0 |
+| [AgentMail](https://docs.agentmail.to/welcome) | [14 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/agentmail/README.md) | — |
 
 Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 
@@ -51,19 +55,72 @@ Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doc
 
 ## What it catches
 
-Rules cover three categories: security (CWE/OWASP mapped), correctness (wrong endpoints), and reliability (production failure modes)
-
 | Category        | What it means                                                         | Examples                                                                                      |
 | --------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | **Security**    | Are your integrations secure? Mapped to CWE and OWASP audits. | Hardcoded API keys, secrets in the client bundle, webhooks read before signature verification |
 | **Correctness** | Are you using the right endpoint or API for the job?                                    | Marketing email via batch send, missing unsubscribe links, test domain in production          |
 | **Reliability** | Is your integration production ready or following suggested best practices?                | Missing idempotency keys, batch limits not enforced, error codes not mapped                   |
+| **Compatabiltiy** | Is your SDK version updated to latest release?                | Upgrade your codebase with the latest SDK version with best practices for that version                   |
 
 ---
 
-## Why deterministic matters
+## Fixing what it finds
 
-You can't test AI code with AI. api-doctor breaks that loop. Same rules, same output, every time. Not a model call. Not a prompt.
+The scan closes the loop without giving up that guarantee. When it finds errors, it asks
+which agent to open:
+
+```
+3 error(s) can be fixed. Open them in:
+  ↑/↓ to move · enter to select · esc to skip
+
+❯ Claude Code
+  Cursor           not installed
+  Codex
+  Skip for now
+```
+
+Pick one and api-doctor puts the prompt on your clipboard and opens **your own** agent
+in this directory. **Nothing is submitted for you** — you paste it, read it, edit it if
+you want, and press enter yourself.
+
+```bash
+npx @api-doctor/cli .                # scan → choose an agent
+npx @api-doctor/cli . --fix          # skip the menu (uses whichever agent you have)
+npx @api-doctor/cli . --fix cursor   # skip the menu, pick the agent
+npx @api-doctor/cli . --fix-dry-run  # print the prompt, open nothing
+npx @api-doctor/cli . --no-fix       # never offer — the CI flag
+```
+
+Outside a terminal — CI, a pipe, `--format json` — there is nobody to ask, so the offer
+never appears and the scan behaves exactly as it always has.
+
+It hands over **errors**, in any category: the findings serious enough to fail a build.
+Warnings and info stay out of the prompt rather than burying them.
+
+Three properties are deliberate:
+
+- **The scan is still not a model call.** Detection is the same AST rules as always. The
+  model only acts on what they found.
+- **The agent is told the intent, never the pattern.** The prompt is a one-line index of
+  the errors and a pointer to `.api-doctor/report.json`, where each one carries its fix
+  guidance, a docs link, and the offending snippet — never what the rule matches on.
+  Handing over the matcher teaches an agent to satisfy the matcher instead of the
+  requirement. Any correct fix passes; there is no expected snippet.
+- **The agent's word isn't evidence — and it's told so.** The prompt ends by telling the
+  agent to run `npx @api-doctor/cli@latest .` itself and keep going until the errors are
+  gone and nothing new has appeared. Verification happens inside the session, where the
+  agent can still act on the answer; api-doctor doesn't re-scan behind it.
+
+It opens your agent as a normal interactive session in your terminal, with your usual
+tool approvals, no prompt argument and no bypass flags — a launcher, not an autonomous
+agent. The agent's own CLI (`claude`, `cursor-agent`, or `codex`) has to be on your
+`PATH`; `--fix-dry-run` prints the prompt for anything else.
+
+**Your working tree stays yours.** The agent is told not to commit, stage, or push
+anything, and to finish with a one-line-per-file summary of what it changed and why —
+so you can read the reasoning, then review the diff yourself.
+
+The full scan prints before the session opens, so it's still on screen when you exit.
 
 ---
 
@@ -80,6 +137,9 @@ api-doctor sends anonymous usage data to PostHog so we can see whether the tool 
 - Which documented SDK methods the scanned code calls (`sdk_used`, e.g. `emails.send`), plus a count of unrecognized calls on those clients (`unknown_sdk_calls`) — method names come from a fixed per-provider list shipped with the tool, never from your code
 - Which AI model (or agent) most likely wrote the scanned code (`ai_model`), plus which signal determined it (`ai_model_source`). This is inferred locally from agent config files (e.g. `CLAUDE.md`, `.cursor/`), AI co-author trailers in git history (e.g. `Co-Authored-By: Claude Opus 4.8`), model ids in local agent session state for this project (Claude Code's `~/.claude/projects/`, aider's `.aider.chat.history.md`, Codex's `~/.codex/sessions/`), and the `--agent-model` flag (or `API_DOCTOR_AGENT_MODEL`) that the installed agent skill asks coding agents to pass. Only the single resolved name is sent — never session content, commit data, or the underlying evidence
 - Score and finding counts
+- For fix runs: which agent was chosen (`claude`, `cursor`, or `codex` — the name only),
+  how many findings were handed to it, and whether the session opened — counts and names
+  only, never the prompt, the code, or the agent's output
 - Score delta between runs on the same project (stored locally in that project's `.api-doctor/run-history.json`)
 - A hashed project identifier (`project_hash`) — SHA-256 of the scanned directory path, not the path itself
 - Sanitized error messages and stack traces on unexpected crashes (paths redacted)

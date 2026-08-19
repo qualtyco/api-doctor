@@ -57,6 +57,7 @@ export async function renderVerboseReport(report: Report): Promise<void> {
     printSnippet(report, index);
     console.log('');
     console.log(`  ${pc.cyan('Fix:')} ${finding.fix}`);
+    if (finding.verifyHint) console.log(`  ${pc.cyan('Verify:')} ${finding.verifyHint}`);
     if (finding.docsUrl) console.log(`  ${pc.dim('Docs:')} ${finding.docsUrl}`);
     console.log('');
     await revealDelay();

@@ -90,8 +90,3 @@ export function nonClientBindingsFor(provider: string, filename: string): Set<st
   return byProvider.get(provider)?.get(real(filename))?.no;
 }
 
-/** True when the CLI verified at least one client binding in this file. */
-export function fileHasVerifiedClient(provider: string, filename: string): boolean {
-  const names = clientBindingsFor(provider, filename);
-  return names !== undefined && names.size > 0;
-}

@@ -58,6 +58,7 @@
     "test:unit": "vitest run",
     "check:links": "node scripts/check-docs-links.mjs",
     "check:surface": "node scripts/check-sdk-surface.mjs",
+    "sdk:watch": "node scripts/sdk-watch.mjs",
     "prepublishOnly": "npm run build"
   },
   "publishConfig": {

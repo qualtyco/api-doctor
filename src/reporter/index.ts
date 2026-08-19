@@ -3,8 +3,9 @@
  * structured report file. The default (no-flag) path renders the stable human
  * terminal output unchanged.
  */
+import type { ProviderVersion } from '../sdk-versions.js';
 import type { DetectedProvider, Report, ScanResult } from '../types.js';
-import { ScanError } from '../scanner.js';
+import { ScanError } from '../scan-error.js';
 import { INSTALL_COMMAND, isAgentSkillInstalled } from '../install.js';
 import { writeReport } from './json-writer.js';
 import { renderMarkdown } from './markdown.js';
@@ -24,6 +25,16 @@ export interface EmitOptions {
   /** Path shown to the user (relative when possible). */
   reportDisplayPath: string;
   elapsedMs?: number;
+  /** Installed SDK version per provider, keyed by provider name. */
+  versions?: Map<string, ProviderVersion>;
+  /** Score from the previous run on this project, for the delta line. */
+  previousScore?: number;
+  /**
+   * Hide the "connect your coding agent" box. Set when the run is about to
+   * offer that handoff itself — the box would be telling the user to do the
+   * thing the next prompt does for them.
+   */
+  suppressInstallHint?: boolean;
 }
 
 export { countErrors };
@@ -66,6 +77,8 @@ export async function emitReport(
       elapsedMs: options.elapsedMs,
       reportDisplayPath: options.noReport ? undefined : options.reportDisplayPath,
       coverage: report.coverage,
+      versions: options.versions,
+      previousScore: options.previousScore,
     });
   }
 
@@ -78,7 +91,8 @@ export async function emitReport(
   if (detected.length > 0) {
     renderFooter({
       reportPath: options.noReport ? undefined : options.reportDisplayPath,
-      showInstallHint: !isAgentSkillInstalled(report.scanMeta.directory),
+      showInstallHint:
+        !options.suppressInstallHint && !isAgentSkillInstalled(report.scanMeta.directory),
     });
   } else if (!options.noReport) {
     console.log(`→ Report written to ${options.reportDisplayPath}`);

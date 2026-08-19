@@ -1,3 +1,4 @@
+import { s2Compatibility } from './compatibility.js';
 import type { ProviderManifest } from '../../types.js';
 
 export const s2Manifest: ProviderManifest = {
@@ -16,7 +17,29 @@ export const s2Manifest: ProviderManifest = {
     clientConstructors: ['S2'],
     clientNamePattern: /^s2([-_]?client)?$/i,
     docsUrl: 'https://s2.dev/docs/api/protocol',
-    // Verified against @s2-dev/streamstore@0.25.0 dist/esm/*.d.ts (S2 root
+    // The version/commit this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm check:surface --local`
+    // reports every SDK source commit landed since `commit`, including logic
+    // changes that leave the method list untouched.
+    verified: {
+      version: '0.26.0',
+      commit: '7098ff8e59cecc0a248161dd51f166b84ca69610',
+      at: '2026-08-18',
+      sourceDir: 'packages/streamstore/src',
+    },
+    // Read for 0.26.0: the six source commits since 0.25.0 change behaviour
+    // only, never the account-level method list. S2Error.hasNoSideEffects()
+    // now also returns true for UND_ERR_CONNECT_TIMEOUT, so appends under
+    // appendRetryPolicy: 'noSideEffects' retry on a connect timeout instead
+    // of aborting (#328); Producer.flush() is new — a reusable durability
+    // barrier that no longer requires closing the producer to force a partial
+    // batch (#332); S2S read cancellation is idempotent, so cancelling a read
+    // mid-frame no longer raises ERR_INVALID_STATE (#331); the protobuf codec
+    // is lazily imported (#335, bundle size only). None is a removal or a
+    // rename, so nothing was added to compatibility.ts. Producer and the
+    // stream-scoped clients are outside this surface (see the scope note
+    // below), so flush() adds no method here.
+    // Verified against @s2-dev/streamstore@0.26.0 dist/esm/*.d.ts (S2 root
     // class: readonly resource props basins/accessTokens/locations/metrics
     // plus the basin() accessor) and cross-checked against the official
     // OpenAPI spec (github.com/s2-streamstore/s2-specs, s2/v1/openapi.json):
@@ -54,6 +77,7 @@ export const s2Manifest: ProviderManifest = {
       'metrics.stream',
     ],
   },
+  compatibility: s2Compatibility,
   rules: [
     {
       key: 's2-scoped-token-for-client',
@@ -182,6 +206,18 @@ export const s2Manifest: ProviderManifest = {
       fix: 'In TypeScript pass start/end as Date objects (e.g. new Date(Date.now() - 3600 * 1000)) and set interval: "hour" | "minute" for storage/append-ops metrics.',
       docsUrl: 'https://s2.dev/docs/sdk/metrics',
       severity: 'warning',
+    },
+    {
+      key: 's2-removed-symbol',
+      resultRule: 's2/removed-symbol',
+      message:
+        'Code references an @s2-dev/streamstore symbol that does not exist in the installed SDK version.',
+      fix: 'Rename the call to its current name — createOrReconfigureBasin → ensureBasin, createOrReconfigureStream → ensureStream. Verified wire-identical: same request, same arguments.',
+      docsUrl: 'https://s2.dev/docs/sdk/stream-resources',
+      severity: 'error',
+      // The finding must name the installed version ("you have 0.25.0
+      // installed") — that fact only exists at lint time.
+      dynamicMessage: true,
     },
     {
       key: 's2-token-secret-handling',

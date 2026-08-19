@@ -78,3 +78,17 @@ Network timeouts, version pinning, and conversation lifecycle cleanup.
 | API version pinning           | `route.ts`, `lib-elevenlabs.ts`          | `route.ts` (explicit header), `lib-elevenlabs.ts` (adversarial: spread shared headers) |
 | Conversation cleanup on error | `ConvAI.tsx`, `lib-cleanup.ts`            | `ConvAI.tsx` (direct try/catch), `lib-cleanup.ts` (adversarial: call inside unrelated try) |
 
+
+---
+
+## SDK surface coverage
+
+`manifest.ts` also declares a `surface` — the hand-written list of every SDK method
+path (verified against `@elevenlabs/elevenlabs-js@2.64.0` type declarations and
+cross-checked against `api.elevenlabs.io/openapi.json`), which drives the CLI's
+informational coverage section and the `sdk_used` telemetry prop. Coverage is
+**not a rule**: it never produces findings, never affects the score, and never
+reports counts or ratios. The scope is the ElevenAPI docs group only —
+ElevenAgents (`conversationalAi`), ElevenCreative (`studio`), Workspace admin and
+Core Resources roots are deliberately omitted and land in `unknown_sdk_calls`.
+See the scope note in `manifest.ts` for the full in/out list.

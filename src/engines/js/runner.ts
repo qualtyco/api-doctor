@@ -7,32 +7,32 @@ import { createRequire } from 'node:module';
 import os from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { PLUGIN_NAME, SKIP_DIR_NAMES } from '../../constants.js';
-import { providers } from '../../providers/index.js';
+import { getRuleDocsMeta } from '../../plugin/rule-registry.js';
+import { providers, verifyHintFromMessage } from '../../providers/index.js';
 import { ScanError } from '../../scan-error.js';
 import { ruleLanguages, type RuleMeta, type ScanResult } from '../../types.js';
 import type { EngineInput } from '../types.js';
 
 export const ENGINE_SKIP_DIRS = SKIP_DIR_NAMES;
 
-/** Builds oxlint rule config for javascript-capable rules on detected providers. */
+/**
+ * Maps rule key → metadata for javascript-capable rules on detected providers.
+ * The oxlint severity map is built where it is used (runJsEngine), not here.
+ */
 export function buildJsRuleConfig(detectedNames: Set<string>): {
-  oxlintRules: Record<string, 'error' | 'warn' | 'off'>;
   ruleMetaByKey: Map<string, RuleMeta>;
 } {
-  const oxlintRules: Record<string, 'error' | 'warn' | 'off'> = {};
   const ruleMetaByKey = new Map<string, RuleMeta>();
 
   for (const provider of providers) {
     if (!detectedNames.has(provider.name)) continue;
     for (const rule of provider.rules) {
       if (!ruleLanguages(rule).includes('javascript')) continue;
-      oxlintRules[`${PLUGIN_NAME}/${rule.key}`] =
-        rule.severity === 'error' || rule.severity === undefined ? 'error' : 'warn';
       ruleMetaByKey.set(rule.key, rule);
     }
   }
 
-  return { oxlintRules, ruleMetaByKey };
+  return { ruleMetaByKey };
 }
 
 function runOxlint(
@@ -88,6 +88,22 @@ function mapDiagnosticToResult(
   const content = filesContent.get(relFile) ?? '';
   const snippet = content.split(/\r?\n/)[line - 1]?.trim() ?? '';
 
+  // Rules with per-occurrence facts (e.g. the installed SDK version) opt in
+  // to shipping the message they rendered at lint time.
+  const message =
+    meta.dynamicMessage && typeof d.message === 'string' && d.message
+      ? d.message
+      : meta.message;
+
+  // Compatibility findings carry a hand-written verification hint. The lint
+  // diagnostic is only a string, so the hint is recovered from the removal the
+  // message names rather than threaded through oxlint. Scoped to the category
+  // so no other rule's message can ever resolve one.
+  const verifyHint =
+    getRuleDocsMeta(ruleKey)?.category === 'compatibility'
+      ? verifyHintFromMessage(message)
+      : undefined;
+
   return {
     file: relFile,
     line,
@@ -98,9 +114,10 @@ function mapDiagnosticToResult(
     ruleKey,
     rule: meta.resultRule,
     severity: meta.severity ?? (d.severity === 'warning' ? 'warning' : 'error'),
-    message: meta.message,
+    message,
     fix: meta.fix,
     docsUrl: meta.docsUrl,
+    ...(verifyHint ? { verifyHint } : {}),
   };
 }
 

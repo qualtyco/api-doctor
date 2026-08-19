@@ -7,7 +7,8 @@
 import pc from 'picocolors';
 import { INSTALL_COMMAND } from '../install.js';
 import { providers } from '../providers/index.js';
-import type { DetectedProvider, ProviderCoverage, ScanResult } from '../types.js';
+import type { ProviderVersion } from '../sdk-versions.js';
+import { computeScore, type DetectedProvider, type ProviderCoverage, type ScanResult } from '../types.js';
 import { lineDelay, revealDelay } from './animate.js';
 
 const ISSUES_URL = 'https://github.com/qualtyco/api-doctor/issues';
@@ -22,6 +23,10 @@ export interface ReportOptions {
   reportDisplayPath?: string;
   /** Informational SDK usage; rendered after the findings, never scored. */
   coverage?: ProviderCoverage[];
+  /** Installed SDK version per provider, keyed by provider name. */
+  versions?: Map<string, ProviderVersion>;
+  /** Score from the previous run on this project, for the delta line. */
+  previousScore?: number;
 }
 
 interface IssueGroup {
@@ -29,6 +34,11 @@ interface IssueGroup {
   message: string;
   fix: string;
   docsUrl?: string;
+  /**
+   * Taken from the same item the group's `message` came from, so the headline
+   * and its Verify line always describe the same finding.
+   */
+  verifyHint?: string;
   items: ScanResult[];
 }
 
@@ -55,23 +65,45 @@ function detectionSourceLabel(source: DetectedProvider['source']): string {
   }
 }
 
-async function printDetectedProviders(detected: DetectedProvider[]): Promise<void> {
+async function printDetectedProviders(
+  detected: DetectedProvider[],
+  versions?: Map<string, ProviderVersion>,
+): Promise<void> {
   console.log(pc.bold('Detected APIs & SDKs'));
   for (const d of detected) {
     const manifest = providers.find((p) => p.name === d.name);
     const label = manifest?.displayName ?? d.name;
     const via = pc.dim(`via ${detectionSourceLabel(d.source)}`);
+    const version = versions?.get(d.name);
+    // Absent when unresolvable — never render a guessed version.
+    const versionTag = version ? ` ${version.installed}` : '';
 
     if (d.checked) {
       const ruleCount = manifest?.rules.length ?? 0;
       const checks = pc.dim(`— ${ruleCount} check${ruleCount === 1 ? '' : 's'}`);
-      console.log(`  ${pc.green('✓')} ${label} ${via} ${checks}`);
+      console.log(`  ${pc.green('✓')} ${label}${versionTag} ${via} ${checks}`);
     } else {
-      console.log(`  ${pc.dim('○')} ${label} ${via} ${pc.dim('— no checks yet')}`);
+      console.log(`  ${pc.dim('○')} ${label}${versionTag} ${via} ${pc.dim('— no checks yet')}`);
+    }
+    // States the two versions and stops. Whether the gap matters is the
+    // reader's call; this must never read as an upgrade recommendation.
+    if (version?.differs) {
+      console.log(pc.dim(`      checks verified against ${version.packageName}@${version.verified}`));
     }
     await revealDelay();
   }
   console.log('');
+}
+
+/** Renders movement since the last run on this project, when there is any. */
+function printScoreDelta(score: number, previousScore?: number): void {
+  if (previousScore === undefined || previousScore === score) return;
+  const delta = score - previousScore;
+  const color = delta > 0 ? pc.green : pc.red;
+  const sign = delta > 0 ? '+' : '';
+  console.log(
+    `  ${color(`${delta > 0 ? '▲' : '▼'} ${sign}${delta}`)}${pc.dim(` since last run (was ${previousScore})`)}`,
+  );
 }
 
 function scoreColor(score: number): (s: string) => string {
@@ -139,7 +171,14 @@ function groupResults(results: ScanResult[]): IssueGroup[] {
   for (const r of results) {
     let group = groups.get(r.rule);
     if (!group) {
-      group = { rule: r.rule, message: r.message, fix: r.fix, docsUrl: r.docsUrl, items: [] };
+      group = {
+        rule: r.rule,
+        message: r.message,
+        fix: r.fix,
+        docsUrl: r.docsUrl,
+        verifyHint: r.verifyHint,
+        items: [],
+      };
       groups.set(r.rule, group);
     }
     group.items.push(r);
@@ -193,6 +232,9 @@ async function printIssueGroups(
     const prefix =
       severity === 'warning' ? pc.yellow('×') : severity === 'info' ? pc.cyan('ℹ') : pc.red('×');
     console.log(`${prefix} ${group.message}${countLabel}`);
+    // Directly under the headline: what changed is only half the finding, and
+    // the reader decides whether to trust the rewrite before they open a file.
+    if (group.verifyHint) console.log(pc.cyan(`    Verify: ${group.verifyHint}`));
     await lineDelay();
 
     for (const [index, item] of group.items.entries()) {
@@ -257,14 +299,14 @@ export async function renderTerminalReport(
   const errors = results.filter((r) => r.severity === 'error').length;
   const warnings = results.filter((r) => r.severity === 'warning').length;
   const infos = results.filter((r) => r.severity === 'info').length;
-  // Info findings are advisory and do not affect the score.
-  const score = Math.max(0, 100 - errors * 15 - warnings * 5);
+  const score = computeScore(errors, warnings);
   const fileCount = new Set(results.map((r) => r.file)).size;
   const checked = detected.filter((d) => d.checked);
 
   console.log('');
-  await printDetectedProviders(detected);
+  await printDetectedProviders(detected, options.versions);
   await printHeader(score);
+  printScoreDelta(score, options.previousScore);
   console.log('');
   await revealDelay();
 

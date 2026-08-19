@@ -5,18 +5,35 @@
  * Coverage's `surface.methods` lists are hand-verified snapshots of a
  * provider's SDK. When the SDK adds, renames, or removes methods, calls to
  * them silently drop out of coverage — undercounting that looks identical to
- * "unused" in the telemetry. This script downloads the provider's latest npm
- * package, derives the real method surface from its published type
- * declarations, and diffs it against the manifest.
+ * "unused" in the telemetry. This script derives the real method surface from
+ * the SDK's published type declarations and diffs it against the manifest.
  *
- * Usage: node scripts/check-sdk-surface.mjs
- * Exits 1 on drift. Network-dependent by design — run it before releases or
- * on a schedule (alongside check:links), not inside the unit-test suite.
+ * Usage:
+ *   node scripts/check-sdk-surface.mjs
+ *   node scripts/check-sdk-surface.mjs --local s2=/path/to/sdk/packages/streamstore
+ *
+ * Without --local, every target is packed from npm at @latest. With it, the
+ * named provider is read from a local package directory instead, and — when
+ * that directory sits in a git clone and the manifest carries
+ * `surface.verified` — the script also reports every SDK *source* commit
+ * landed since the verified revision.
+ *
+ * That second signal is the point. A method-name diff only ever catches added,
+ * renamed, or removed symbols; the majority of SDK changes are logic changes
+ * behind an unchanged signature (a retry policy, a cancellation path), which
+ * are invisible to type declarations but can still break integration code.
+ * Reading those commits is a human job — the script surfaces them, it never
+ * infers a rule or a compatibility entry from them.
+ *
+ * Exits 1 on method-surface drift. Source drift is reported, never fatal: a
+ * patch bump with no client-visible change is normal and must not break CI.
+ * Network-dependent by design — run it before releases or on a schedule
+ * (alongside check:links), not inside the unit-test suite.
  */
-import { execSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { execFileSync, execSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..');
@@ -727,66 +744,262 @@ function manifestMethods(manifestPath) {
   return new Set([...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
 }
 
+/**
+ * Extracts the `surface.verified` block from a manifest's source text, or null
+ * when the provider has not been source-verified yet. Read from source rather
+ * than by importing the module, matching manifestMethods — this script must
+ * stay runnable against an unbuilt tree.
+ */
+function manifestVerified(manifestPath) {
+  const text = readFileSync(manifestPath, 'utf8');
+  const block = text.match(/surface:\s*\{[\s\S]*?verified:\s*\{([\s\S]*?)\}/);
+  if (!block) return null;
+  const field = (name) => block[1].match(new RegExp(`${name}:\\s*'([^']*)'`))?.[1] ?? null;
+  const verified = {
+    version: field('version'),
+    commit: field('commit'),
+    at: field('at'),
+    sourceDir: field('sourceDir'),
+  };
+  return verified.version && verified.commit ? verified : null;
+}
+
+/** Parses `--local <provider>=<path>` / `--local=<provider>=<path>` off argv. */
+function parseLocalOverrides(argv) {
+  const overrides = new Map();
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    let pair = null;
+    if (arg === '--local') pair = argv[++i];
+    else if (arg.startsWith('--local=')) pair = arg.slice('--local='.length);
+    else continue;
+    if (!pair) throw new Error('--local expects <provider>=<path>');
+    const eq = pair.indexOf('=');
+    if (eq === -1) throw new Error(`--local expects <provider>=<path>, got "${pair}"`);
+    const provider = pair.slice(0, eq);
+    const path = pair.slice(eq + 1);
+    if (!provider || !path) throw new Error(`--local expects <provider>=<path>, got "${pair}"`);
+    overrides.set(provider, isAbsolute(path) ? path : resolve(process.cwd(), path));
+  }
+  return overrides;
+}
+
+/** Runs git in `cwd` and returns trimmed stdout; returns null on any failure. */
+function git(cwd, args) {
+  try {
+    return execFileSync('git', args, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fast-forwards the SDK checkout so everything downstream — the version read
+ * from package.json, the derived method surface, the source diff — describes
+ * one consistent revision. Must run before any of them.
+ *
+ * Never pulls a dirty tree: a local experiment in the SDK clone is not ours to
+ * touch, and the comparison against current HEAD is still worth doing.
+ */
+function pullLocalCheckout(provider, localPath) {
+  const gitRoot = git(localPath, ['rev-parse', '--show-toplevel']);
+  if (!gitRoot) return;
+
+  const dirty = git(gitRoot, ['status', '--porcelain']);
+  if (dirty === null) {
+    console.log(`  ${provider}: could not read git status — skipping pull`);
+  } else if (dirty !== '') {
+    console.log(`  ${provider}: SDK checkout has uncommitted changes — skipping pull, using current HEAD`);
+  } else if (git(gitRoot, ['pull', '--ff-only']) === null) {
+    console.log(`  ${provider}: git pull failed (offline or diverged) — using current HEAD`);
+  }
+}
+
+/**
+ * Reports SDK source commits landed since the manifest's verified revision.
+ * Informational only; the caller does not fail the run on what this prints.
+ */
+function reportSourceDrift(provider, localPath, verified) {
+  const gitRoot = git(localPath, ['rev-parse', '--show-toplevel']);
+  if (!gitRoot) {
+    console.log(`  ${provider}: ${localPath} is not a git checkout — skipping source diff`);
+    return;
+  }
+
+  if (git(gitRoot, ['cat-file', '-e', `${verified.commit}^{commit}`]) === null) {
+    console.error(`  ${provider}: verified commit ${verified.commit.slice(0, 9)} not found in the checkout — is surface.verified.commit correct?`);
+    return;
+  }
+
+  const head = git(gitRoot, ['rev-parse', 'HEAD']);
+  if (head === verified.commit) {
+    console.log(`  ${provider}: SDK source unchanged since verified commit ${verified.commit.slice(0, 9)}`);
+    return;
+  }
+
+  // Scope the diff to the client source the manifest points at; without a
+  // sourceDir the whole repo is in scope, which is noisier but never wrong.
+  const scope = verified.sourceDir ? ['--', verified.sourceDir] : [];
+  const range = `${verified.commit}..HEAD`;
+  const commits = git(gitRoot, ['log', '--oneline', range, ...scope]);
+  if (commits === null) {
+    console.error(`  ${provider}: could not diff ${range}`);
+    return;
+  }
+  if (commits === '') {
+    console.log(`  ${provider}: no commits touching ${verified.sourceDir ?? 'the SDK'} since ${verified.commit.slice(0, 9)}`);
+    return;
+  }
+
+  const lines = commits.split('\n');
+  console.log(`  ${provider}: ${lines.length} SDK source commit(s) since verified ${verified.version} (${verified.commit.slice(0, 9)}):`);
+  for (const line of lines) console.log(`    ${line}`);
+
+  const stat = git(gitRoot, ['diff', '--stat', range, ...scope]);
+  if (stat) for (const line of stat.split('\n')) console.log(`    ${line}`);
+
+  const full = git(gitRoot, ['diff', range, ...scope]);
+  if (full) {
+    const out = join(tmpdir(), `api-doctor-${provider}-sdk-diff.patch`);
+    writeFileSync(out, `${full}\n`);
+    console.log(`    full diff: ${out}`);
+  }
+  console.log(`    review these, then bump surface.verified in ${provider}'s manifest`);
+}
+
 let failed = false;
 
+let localOverrides;
+try {
+  localOverrides = parseLocalOverrides(process.argv.slice(2));
+} catch (err) {
+  console.error(`check-sdk-surface: ${err.message}`);
+  process.exit(2);
+}
+
+for (const provider of localOverrides.keys()) {
+  if (!TARGETS.some((t) => t.provider === provider)) {
+    console.error(`check-sdk-surface: --local names unknown provider "${provider}"`);
+    console.error(`  known: ${TARGETS.map((t) => t.provider).join(', ')}`);
+    process.exit(2);
+  }
+}
+
+/** Type-declaration entry points a target's deriver needs inside the package. */
+function expectedEntries(target) {
+  if (target.rootClasses) return target.rootClasses.map((r) => r.entry);
+  if (target.dts) return target.dts;
+  return [];
+}
+
+/**
+ * Runs the target's shape-specific deriver. Returns the derived method-path
+ * set, or null when the declarations it needs are absent (already reported).
+ */
+function deriveForTarget(target, pkgDir, tmp, version) {
+  if (target.composite) return deriveCompositeSurface(pkgDir, tmp, target.composite);
+  if (target.firebaseProducts) return deriveFirebaseModularSurface(pkgDir, target.firebaseProducts);
+  if (target.rootClasses) {
+    return deriveLinkedSurface(pkgDir, target.rootClasses, {
+      linkReadonlyProps: target.linkReadonlyProps,
+    });
+  }
+  let dtsText = null;
+  let dtsPath = null;
+  for (const candidate of target.dts) {
+    try {
+      dtsText = readFileSync(join(pkgDir, candidate), 'utf8');
+      dtsPath = candidate;
+      break;
+    } catch {
+      // try next candidate
+    }
+  }
+  if (dtsText === null) {
+    console.error(`FAIL ${target.provider}: none of ${target.dts.join(', ')} found in ${target.pkg}@${version}`);
+    return null;
+  }
+  return target.multiFile
+    ? deriveSurfaceMultiFile(pkgDir, dtsPath, target.rootClass)
+    : deriveSurface(parseClasses(dtsText), target.rootClass);
+}
+
 for (const target of TARGETS) {
+  const localPath = localOverrides.get(target.provider);
   const tmp = mkdtempSync(join(tmpdir(), 'api-doctor-surface-'));
   try {
-    execSync(`npm pack ${target.pkg}@latest --pack-destination "${tmp}"`, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      // npm's notice output can exceed execSync's 1 MB default (ENOBUFS).
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    const tarball = readdirSync(tmp).find((f) => f.endsWith('.tgz'));
-    if (!tarball) throw new Error(`npm pack produced no tarball for ${target.pkg}`);
-    execSync(`tar xzf "${tarball}"`, { cwd: tmp });
-    const pkgDir = join(tmp, 'package');
-    const version = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')).version;
-
-    let derived;
-    if (target.composite) {
-      derived = deriveCompositeSurface(pkgDir, tmp, target.composite);
-    } else if (target.firebaseProducts) {
-      derived = deriveFirebaseModularSurface(pkgDir, target.firebaseProducts);
-    } else if (target.rootClasses) {
-      derived = deriveLinkedSurface(pkgDir, target.rootClasses, {
-        linkReadonlyProps: target.linkReadonlyProps,
-      });
-    } else {
-      let dtsText = null;
-      let dtsPath = null;
-      for (const candidate of target.dts) {
-        try {
-          dtsText = readFileSync(join(pkgDir, candidate), 'utf8');
-          dtsPath = candidate;
-          break;
-        } catch {
-          // try next candidate
-        }
-      }
-      if (dtsText === null) {
-        console.error(`FAIL ${target.provider}: none of ${target.dts.join(', ')} found in ${target.pkg}@${version}`);
+    let pkgDir;
+    // These derivers all read compiled .d.ts, so an unbuilt source checkout
+    // has nothing for them to parse. That only disables the method diff — the
+    // source diff below reads git, not dist, and is the signal local mode
+    // exists for, so it must stay reachable on an unbuilt SDK.
+    let canDeriveMethods = true;
+    if (localPath) {
+      pkgDir = localPath;
+      if (!existsSync(join(pkgDir, 'package.json'))) {
+        console.error(`FAIL ${target.provider}: no package.json at ${pkgDir}`);
+        console.error('  point --local at the package directory itself, not the monorepo root');
         failed = true;
         continue;
       }
-      derived = target.multiFile
-        ? deriveSurfaceMultiFile(pkgDir, dtsPath, target.rootClass)
-        : deriveSurface(parseClasses(dtsText), target.rootClass);
+      // Before the version and the surface are read off disk, so all three
+      // signals describe the same revision.
+      pullLocalCheckout(target.provider, pkgDir);
+      const entries = expectedEntries(target);
+      if (entries.length > 0 && !entries.some((e) => existsSync(join(pkgDir, e)))) {
+        console.log(`${target.provider}: no built type declarations (${entries.join(' or ')}) — skipping method diff`);
+        console.log('  build the SDK in that package (e.g. `bun run build`) to include it');
+        canDeriveMethods = false;
+      }
+    } else {
+      execSync(`npm pack ${target.pkg}@latest --pack-destination "${tmp}"`, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        // npm's notice output can exceed execSync's 1 MB default (ENOBUFS).
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      const tarball = readdirSync(tmp).find((f) => f.endsWith('.tgz'));
+      if (!tarball) throw new Error(`npm pack produced no tarball for ${target.pkg}`);
+      execSync(`tar xzf "${tarball}"`, { cwd: tmp });
+      pkgDir = join(tmp, 'package');
     }
-    const listed = manifestMethods(join(ROOT, target.manifest));
+    const version = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')).version;
+    const manifestPath = join(ROOT, target.manifest);
+    const verified = manifestVerified(manifestPath);
 
-    const missing = [...derived].filter((m) => !listed.has(m)).sort();
-    const stale = [...listed].filter((m) => !derived.has(m)).sort();
-
-    if (missing.length === 0 && stale.length === 0) {
-      console.log(`${target.provider}: surface matches ${target.pkg}@${version} (${listed.size} methods)`);
-      continue;
+    if (canDeriveMethods) {
+      const derived = deriveForTarget(target, pkgDir, tmp, version);
+      if (derived === null) {
+        failed = true;
+      } else {
+        const listed = manifestMethods(manifestPath);
+        const missing = [...derived].filter((m) => !listed.has(m)).sort();
+        const stale = [...listed].filter((m) => !derived.has(m)).sort();
+        const source = localPath ? `${pkgDir} (local)` : `${target.pkg}@${version}`;
+        if (missing.length === 0 && stale.length === 0) {
+          console.log(`${target.provider}: surface matches ${source} (${listed.size} methods)`);
+        } else {
+          failed = true;
+          console.error(`FAIL ${target.provider}: surface drift against ${source}`);
+          for (const m of missing) console.error(`  missing from manifest: ${m}`);
+          for (const m of stale) console.error(`  stale in manifest (not in SDK): ${m}`);
+          console.error(`  update ${target.manifest} and re-verify against the SDK docs`);
+        }
+      }
     }
-    failed = true;
-    console.error(`FAIL ${target.provider}: surface drift against ${target.pkg}@${version}`);
-    for (const m of missing) console.error(`  missing from manifest: ${m}`);
-    for (const m of stale) console.error(`  stale in manifest (not in SDK): ${m}`);
-    console.error(`  update ${target.manifest} and re-verify against the SDK docs`);
+
+    // Version and source drift are advisory: a bump with no client-visible
+    // change is routine, and failing on it would make the guard cry wolf.
+    if (verified && verified.version !== version) {
+      console.log(`  ${target.provider}: SDK is at ${version}, manifest verified at ${verified.version} (${verified.at}) — re-verify`);
+    }
+    if (localPath && verified) {
+      reportSourceDrift(target.provider, pkgDir, verified);
+    }
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

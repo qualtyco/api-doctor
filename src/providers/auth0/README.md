@@ -85,7 +85,7 @@ JWKS cache refresh on key rotation.
 ## SDK surface coverage
 
 `manifest.ts` also declares a `surface` — the hand-written list of every SDK method
-path of the `auth0` package (node-auth0, verified against `auth0@6.1.0` type
+path of the `auth0` package (node-auth0, verified against `auth0@6.3.0` type
 declarations and cross-checked against the Fern-generated `reference.md` shipped in
 the same package), spanning `ManagementClient`, `AuthenticationClient`, and
 `UserInfoClient`. It drives the CLI's informational coverage section and the

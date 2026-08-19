@@ -15,13 +15,26 @@ export const resendManifest: ProviderManifest = {
     clientConstructors: ['Resend'],
     clientNamePattern: /^resend([-_]?client)?$/i,
     docsUrl: 'https://resend.com/docs/api-reference/introduction',
-    // Verified against resend@6.18.0 dist/index.d.mts resource classes and
+    // The SDK revision this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm sdk:watch` lists every
+    // source commit landed since `commit`, including the logic changes that
+    // leave the method list untouched.
+    verified: {
+      version: '6.20.0',
+      commit: '5bc4c27d9bedb0f7288609a8d3e1c16adc3ad7e7',
+      at: '2026-08-19',
+      sourceDir: 'src',
+    },
+    // Verified against resend@6.20.0 dist/index.d.mts resource classes and
     // cross-checked against Resend's OpenAPI spec (openapi_resend.yaml in
     // this directory): every spec endpoint maps to a method below. Four
     // entries are SDK-side extras with no 1:1 endpoint, all present in the
     // SDK types: emails.create/batch.create (documented aliases of
     // emails.send/batch.send), webhooks.verify (local signature helper),
     // and emails.receiving.forward (in the SDK, not yet in the spec copy).
+    // Added since 6.18.0, both plain additions read from the SDK source:
+    // broadcasts.cancel (6.19.0, POST /broadcasts/{id}/cancel) and
+    // automations.duplicate (6.20.0, POST /automations/{id}/duplicate).
     // `audiences` is a deprecated alias of Segments kept because real code
     // still uses it (Audiences→Segments docs migration is in progress) —
     // re-verify this list on Resend SDK majors (`pnpm check:surface`).
@@ -34,6 +47,7 @@ export const resendManifest: ProviderManifest = {
       'audiences.list',
       'audiences.remove',
       'automations.create',
+      'automations.duplicate',
       'automations.get',
       'automations.list',
       'automations.remove',
@@ -43,6 +57,7 @@ export const resendManifest: ProviderManifest = {
       'automations.update',
       'batch.create',
       'batch.send',
+      'broadcasts.cancel',
       'broadcasts.create',
       'broadcasts.get',
       'broadcasts.list',

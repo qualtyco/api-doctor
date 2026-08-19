@@ -1,6 +1,6 @@
 # S2
 
-17 oxlint rules for [S2](https://s2.dev/docs/intro) (`@s2-dev/streamstore`), the durable real-time stream store.
+18 oxlint rules for [S2](https://s2.dev/docs/intro) (`@s2-dev/streamstore`), the durable real-time stream store.
 
 |                          |                              |
 | ------------------------ | ---------------------------- |
@@ -55,9 +55,36 @@ The append durability/exactly-once contract (at-least-once by default, exactly-o
 | close-stream-client | warning | Sessions/Producers pin an HTTP/2 connection; never closing them leaks per request or hangs process exit. | [Appending](https://s2.dev/docs/sdk/appending) | [close-stream-client.ts](rules/close-stream-client.ts) | [test](../../../tests/rules/s2-close-stream-client.test.ts) |
 | use-s2-environment-endpoints | info (advisory) | Env-token clients without `...S2Environment.parse()` or `endpoints` are pinned to the cloud service — s2-lite/self-hosted can't be targeted. | [Endpoints](https://s2.dev/docs/sdk/endpoints) | [use-s2-environment-endpoints.ts](rules/use-s2-environment-endpoints.ts) | [test](../../../tests/rules/s2-use-s2-environment-endpoints.test.ts) |
 
+### Compatibility
+
+Code versus the SDK version this project has installed. These rules never suggest upgrading: an old symbol on a deliberately pinned old version is correct and stays silent forever. They fire only when the code references a symbol that provably does not exist in what `node_modules`/the lockfile/a pinned range resolves to — a runtime failure nothing else catches in plain `.js` files. Removals are hand-verified against both published tarballs (implementation, not just the type diff) in [compatibility.ts](compatibility.ts); silence whenever the installed version cannot be resolved.
+
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| removed-symbol | error | `createOrReconfigureBasin`/`createOrReconfigureStream` became `ensureBasin`/`ensureStream` in 0.24.0 (wire-identical renames); agents trained pre-May 2026 write the old names, which throw on ≥ 0.24.0. The finding names the installed version and the rename. | [Stream resources](https://s2.dev/docs/sdk/stream-resources) | [removed-symbol.ts](rules/js/removed-symbol.ts) | [test](../../../tests/rules/s2-removed-symbol.test.ts) |
+
 ---
 
 ## Non-rule findings (from the audit)
 
 - **`ack.end.seqNum` is exclusive** (Finding G): a static rule can't distinguish "used as last record" (bug) from "used as exclusive bound" (correct) without dataflow — documented here instead.
 - **`noSideEffects` without failure verification** (Partial P1): after a failed append under `noSideEffects`, the caller must verify (checkTail/read) whether the write landed; an absence-of-verification pattern is not reliably static.
+
+---
+
+## SDK surface coverage
+
+`manifest.ts` also declares a `surface` — the hand-written list of every SDK method
+path (verified against `@s2-dev/streamstore@0.26.0` type declarations and
+cross-checked against the official OpenAPI spec, `s2/v1/openapi.json` in
+`s2-streamstore/s2-specs`), which drives the CLI's informational coverage section
+and the `sdk_used` telemetry prop. Coverage is **not a rule**: it never produces
+findings, never affects the score, and never reports counts or ratios. Only the
+15 account-level endpoints are listed; the basin- and stream-scoped data plane is
+reached through `s2.basin(name)` and is not attributable by the collector, so
+`basin` appearing in `used` is the signal that data-plane usage exists.
+
+`surface.verified` records the SDK revision a human last read
+(0.26.0 / `7098ff8`, 2026-08-18). `pnpm check:surface --local s2=<path>` lists
+every SDK source commit landed since it, including the behaviour changes a
+method-name diff cannot see.

@@ -8,6 +8,13 @@ export interface ProjectRunHistory {
   last_score: number;
   last_run: string;
   run_count: number;
+  /**
+   * Removed-SDK-symbol names present in the last run's compatibility findings
+   * (closed vocabulary from the compat manifests). Lets the next run report
+   * compat_fixed_since_last_run — the metric the compatibility class exists
+   * to measure. Absent on histories written before the field existed.
+   */
+  compat_symbols?: string[];
 }
 
 function historyPath(projectDir: string): string {

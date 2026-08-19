@@ -4,7 +4,7 @@
 
 export type Severity = 'error' | 'warning' | 'info';
 
-export type FindingCategory = 'security' | 'correctness' | 'reliability';
+export type FindingCategory = 'security' | 'correctness' | 'reliability' | 'compatibility';
 
 export type ReportSeverityLabel = 'excellent' | 'good' | 'needs-work' | 'critical';
 
@@ -25,6 +25,12 @@ export interface ScanResult {
   message: string;
   fix: string;
   docsUrl?: string;
+  /**
+   * Compatibility findings only: what to check before trusting the rewrite.
+   * Hand-written on the provider's removal entry and recovered from the
+   * rendered message (see providers/index.ts) — absent for every other rule.
+   */
+  verifyHint?: string;
 }
 
 /** Maps a provider rule to message/fix metadata used when reporting findings. */
@@ -42,6 +48,13 @@ export interface RuleMeta {
    * Defaults to `['javascript']` when omitted.
    */
   languages?: RuleLanguage[];
+  /**
+   * Use the message rendered by the rule at lint time instead of the static
+   * `message` above. For rules whose finding must carry per-occurrence facts
+   * (e.g. the installed SDK version); the static `message` remains the
+   * fallback when the engine yields no message text.
+   */
+  dynamicMessage?: boolean;
 }
 
 /** @deprecated Prefer RuleMeta. Alias kept for gradual migration. */
@@ -69,6 +82,77 @@ export interface ProviderManifest {
   rules: RuleMeta[];
   /** SDK surface description driving coverage collection. Optional — coverage is skipped for providers without one. */
   surface?: ProviderSurface;
+  /**
+   * Hand-verified symbol removals for this provider's SDK. Optional — a
+   * provider has one once someone has compared two published tarballs by hand.
+   *
+   * Declaring it here is the whole registration: the removals live in
+   * `providers/<name>/compatibility.ts`, and everything that needs them across
+   * providers (telemetry, the reporter's verify hint) derives from this field
+   * via `providers/index.ts`. There is no second list to add a provider to.
+   */
+  compatibility?: ProviderCompatibility;
+}
+
+/**
+ * One provider's compatibility data: the package the removals belong to, and
+ * the removals themselves.
+ *
+ * The package name is part of the record because every consumer needs it —
+ * the rule resolves the installed version from it, telemetry reports that
+ * version — and reading it off the manifest is what keeps those consumers
+ * from hardcoding one provider's package.
+ */
+export interface ProviderCompatibility {
+  /** npm package the removals apply to (e.g. '@s2-dev/streamstore'). */
+  package: string;
+  removals: SymbolRemoval[];
+}
+
+/**
+ * A symbol that no longer exists in some version of a provider's SDK.
+ *
+ * Every field is hand-verified against the published tarballs — implementation,
+ * not just the type diff. `wireIdentical` in particular is never inferred from
+ * a rename: it asserts that the old and new symbol issue the same HTTP method
+ * to the same path with the same arguments, which only reading both builders
+ * can establish. See `providers/s2/compatibility.ts` for the worked example
+ * and the rules for writing `verifyHint`.
+ */
+export interface SymbolRemoval {
+  /** Exported symbol name as it appeared in the SDK. */
+  symbol: string;
+  /** First version in which the symbol no longer exists. */
+  removedIn: string;
+  /** Replacement symbol, when one exists. */
+  replacement?: string;
+  kind: 'rename' | 'signature-change' | 'removed';
+  /** Old and new symbol make the identical wire call — set by hand only. */
+  wireIdentical: boolean;
+  /** Date the tarball comparison was performed. */
+  verifiedAt: string;
+  /** Where in the published package the removal was confirmed. */
+  evidence: string;
+  /**
+   * What to check before trusting the rewrite, in the reader's terms. Shown to
+   * the developer and to the agent as a separate labelled line — the message
+   * says what changed, this says what to verify.
+   *
+   * Hand-written per entry, never generated from a diff or inferred from a
+   * changelog — the same discipline `wireIdentical` and `evidence` already
+   * require. Two rules for writing one:
+   *
+   *   - `wireIdentical: true` → say so explicitly and name what is identical
+   *     (method, path, auth, request shape), so the reader can stop looking.
+   *   - anything else (signature or behavior change) → name the specific thing
+   *     that can differ and how to test it, e.g. "the old call retried
+   *     automatically on 5xx and the new one does not — check that retry logic
+   *     wraps this call site now".
+   *
+   * "Verify carefully" is not a hint. If there is nothing concrete to name,
+   * the entry is not verified enough to ship.
+   */
+  verifyHint: string;
 }
 
 /**
@@ -87,6 +171,31 @@ export interface ProviderSurface {
   methods: string[];
   /** Docs page the method list was verified against. */
   docsUrl: string;
+  /**
+   * Last hand-verification of this surface against the SDK's own source.
+   *
+   * The manifest — not npm — is the source of truth for what this repo
+   * supports. `commit` pins the exact SDK revision a human read, which is what
+   * makes `check:surface --local` able to diff SDK *source* forward from here:
+   * a method-name diff only ever shows added/removed symbols, while most
+   * breaking changes are logic changes behind an unchanged signature.
+   */
+  verified?: SurfaceVerification;
+}
+
+/** A point-in-time hand-verification of a surface against the SDK's source. */
+export interface SurfaceVerification {
+  /** SDK version verified against (semver, no leading `v`). */
+  version: string;
+  /** Full commit SHA in the SDK's own repository at that version. */
+  commit: string;
+  /** ISO date (YYYY-MM-DD) the verification was performed. */
+  at: string;
+  /**
+   * Path within the SDK repo holding the client source, relative to its git
+   * root — the scope `check:surface --local` diffs forward from `commit`.
+   */
+  sourceDir: string;
 }
 
 /**
@@ -183,6 +292,12 @@ export interface Finding {
   severity: Severity;
   message: string;
   fix: string;
+  /**
+   * Compatibility findings only: what to check before trusting the rewrite.
+   * Its own key on purpose — `fix` says what to change, this says what could
+   * still differ afterwards, and folding the two would lose that distinction.
+   */
+  verifyHint?: string;
   docsUrl?: string;
   cwe?: string;
   owasp?: string;
@@ -207,6 +322,16 @@ export const SEVERITY_ORDER: Record<Severity, number> = {
   warning: 1,
   info: 2,
 };
+
+/**
+ * The 0–100 score. Info findings are advisory and never affect it.
+ *
+ * The single definition — the report and the terminal header must never be
+ * able to disagree about the headline number.
+ */
+export function computeScore(errors: number, warnings: number): number {
+  return Math.max(0, 100 - errors * 15 - warnings * 5);
+}
 
 /** Maps a 0–100 score to the structured report's severity label. */
 export function scoreToSeverityLabel(score: number): ReportSeverityLabel {

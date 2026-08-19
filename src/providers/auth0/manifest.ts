@@ -15,7 +15,17 @@ export const auth0Manifest: ProviderManifest = {
     clientConstructors: ['ManagementClient', 'AuthenticationClient', 'UserInfoClient'],
     clientNamePattern: /^auth0([-_]?client)?$/i,
     docsUrl: 'https://auth0.com/docs/api',
-    // Verified against auth0@6.1.0 (node-auth0, Fern-generated) published type
+    // The SDK revision this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm sdk:watch` lists every
+    // source commit landed since `commit`, including the logic changes that
+    // leave the method list untouched.
+    verified: {
+      version: '6.3.0',
+      commit: 'f9d641348a39b5203a59a445e8bff2c094eadaee',
+      at: '2026-08-19',
+      sourceDir: 'src',
+    },
+    // Verified against auth0@6.3.0 (node-auth0, Fern-generated) published type
     // declarations: ManagementClient resource getters walked from
     // dist/cjs/management/Client.d.ts (the exported wrapper in
     // wrapper/ManagementClient.d.ts extends it without adding resources),
@@ -23,7 +33,7 @@ export const auth0Manifest: ProviderManifest = {
     // (database/oauth/passwordless classes plus the IBackchannel and
     // ICustomTokenExchange interfaces), and UserInfoClient from
     // dist/cjs/userinfo/index.d.ts. Completeness cross-checked against the
-    // Fern-generated reference.md shipped in the same package: all 428
+    // Fern-generated reference.md shipped in the same package: all 444
     // Management paths match 1:1 in both directions; the remaining 18 entries
     // are the Authentication API client (database.*, oauth.*, passwordless.*,
     // backchannel.*, tokenExchange.*) and UserInfoClient.getUserInfo, which
@@ -34,7 +44,22 @@ export const auth0Manifest: ProviderManifest = {
     // internal ID-token helper, not documented API surface). The
     // 'auth0/legacy' subpath (re-export of the auth0-legacy v4-style SDK) and
     // the MyAccount / MyOrganization APIs (no client in this SDK) are out of
-    // scope. Re-verify on SDK majors (`pnpm check:surface`).
+    // scope. Added in 6.2.0, all plain additions read from the SDK source:
+    // the agents.* namespace (/agents CRUD), organizations.clients.*
+    // (/organizations/{id}/clients), organizations.roles.groups.list, and
+    // connections.directoryProvisioning.add/deleteSynchronizedGroupSelections
+    // (POST/DELETE on the existing synchronized-groups path). Added in 6.3.0:
+    // keys.networkAcls.list/create (GET/POST /keys/network-acls) and .get
+    // (GET /keys/network-acls/{id}).
+    //
+    // Read for 6.3.0 beyond the method list: flows.* and forms.* now throw
+    // typed errors where those statuses previously fell through to the generic
+    // handler — ConflictError on 409 (flows, flows.executions) and
+    // BadRequestError on 400 (forms). Same signatures, different runtime
+    // behaviour for a caller matching on error type; no method changed, so
+    // nothing here alters the list. Not a removal or rename, so no
+    // compatibility.ts entry.
+    // Re-verify on SDK majors (`pnpm check:surface`).
     methods: [
       'actions.create',
       'actions.delete',
@@ -60,6 +85,11 @@ export const auth0Manifest: ProviderManifest = {
       'actions.versions.deploy',
       'actions.versions.get',
       'actions.versions.list',
+      'agents.create',
+      'agents.delete',
+      'agents.list',
+      'agents.read',
+      'agents.update',
       'anomaly.blocks.checkIp',
       'anomaly.blocks.unblockIp',
       'attackProtection.botDetection.get',
@@ -131,8 +161,10 @@ export const auth0Manifest: ProviderManifest = {
       'connections.clients.update',
       'connections.create',
       'connections.delete',
+      'connections.directoryProvisioning.addSynchronizedGroupSelections',
       'connections.directoryProvisioning.create',
       'connections.directoryProvisioning.delete',
+      'connections.directoryProvisioning.deleteSynchronizedGroupSelections',
       'connections.directoryProvisioning.get',
       'connections.directoryProvisioning.getDefaultMapping',
       'connections.directoryProvisioning.list',
@@ -275,6 +307,9 @@ export const auth0Manifest: ProviderManifest = {
       'keys.encryption.import',
       'keys.encryption.list',
       'keys.encryption.rekey',
+      'keys.networkAcls.create',
+      'keys.networkAcls.get',
+      'keys.networkAcls.list',
       'keys.signing.get',
       'keys.signing.list',
       'keys.signing.revoke',
@@ -303,6 +338,11 @@ export const auth0Manifest: ProviderManifest = {
       'organizations.clientGrants.create',
       'organizations.clientGrants.delete',
       'organizations.clientGrants.list',
+      'organizations.clients.create',
+      'organizations.clients.delete',
+      'organizations.clients.get',
+      'organizations.clients.list',
+      'organizations.clients.update',
       'organizations.connections.create',
       'organizations.connections.delete',
       'organizations.connections.get',
@@ -340,6 +380,7 @@ export const auth0Manifest: ProviderManifest = {
       'organizations.members.roles.assign',
       'organizations.members.roles.delete',
       'organizations.members.roles.list',
+      'organizations.roles.groups.list',
       'organizations.roles.members.list',
       'organizations.update',
       'passwordless.loginWithEmail',

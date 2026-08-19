@@ -119,6 +119,13 @@ export function renderMarkdown(report: Report): string {
     }
     out.push(`**Fix:** ${finding.fix}`);
     out.push('');
+    // Its own labelled line rather than a sentence appended to the fix: an
+    // agent reading this document treats a **Verify:** line as a step it owes
+    // an answer to, and buried prose as something to skim.
+    if (finding.verifyHint) {
+      out.push(`**Verify:** ${finding.verifyHint}`);
+      out.push('');
+    }
     if (finding.docsUrl) {
       out.push(`**Docs:** ${finding.docsUrl}`);
       out.push('');
