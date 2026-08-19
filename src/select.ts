@@ -120,3 +120,57 @@ export async function selectFromList(options: SelectOptions): Promise<string | u
     stdin.on('keypress', onKeypress);
   });
 }
+
+/**
+ * Holds the terminal until the user acknowledges something, then returns.
+ *
+ * This exists because the agent session clears the screen the instant it
+ * starts: anything printed immediately before the handoff is technically
+ * written and never read. A keypress is the only way to know a message about
+ * to be wiped was actually seen.
+ *
+ * Returns straight away when there is no terminal to wait on, so a piped or
+ * CI run can never hang here.
+ */
+export async function waitForAcknowledgement(prompt: string): Promise<void> {
+  if (!canPrompt()) return;
+
+  const { emitKeypressEvents } = await import('node:readline');
+  const stdin = process.stdin;
+  const stdout = process.stdout;
+
+  stdout.write(`${pc.dim(prompt)}`);
+  emitKeypressEvents(stdin);
+  const wasRaw = stdin.isRaw;
+  stdin.setRawMode(true);
+  stdin.resume();
+
+  await new Promise<void>((resolvePromise) => {
+    const done = (): void => {
+      stdin.off('keypress', onKeypress);
+      stdin.off('end', done);
+      stdin.off('close', done);
+      stdin.setRawMode(Boolean(wasRaw));
+      stdin.pause();
+      // Erase the prompt: the agent is about to own this screen anyway, and a
+      // stale "press enter" line is the last thing the user should scroll to.
+      stdout.write(`\r${CLEAR_LINE}`);
+      resolvePromise();
+    };
+    const onKeypress = (_str: string, key: { ctrl?: boolean; name?: string }): void => {
+      // Ctrl-C still means Ctrl-C. It reaches this handler instead of the
+      // default one because raw mode is on, so it has to be re-raised by hand.
+      if (key?.ctrl && key.name === 'c') {
+        done();
+        process.exit(130);
+      }
+      done();
+    };
+    stdin.on('keypress', onKeypress);
+    // A keypress that can never arrive must not hold the process. stdin being
+    // a TTY makes this unlikely rather than impossible, and hanging before the
+    // agent opens is the one failure here with no way out.
+    stdin.once('end', done);
+    stdin.once('close', done);
+  });
+}

@@ -217,13 +217,22 @@ export function describeHandoff(agent: FixAgent, copied: boolean): string[] {
       '',
     ];
   }
-  return [
+  const lines = [
     '',
-    `api-doctor: prompt copied to your clipboard — opening ${agent.label}.`,
-    `  Paste it (${pasteShortcut()}) and press enter when you are ready.`,
-    '  Nothing is submitted for you.',
+    'api-doctor: prompt copied to your clipboard.',
     '',
+    `  Once ${agent.label} opens, paste it with ${pasteShortcut()} and press enter.`,
   ];
+  // The skill is already in the project by now, so on agents that read it
+  // there is a route that needs no clipboard at all.
+  if (agent.readsSkill) lines.push('  Or just type /api-doctor — the skill is installed.');
+  lines.push('', '  Nothing is submitted for you.', '');
+  return lines;
+}
+
+/** Shown while the terminal is held, immediately before the agent takes it. */
+export function describeLaunchGate(agent: FixAgent): string {
+  return `  Press any key to open ${agent.label}…`;
 }
 
 /** Said when the chosen agent's CLI turns out not to be installed. */
@@ -278,6 +287,12 @@ export interface FixAgent {
   /** Arguments that open an interactive session with an empty input. */
   args: string[];
   installUrl: string;
+  /**
+   * True when this agent discovers the skill a scan installs, so `/api-doctor`
+   * is a second way in that needs no clipboard at all. Set from where each
+   * agent actually reads skills from — never assumed.
+   */
+  readsSkill: boolean;
 }
 
 /**
@@ -294,6 +309,8 @@ export const FIX_AGENTS: FixAgent[] = [
     command: 'claude',
     args: [],
     installUrl: 'https://claude.com/claude-code',
+    // Reads .claude/skills/ only — which is why a scan links it there.
+    readsSkill: true,
   },
   {
     id: 'cursor',
@@ -301,6 +318,8 @@ export const FIX_AGENTS: FixAgent[] = [
     command: 'cursor-agent',
     args: [],
     installUrl: 'https://cursor.com/cli',
+    // Reads .agents/skills/ and .claude/skills/ both.
+    readsSkill: true,
   },
   {
     id: 'codex',
@@ -308,6 +327,9 @@ export const FIX_AGENTS: FixAgent[] = [
     command: 'codex',
     args: [],
     installUrl: 'https://developers.openai.com/codex/cli',
+    // Discovers .agents/skills/, but invocation is by description, not a
+    // slash command — so the paste stays the instruction we give.
+    readsSkill: false,
   },
 ];
 

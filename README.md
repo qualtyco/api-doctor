@@ -17,16 +17,11 @@ Deterministic AST rules. Not a prompt. Same input, same output, every time.
 ## Quick Start
 
 ```bash
-# Scan your project — and, if it finds errors, offer to open
-# Claude Code, Cursor, or Codex on them
 npx @api-doctor/cli .
-
-# Or install as an agent skill (Claude Code, Cursor, Windsurf)
-npx @api-doctor/cli install
 ```
 
-One command. The scan prints, and if there is anything it can hand to an agent
-it asks which one — no second incantation to discover.
+After running it installs api-doctor as a skill
+at `.agents/skills/api-doctor/SKILL.md` type _"\api-doctor fix it"_ to get a quick fix or integrate our [CI](https://apidoctor.co/ci) for larger and continous fixes
 
 ## Install In Your Codebase (recommended)
 
@@ -64,66 +59,6 @@ Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doc
 
 ---
 
-## Fixing what it finds
-
-The scan closes the loop without giving up that guarantee. When it finds errors, it asks
-which agent to open:
-
-```
-3 error(s) can be fixed. Open them in:
-  ↑/↓ to move · enter to select · esc to skip
-
-❯ Claude Code
-  Cursor           not installed
-  Codex
-  Skip for now
-```
-
-Pick one and api-doctor puts the prompt on your clipboard and opens **your own** agent
-in this directory. **Nothing is submitted for you** — you paste it, read it, edit it if
-you want, and press enter yourself.
-
-```bash
-npx @api-doctor/cli .                # scan → choose an agent
-npx @api-doctor/cli . --fix          # skip the menu (uses whichever agent you have)
-npx @api-doctor/cli . --fix cursor   # skip the menu, pick the agent
-npx @api-doctor/cli . --fix-dry-run  # print the prompt, open nothing
-npx @api-doctor/cli . --no-fix       # never offer — the CI flag
-```
-
-Outside a terminal — CI, a pipe, `--format json` — there is nobody to ask, so the offer
-never appears and the scan behaves exactly as it always has.
-
-It hands over **errors**, in any category: the findings serious enough to fail a build.
-Warnings and info stay out of the prompt rather than burying them.
-
-Three properties are deliberate:
-
-- **The scan is still not a model call.** Detection is the same AST rules as always. The
-  model only acts on what they found.
-- **The agent is told the intent, never the pattern.** The prompt is a one-line index of
-  the errors and a pointer to `.api-doctor/report.json`, where each one carries its fix
-  guidance, a docs link, and the offending snippet — never what the rule matches on.
-  Handing over the matcher teaches an agent to satisfy the matcher instead of the
-  requirement. Any correct fix passes; there is no expected snippet.
-- **The agent's word isn't evidence — and it's told so.** The prompt ends by telling the
-  agent to run `npx @api-doctor/cli@latest .` itself and keep going until the errors are
-  gone and nothing new has appeared. Verification happens inside the session, where the
-  agent can still act on the answer; api-doctor doesn't re-scan behind it.
-
-It opens your agent as a normal interactive session in your terminal, with your usual
-tool approvals, no prompt argument and no bypass flags — a launcher, not an autonomous
-agent. The agent's own CLI (`claude`, `cursor-agent`, or `codex`) has to be on your
-`PATH`; `--fix-dry-run` prints the prompt for anything else.
-
-**Your working tree stays yours.** The agent is told not to commit, stage, or push
-anything, and to finish with a one-line-per-file summary of what it changed and why —
-so you can read the reasoning, then review the diff yourself.
-
-The full scan prints before the session opens, so it's still on screen when you exit.
-
----
-
 ## Telemetry
 
 api-doctor sends anonymous usage data to PostHog so we can see whether the tool is helping developers catch real bugs.
@@ -134,12 +69,9 @@ api-doctor sends anonymous usage data to PostHog so we can see whether the tool 
 - Run context: local, CI, or agent
 - Which API SDKs were detected (e.g. `resend`, `supabase`) — provider names only
 - Which rules fired — rule names only, no code
-- Which documented SDK methods the scanned code calls (`sdk_used`, e.g. `emails.send`), plus a count of unrecognized calls on those clients (`unknown_sdk_calls`) — method names come from a fixed per-provider list shipped with the tool, never from your code
-- Which AI model (or agent) most likely wrote the scanned code (`ai_model`), plus which signal determined it (`ai_model_source`). This is inferred locally from agent config files (e.g. `CLAUDE.md`, `.cursor/`), AI co-author trailers in git history (e.g. `Co-Authored-By: Claude Opus 4.8`), model ids in local agent session state for this project (Claude Code's `~/.claude/projects/`, aider's `.aider.chat.history.md`, Codex's `~/.codex/sessions/`), and the `--agent-model` flag (or `API_DOCTOR_AGENT_MODEL`) that the installed agent skill asks coding agents to pass. Only the single resolved name is sent — never session content, commit data, or the underlying evidence
-- Score and finding counts
-- For fix runs: which agent was chosen (`claude`, `cursor`, or `codex` — the name only),
-  how many findings were handed to it, and whether the session opened — counts and names
-  only, never the prompt, the code, or the agent's output
+- Which documented SDK methods the scanned code calls (`sdk_used`, e.g. `emails.send`), plus a count of unrecognized calls on those clients (`unknown_sdk_calls`) 
+- Which AI model (or agent) most likely wrote the scanned code (`ai_model`), plus which signal determined it (`ai_model_source`).
+- For fix runs: which agent was chosen (`claude`, `cursor`, or `codex`)
 - Score delta between runs on the same project (stored locally in that project's `.api-doctor/run-history.json`)
 - A hashed project identifier (`project_hash`) — SHA-256 of the scanned directory path, not the path itself
 - Sanitized error messages and stack traces on unexpected crashes (paths redacted)
@@ -150,7 +82,7 @@ api-doctor sends anonymous usage data to PostHog so we can see whether the tool 
 - Raw file paths or project names
 - Email, name, or any personally identifying information
 - Git commit messages, human author names, or human author emails
-- Agent session transcripts — prompts, responses, and code in session files never leave your machine
+- Agent session transcripts
 
 A random anonymous ID is stored at `~/.api-doctor/install-id`. Per-project run history is stored at `<project>/.api-doctor/run-history.json`. Both stay on your machine — only the event data above is sent to PostHog.
 
@@ -158,10 +90,7 @@ A random anonymous ID is stored at `~/.api-doctor/install-id`. Per-project run h
 
 ```bash
 npx @api-doctor/cli . --no-telemetry
-npx @api-doctor/cli install --no-telemetry
 ```
-
-Or set `API_DOCTOR_TELEMETRY=0` or `DO_NOT_TRACK=1` in your environment.
 
 ---
 

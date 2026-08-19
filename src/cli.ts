@@ -24,6 +24,7 @@ import {
   defaultAgentIndex,
   defaultFixAgent,
   describeHandoff,
+  describeLaunchGate,
   describeMissingAgent,
   describeNothingToFix,
   describeRetrigger,
@@ -37,8 +38,8 @@ import {
   type FixAgent,
   type FixMode,
 } from './fix.js';
-import { canPrompt, selectFromList } from './select.js';
-import { installAgentFiles } from './install.js';
+import { canPrompt, selectFromList, waitForAcknowledgement } from './select.js';
+import { ensureAgentSkill } from './skill.js';
 import { providers } from './providers/index.js';
 import { createSpinner } from './reporter/animate.js';
 import { DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE } from './reporter/json-writer.js';
@@ -47,7 +48,7 @@ import { countErrors, emitReport, type OutputFormat } from './reporter/index.js'
 import { readProjectHistory } from './run-history.js';
 import { scan, ScanError } from './scanner.js';
 import { resolveProviderVersions } from './sdk-versions.js';
-import { trackError, trackFix, trackInstall, trackRun } from './telemetry.js';
+import { trackError, trackFix, trackRun } from './telemetry.js';
 import type { Report } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -64,6 +65,8 @@ interface CliOptions {
   output?: string;
   /** commander sets this to false when --no-report is passed. */
   report?: boolean;
+  /** commander sets this to false when --no-skill is passed. */
+  skill?: boolean;
   maxWarnings?: string;
   provider?: string;
   listProviders?: boolean;
@@ -149,6 +152,7 @@ program
   .option('--format <format>', 'Emit structured output to stdout (json|markdown)')
   .option('--output <path>', `Report file location (default: ${DEFAULT_REPORT_DIR}/${DEFAULT_REPORT_FILE})`)
   .option('--no-report', 'Do not write the report file')
+  .option('--no-skill', 'Do not write the agent skill into the project')
   .option('--max-warnings <n>', 'Exit with code 1 if warnings exceed this number')
   .option('--provider <names>', 'Comma-separated providers to scan (e.g. resend)')
   .option('--list-providers', 'List supported Node.js API providers')
@@ -165,6 +169,16 @@ program
   )
   .action(async (directory: string, opts: CliOptions) => {
     const noTelemetry = opts.telemetry === false;
+
+    // `install` used to be a subcommand. 0.0.16 published it, so it stays
+    // recognised — but as a redirect, not a revival: the scan it falls through
+    // to is what writes the skill now.
+    if (directory === 'install' && !isDirectory('install')) {
+      console.log(
+        'api-doctor: `install` is gone — a scan writes the agent skill itself. Scanning the current directory instead.\n',
+      );
+      directory = '.';
+    }
 
     // `fix` used to be a subcommand. Muscle memory (and 0.0.16's README) still
     // types it, and without this it would be read as a directory named "fix".
@@ -236,15 +250,18 @@ program
       // against the previous run rather than this one.
       const previousScore = readProjectHistory(scannedDir)?.last_score;
 
+      // Writing the skill is what removes the second command: after any scan
+      // that found a provider, an agent opened in this project already knows
+      // how to read the report and act on it, with nothing else to run.
+      const skill =
+        opts.skill !== false && detected.length > 0 ? ensureAgentSkill(scannedDir) : undefined;
+
       const fixMode = resolveFixMode({
         requested: requestedFix,
         dryRun: opts.fixDryRun ?? false,
         structuredOutput: format !== undefined,
         interactive: canPrompt(),
       });
-      const willOfferFix =
-        (fixMode === 'ask' || fixMode === 'run') && filterFixableFindings(report).length > 0;
-
       await emitReport(results, detected, report, {
         quiet: opts.quiet,
         verbose: opts.verbose,
@@ -256,7 +273,7 @@ program
         rawPackages,
         versions: resolveProviderVersions(detected, scannedDir),
         previousScore,
-        suppressInstallHint: willOfferFix,
+        skillPaths: skill?.created,
       });
 
       await trackRun({
@@ -302,35 +319,6 @@ program
       await trackError(err, noTelemetry, pkg.version);
       throw err;
     }
-  });
-
-program
-  .command('install')
-  .description('Install api-doctor as a skill/rule for Claude Code, Cursor, Codex, and other agents')
-  .argument('[directory]', 'Project directory to install into', '.')
-  .option('--force', 'Overwrite an existing skills/api-doctor/SKILL.md from the package')
-  .option('--no-telemetry', 'Disable anonymous usage telemetry')
-  .action(async (directory: string, options: { force?: boolean; telemetry?: boolean }) => {
-    const noTelemetry = options.telemetry === false;
-    const { created, updated, skipped } = installAgentFiles(resolve(directory), {
-      force: options.force,
-    });
-    for (const path of created) console.log(`api-doctor: created ${path}`);
-    for (const path of updated) console.log(`api-doctor: updated ${path}`);
-    for (const path of skipped) {
-      console.log(`api-doctor: skipped ${path} (already exists; use --force to refresh)`);
-    }
-    console.log(
-      'api-doctor: edit skills/api-doctor/SKILL.md — all agents reference that file.',
-    );
-    await trackInstall({
-      version: pkg.version,
-      filesCreated: created.length,
-      filesUpdated: updated.length,
-      filesSkipped: skipped.length,
-      force: options.force ?? false,
-      noTelemetry,
-    });
   });
 
 interface FixPhaseInput {
@@ -434,6 +422,11 @@ async function runFixPhase(input: FixPhaseInput): Promise<void> {
   const copied = await copyToClipboard(prompt);
   if (!copied) console.log(`\n${prompt}`);
   for (const line of describeHandoff(agent, copied)) console.log(line);
+
+  // The session clears the screen the moment it starts, so everything above
+  // would be written and never read. Holding here until a keypress is what
+  // makes the handoff instructions something the user actually sees.
+  await waitForAcknowledgement(describeLaunchGate(agent));
 
   const { launched } = await launchAgent(agent, scannedDir);
   if (!launched) {

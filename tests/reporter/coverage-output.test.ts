@@ -89,7 +89,9 @@ describe('markdown coverage section', () => {
 
 describe('cli coverage output', () => {
   function run(args: string[]) {
-    return spawnSync('node', [cli, ...args], { encoding: 'utf8' });
+    // --no-skill: these fixtures are committed to this repo, and a scan now
+    // writes the agent skill into whatever directory it is pointed at.
+    return spawnSync('node', [cli, ...args, '--no-skill'], { encoding: 'utf8' });
   }
 
   it('emits coverage in --format json with used methods only', () => {

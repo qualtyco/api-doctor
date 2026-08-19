@@ -21,7 +21,9 @@ const BROKEN = join(repoRoot, 'tests/fixtures/s2/s2-removed-symbol-broken');
 const FIXED = join(repoRoot, 'tests/fixtures/s2/s2-removed-symbol-fixed');
 
 function run(args: string[]) {
-  return spawnSync('node', [cli, ...args], { encoding: 'utf8' });
+  // --no-skill: these fixtures are committed to this repo, and a scan now
+  // writes the agent skill into whatever directory it is pointed at.
+  return spawnSync('node', [cli, ...args, '--no-skill'], { encoding: 'utf8' });
 }
 
 function build(results: ScanResult[]) {

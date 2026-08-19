@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -19,7 +21,9 @@ const WARNING_FIXTURE = join(
 );
 
 function run(args: string[]) {
-  return spawnSync('node', [cli, ...args], { encoding: 'utf8' });
+  // --no-skill: these fixtures are committed to this repo, and a scan now
+  // writes the agent skill into whatever directory it is pointed at.
+  return spawnSync('node', [cli, ...args, '--no-skill'], { encoding: 'utf8' });
 }
 
 describe('cli output modes', () => {
@@ -45,9 +49,35 @@ describe('cli output modes', () => {
     expect(res.stdout).not.toContain('install');
   });
 
-  it('suggests install after a default scan when the agent skill is missing', () => {
-    const res = run([ERROR_FIXTURE, '--no-report']);
-    expect(res.stdout).toContain('npx @api-doctor/cli install');
+  it('writes the agent skill on a default scan and says so once', () => {
+    const dir = mkdtempSync(join(os.tmpdir(), 'api-doctor-cli-skill-'));
+    try {
+      cpSync(ERROR_FIXTURE, dir, { recursive: true });
+
+      // The run that creates the file announces it...
+      const first = spawnSync('node', [cli, dir, '--no-report'], { encoding: 'utf8' });
+      expect(first.stdout).toContain(join('.agents', 'skills', 'api-doctor', 'SKILL.md'));
+      expect(readFileSync(join(dir, '.agents/skills/api-doctor/SKILL.md'), 'utf-8')).toContain(
+        '.api-doctor/report.json',
+      );
+
+      // ...and no later run repeats it, because it is no longer news.
+      const second = spawnSync('node', [cli, dir, '--no-report'], { encoding: 'utf8' });
+      expect(second.stdout).not.toContain('Agent skill added');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('--no-skill leaves the project untouched', () => {
+    const dir = mkdtempSync(join(os.tmpdir(), 'api-doctor-cli-skill-'));
+    try {
+      cpSync(ERROR_FIXTURE, dir, { recursive: true });
+      run([dir, '--no-report']);
+      expect(existsSync(join(dir, '.agents'))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

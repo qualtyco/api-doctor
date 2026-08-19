@@ -6,7 +6,6 @@
 import type { ProviderVersion } from '../sdk-versions.js';
 import type { DetectedProvider, Report, ScanResult } from '../types.js';
 import { ScanError } from '../scan-error.js';
-import { INSTALL_COMMAND, isAgentSkillInstalled } from '../install.js';
 import { writeReport } from './json-writer.js';
 import { renderMarkdown } from './markdown.js';
 import { countErrors, renderFooter, renderTerminalReport, renderUnsupportedPackagesHint } from './terminal.js';
@@ -30,11 +29,10 @@ export interface EmitOptions {
   /** Score from the previous run on this project, for the delta line. */
   previousScore?: number;
   /**
-   * Hide the "connect your coding agent" box. Set when the run is about to
-   * offer that handoff itself — the box would be telling the user to do the
-   * thing the next prompt does for them.
+   * Skill files written by this run. Empty on every later run — the notice is
+   * news exactly once.
    */
-  suppressInstallHint?: boolean;
+  skillPaths?: string[];
 }
 
 export { countErrors };
@@ -91,8 +89,7 @@ export async function emitReport(
   if (detected.length > 0) {
     renderFooter({
       reportPath: options.noReport ? undefined : options.reportDisplayPath,
-      showInstallHint:
-        !options.suppressInstallHint && !isAgentSkillInstalled(report.scanMeta.directory),
+      skillPaths: options.skillPaths,
     });
   } else if (!options.noReport) {
     console.log(`→ Report written to ${options.reportDisplayPath}`);

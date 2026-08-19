@@ -5,7 +5,6 @@
  * This is the default human terminal output and is intentionally kept stable.
  */
 import pc from 'picocolors';
-import { INSTALL_COMMAND } from '../install.js';
 import { providers } from '../providers/index.js';
 import type { ProviderVersion } from '../sdk-versions.js';
 import { computeScore, type DetectedProvider, type ProviderCoverage, type ScanResult } from '../types.js';
@@ -351,7 +350,7 @@ export function renderUnsupportedPackagesHint(): void {
   console.log(bot);
 }
 
-export function renderFooter(opts: { reportPath?: string; showInstallHint: boolean }): void {
+export function renderFooter(opts: { reportPath?: string; skillPaths?: string[] }): void {
   console.log(pc.dim('─'.repeat(FOOTER_WIDTH)));
 
   if (opts.reportPath) {
@@ -359,18 +358,19 @@ export function renderFooter(opts: { reportPath?: string; showInstallHint: boole
     console.log(pc.dim(`  Saved  →  ${opts.reportPath}`));
   }
 
-  if (opts.showInstallHint) {
+  // Printed only on the run that wrote the skill. It reports files that now
+  // exist — there is nothing here for the user to go and run.
+  if (opts.skillPaths && opts.skillPaths.length > 0) {
     const innerWidth = FOOTER_WIDTH - 2; // exclude the two border chars
-    const label = 'Connect to your coding agent to fix now';
-    const cmd = `  ${INSTALL_COMMAND}`;
     const top = pc.cyan('╭' + '─'.repeat(innerWidth) + '╮');
     const bot = pc.cyan('╰' + '─'.repeat(innerWidth) + '╯');
     const row = (s: string) =>
       pc.cyan('│') + ' ' + padVisible(s, innerWidth - 1) + pc.cyan('│');
     console.log('');
     console.log(top);
-    console.log(row(pc.cyan(label)));
-    console.log(row(pc.bold(cmd)));
+    console.log(row(pc.cyan('Agent skill added to this project')));
+    for (const path of opts.skillPaths) console.log(row(pc.bold(`  ${path}`)));
+    console.log(row(pc.dim('  run /api-doctor in your agent')));
     console.log(bot);
   }
 

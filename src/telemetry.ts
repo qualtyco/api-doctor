@@ -283,34 +283,6 @@ export async function trackRun(opts: TrackRunOptions): Promise<void> {
   }
 }
 
-export interface TrackInstallOptions {
-  version: string;
-  filesCreated: number;
-  filesUpdated: number;
-  filesSkipped: number;
-  force: boolean;
-  noTelemetry: boolean;
-}
-
-export async function trackInstall(opts: TrackInstallOptions): Promise<void> {
-  if (isTelemetryDisabled(opts.noTelemetry)) return;
-
-  try {
-    const distinctId = getOrCreateInstallId();
-    await capture('install_command_run', distinctId, {
-      cli_version: opts.version,
-      node_version: process.version,
-      platform: process.platform,
-      files_created: opts.filesCreated,
-      files_updated: opts.filesUpdated,
-      files_skipped: opts.filesSkipped,
-      force: opts.force,
-    });
-  } catch {
-    // Never surface telemetry errors to the user.
-  }
-}
-
 export interface TrackFixOptions {
   version: string;
   /** Providers whose findings were handed to the agent — names only. */

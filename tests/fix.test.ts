@@ -6,6 +6,7 @@ import {
   defaultAgentIndex,
   defaultFixAgent,
   describeHandoff,
+  describeLaunchGate,
   describeMissingAgent,
   describeNothingToFix,
   describeRetrigger,
@@ -325,6 +326,26 @@ describe('describeHandoff', () => {
     expect(text).toContain('copied to your clipboard');
     expect(text).toContain('Claude Code');
     expect(text).toContain('Nothing is submitted for you');
+  });
+
+  it('offers the slash command on agents that read the installed skill', () => {
+    const claudeText = describeHandoff(claude, true).join('\n');
+    expect(claudeText).toContain('/api-doctor');
+
+    // Codex discovers skills by description rather than a slash command, so
+    // naming one there would be an instruction that does not work.
+    const codex = FIX_AGENTS.find((a) => a.id === 'codex')!;
+    expect(codex.readsSkill).toBe(false);
+    expect(describeHandoff(codex, true).join('\n')).not.toContain('/api-doctor');
+  });
+
+  it('never claims the session is already opening', () => {
+    // The gate holds the terminal until a keypress, so the copy has to read as
+    // an instruction for what is about to happen, not a description of it.
+    const text = describeHandoff(claude, true).join('\n');
+    expect(text).not.toContain('opening Claude Code');
+    expect(describeLaunchGate(claude)).toContain('Press any key');
+    expect(describeLaunchGate(claude)).toContain('Claude Code');
   });
 
   it('falls back to the printed prompt when the clipboard is unreachable', () => {

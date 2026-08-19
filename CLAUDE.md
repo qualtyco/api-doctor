@@ -82,13 +82,14 @@ Rules for keeping it dormant:
 
 ```
 src/
-├── cli.ts              Entry point — 2 commands: scan+fix (default), install
+├── cli.ts              Entry point — one command: scan + skill + fix
 ├── scanner.ts          Walks files, classifies language, fans out to engines
 ├── detector.ts         package.json / pyproject / import / URL heuristics
 ├── types.ts            Shared contracts + computeScore (the only score formula)
 ├── scan-error.ts       ScanError — import from here, never via scanner.ts
 ├── fix.ts              Fix phase: prompt build, outcome diff, agent registry
 ├── select.ts           Arrow-key menu (TTY-only; returns undefined otherwise)
+├── skill.ts            Writes .agents/skills/api-doctor/SKILL.md into the scanned project
 ├── clipboard.ts        pbcopy / clip / wl-copy / xclip / xsel
 ├── sdk-versions.ts     Installed vs surface.verified version per provider
 ├── run-history.ts      .api-doctor/run-history.json (score delta, compat symbols)
@@ -292,6 +293,45 @@ rather than a guess.
 published tarballs — implementation, not the type diff. Never infer one from a
 changelog, a rename, or `pnpm sdk:watch` output.
 
+### The agent skill (`src/skill.ts`)
+
+**There is no `install` command.** A setup step the user has to discover is a
+setup step most users never run, so the scan writes the skill itself. `install`
+existed, wrote four files, and was deleted along with its `install_command_run`
+telemetry event — do not re-add either.
+
+**Two locations, one file.** `.agents/skills/api-doctor/SKILL.md` is canonical
+— the cross-tool [Agent Skills](https://agentpatterns.ai/standards/agent-skills-standard/)
+location, read by Codex as its primary skills dir, by Cursor and Gemini CLI
+alongside their own, and by Copilot via the same standard. The bundled source
+is `skills/api-doctor/SKILL.md` in this package (shipped via `files`), copied
+verbatim; its YAML frontmatter (`name`, `description`) is what makes it
+discoverable at all, so never strip it.
+
+`.claude/skills/api-doctor/SKILL.md` is a **symlink** at that copy, because
+Claude Code discovers skills only from `~/.claude/skills/`, the project
+`.claude/skills/`, plugins, and enterprise dirs — it reads neither `.agents/`
+nor `AGENTS.md`, so without the link `/api-doctor` never appears there. Where
+symlinks are not permitted (Windows without developer mode) a pointer file with
+its own frontmatter takes its place: both routes end at one editable file.
+
+The two paths are checked **independently**, so a project installed before the
+link existed gains it on the next scan without the canonical copy being
+touched. Only link at a file that exists — a dangling symlink in someone's
+`.claude/` is worse than no skill.
+
+Three rules hold the write down to something a scan is allowed to do:
+
+- **Only when a provider was detected.** Pointing the CLI at an unrelated
+  directory leaves no trace.
+- **Never overwrite.** Once the file is in the project it belongs to the
+  project; a scan silently reverting someone's edits is worse than a skill one
+  version behind. `created` is true only on the run that wrote it, which is why
+  the footer notice prints exactly once.
+- **Never throws.** Every failure is swallowed — an unwritable directory must
+  not turn a working scan into a crash. `--no-skill` opts out entirely, and CLI
+  tests that scan committed fixtures pass it so the repo stays clean.
+
 ### The fix phase (`src/fix.ts`, `runFixPhase` in `cli.ts`)
 
 **There is no `fix` subcommand.** Scanning and fixing are the default command,
@@ -307,7 +347,21 @@ Two rules define the handoff:
   and the agent opens with an empty input and no prompt argument (`stdio:
   'inherit'`, no bypass flags — a launcher, not an autonomous agent). Never
   change this to pass the prompt as argv; a window that starts working by
-  itself is exactly what the design refuses.
+  itself is exactly what the design refuses. There is no way to pre-fill an
+  agent's input without submitting: no CLI offers a flag for it, and typing a
+  **multi-line** prompt into a TUI submits it at the first newline.
+- **The handoff is gated on a keypress** (`waitForAcknowledgement` in
+  `select.ts`). The agent's TUI clears the screen the instant it starts, so
+  everything `describeHandoff` prints was previously written and never read —
+  users reached the session not knowing the prompt was on their clipboard. The
+  gate is the only way to know a message about to be wiped was seen. It
+  no-ops when `canPrompt()` is false, and resolves on stdin `end`/`close` too:
+  hanging before the agent opens is the one failure here with no way out.
+- **`readsSkill` on a `FixAgent` is set from where that agent actually reads
+  skills, never assumed.** It gates the "or just type `/api-doctor`" line —
+  Claude Code and Cursor find the installed skill, Codex discovers skills by
+  description rather than a slash command, so naming one there would be an
+  instruction that does not work.
 - **The prompt is an index, not a dossier.** With a report file on disk it lists
   one line per error (`file:line — message`) and tells the agent to read
   `.api-doctor/report.json` for guidance, docs links, and snippets — structured
@@ -327,8 +381,7 @@ Two rules define the handoff:
 `resolveFixMode` is the single decision point: `--no-fix` always wins (CI needs
 one flag that cannot block), `--fix [agent]` runs unattended, `--fix-dry-run`
 prints the prompt, and everything else only offers where both stdin and stdout
-are TTYs. `--fix` with `--format` is a hard error, not a silent skip. The
-install-hint footer box is suppressed when the menu is about to appear.
+are TTYs. `--fix` with `--format` is a hard error, not a silent skip.
 
 Adding an agent means one entry in `FIX_AGENTS` — id, label, PATH command,
 install URL. Anything needing a prompt argument to open does not belong there.
