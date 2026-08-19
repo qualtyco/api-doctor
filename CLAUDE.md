@@ -82,10 +82,17 @@ Rules for keeping it dormant:
 
 ```
 src/
-├── cli.ts              Entry point — parses flags, runs scan, emits output, exits
+├── cli.ts              Entry point — 2 commands: scan+fix (default), install
 ├── scanner.ts          Walks files, classifies language, fans out to engines
 ├── detector.ts         package.json / pyproject / import / URL heuristics
-├── types.ts            Shared contracts (ScanResult, Report, Finding, manifests)
+├── types.ts            Shared contracts + computeScore (the only score formula)
+├── scan-error.ts       ScanError — import from here, never via scanner.ts
+├── fix.ts              Fix phase: prompt build, outcome diff, agent registry
+├── select.ts           Arrow-key menu (TTY-only; returns undefined otherwise)
+├── clipboard.ts        pbcopy / clip / wl-copy / xclip / xsel
+├── sdk-versions.ts     Installed vs surface.verified version per provider
+├── run-history.ts      .api-doctor/run-history.json (score delta, compat symbols)
+├── telemetry.ts        PostHog events; agent-detector.ts feeds it ai_model
 ├── engines/
 │   ├── classify.ts     Per-file language (javascript | python)
 │   ├── js/runner.ts    Oxlint engine
@@ -93,14 +100,20 @@ src/
 ├── reporter/           Terminal, JSON, markdown, and file output
 ├── coverage/           SDK surface coverage (CLI-only; JS/TS; never scored)
 │   └── collect.ts      oxc-parser pass over provider files → used method paths
-├── plugin/
+├── plugin/             Everything here ships in dist/plugin.js (lint-only)
 │   ├── index.ts        Oxlint plugin — imports providers/*/rules/js/
+│   ├── gate.ts         Wraps every rule; anchors.ts + client-tracker.ts feed it
+│   ├── anchors.ts      Aggregates providers/*/anchor.ts
+│   ├── installed-version.ts  Resolves a project's installed SDK version
 │   └── rule-registry.ts  Reads meta.docs from each JS rule
 └── providers/
     ├── index.ts        Registers all provider manifests
+    ├── _shared/ast.ts  Provider-agnostic ESTree helpers — use, never re-copy
     └── <name>/
         ├── manifest.ts   Detection + rules[] (+ optional surface)
-        ├── utils.ts / utils.py
+        ├── anchor.ts     Gate evidence — REQUIRED, else every rule no-ops
+        ├── utils.ts       Provider-SEMANTIC helpers only
+        ├── compatibility.ts  Optional — hand-verified removals; declare on the manifest
         ├── rules/js/     Oxlint / ESTree rules
         ├── rules/python/ stdlib-ast rules (same rule keys)
         └── README.md
@@ -137,6 +150,171 @@ Coverage records which SDK method paths a codebase actually calls (`report.cover
 - Coverage is **JS/TS only** — never feed `.py` files into `collectCoverage`.
 - Notables (hand-written unused-capability pointers) were deliberately dropped from v1: too heuristic-heavy to scale across providers. If they return, they must be justified by telemetry data, fire only on positive code evidence, and scope suppression signals to the provider.
 
+### Shared AST helpers (`src/providers/_shared/ast.ts`)
+
+Generic ESTree primitives live in one module. Import them; never paste a copy
+into a provider's `utils.ts`.
+
+| Helper | Contract |
+|---|---|
+| `startOffset` / `endOffset` / `contains` | Node spans; falls back to line×1e6+col when byte offsets are absent |
+| `isInsideTestFile` | Test files hold deliberate anti-patterns — rules skip them |
+| `findProperty` | ObjectExpression property by name; a computed Identifier key does **not** match |
+| `memberPropName` | Takes a **MemberExpression** — the `y` in `x.y` |
+| `callPropName` | Takes a **CallExpression** — the `y` in `x.y()` |
+| `someDescendant` | Boolean subtree search |
+
+`memberPropName` and `callPropName` were once one name with two contracts in
+different providers. Keep them apart.
+
+What stays in a provider's `utils.ts`: anything naming an SDK
+(`isResendSendCall`), and the recursive searches whose contracts genuinely
+differ — twilio's `findInSubtree` (returns node, depth cap 40), tiptap's `walk`
+(early-exit visitor), agentmail's `mentionedNames`. Merging those changes
+behaviour; it does not remove duplication.
+
+### SDK version tracking
+
+`surface.verified` in a manifest records `{version, commit, at, sourceDir}` — the
+SDK revision a human last read. The manifest is the source of truth, not npm.
+
+```bash
+pnpm check:surface                                   # method drift vs npm @latest
+node scripts/check-sdk-surface.mjs --local s2=<path>  # + git-diff the SDK source
+pnpm sdk:watch                                        # weekly pass over every clone
+```
+
+`--local` points at a package directory inside an SDK git clone, auto-pulls it
+(never when dirty), and lists every source commit since `verified.commit`.
+A method-name diff only catches added/removed symbols; most breaking changes are
+logic changes behind an unchanged signature. Reading those commits is a human
+job — never infer a rule or a `compatibility.ts` entry from a changelog.
+
+Version drift is reported, never fatal. Only method drift exits 1.
+
+**What `check:surface` can and cannot see.** It compares the manifest's method
+list against the SDK's published `.d.ts`, so it catches additions (`missing from
+manifest`) *and* removals (`stale in manifest`) — both exit 1. It cannot see a
+rename as a rename (one missing + one stale, unlinked), a signature or default
+change, or any behaviour change behind an unchanged signature. It also compares
+against `@latest` only — it has no notion of the version a user has installed.
+That question belongs to `plugin/installed-version.ts` + `sdk-versions.ts` at
+scan time, and to `compatibility.ts` for hand-verified removals.
+
+`scripts/sdk-watch.mjs` (`pnpm sdk:watch`, `.claude/skills/sdk-watch`) is the
+weekly version of the `--local` pass across every cloned SDK at once: pull,
+list commits since the baseline scoped to that provider's client source, rank
+them, write `docs/sdk-watch/<date>.md`. Clone root: `--clones` →
+`$API_DOCTOR_SDK_DIR` → `../official_sdks`. It keeps **two** baselines apart on
+purpose — `surface.verified.commit` is the revision a human read and only a
+human moves it; `.api-doctor/sdk-watch.json` is the HEAD last reported, moved
+every run so a weekly report does not re-list the same commits. Collapsing them
+would let an unread watch run masquerade as a verification. The script writes
+a report and nothing else: it never edits a manifest, never adds a
+`compatibility.ts` entry, never proposes a rule.
+
+A scan shows the installed version per provider next to that baseline
+(`src/sdk-versions.ts`). It states both numbers and stops — api-doctor never
+recommends an upgrade.
+
+### Compatibility (the 4th category)
+
+Code versus the SDK version the project has **installed**. A compatibility
+finding is a call that will fail at runtime against what is actually in
+`node_modules` — never a suggestion to upgrade. Code on a deliberately pinned
+old version using that version's symbols is correct and stays silent forever.
+
+A provider gains compatibility with **data plus prose, never new AST code**:
+
+```
+providers/<name>/compatibility.ts   removals + `export const <name>Compatibility`
+providers/<name>/manifest.ts        `compatibility: <name>Compatibility` + a rules[] entry
+providers/<name>/rules/js/removed-symbol.ts
+                                    createRemovedSymbolRule({ packageName, removals, … })
+plugin/index.ts                     register the rule
+```
+
+`providers/_shared/removed-symbol.ts` holds the detection for every provider:
+named imports and require-destructuring from the provider's package, calls of
+those bindings, and member calls on a namespace import. A bare call is flagged
+only when the binding traces to the SDK import, so a project's own helper
+sharing the name never matches. It stays silent whenever the installed version
+cannot be resolved — unresolvable must never be read as "latest". Fork this
+file and those precision guarantees start drifting apart per provider.
+
+Declaring `compatibility` on the manifest is the **whole** registration.
+`providers/index.ts` derives `allRemovals`, `removalsBySymbol`,
+`compatProviders`, and the message→symbol lookup from the manifests, so
+telemetry and the reporter's Verify line pick a new provider up with no edit.
+There is deliberately no central registry file — that was `compat-registry.ts`,
+and it was one more list to forget.
+
+Findings render their facts into a message string, so the structured removal is
+recovered from the message by `symbolFromMessage`. That is safe only because it
+matches a **closed vocabulary**: an unrecognised leading token yields null
+rather than a guess.
+
+`wireIdentical`, `evidence` and `verifyHint` are hand-verified against both
+published tarballs — implementation, not the type diff. Never infer one from a
+changelog, a rename, or `pnpm sdk:watch` output.
+
+### The fix phase (`src/fix.ts`, `runFixPhase` in `cli.ts`)
+
+**There is no `fix` subcommand.** Scanning and fixing are the default command,
+so `npx @api-doctor/cli .` is the whole product surface. After the report
+prints, a run with **error-severity findings in any category** shows an
+arrow-key menu (`src/select.ts`) of Claude Code / Cursor / Codex / Skip. The
+scan prints *before* the handoff because the agent session takes over the
+terminal; on exit that is what the user scrolls back to.
+
+Two rules define the handoff:
+
+- **Paste, not submit.** The prompt goes to the clipboard (`src/clipboard.ts`)
+  and the agent opens with an empty input and no prompt argument (`stdio:
+  'inherit'`, no bypass flags — a launcher, not an autonomous agent). Never
+  change this to pass the prompt as argv; a window that starts working by
+  itself is exactly what the design refuses.
+- **The prompt is an index, not a dossier.** With a report file on disk it lists
+  one line per error (`file:line — message`) and tells the agent to read
+  `.api-doctor/report.json` for guidance, docs links, and snippets — structured
+  data beats paragraphs, and the human pasting it still sees the whole list.
+  `--no-report` falls back to inlining every detail, because then the prompt is
+  the only copy.
+- **Verification lives in the prompt.** The CLI does **not** re-scan after the
+  session — it prints `describeSessionEnd()` and exits with the status of the
+  scan it actually ran. The prompt tells the agent to run `VERIFY_COMMAND`
+  (`npx @api-doctor/cli@latest .`, pinned to the published CLI so it works in
+  any project) and keep going until the errors are gone and nothing new
+  appeared. The loop is still AST → agent → AST; the agent drives it, inside
+  the session where it can act on the result. Do not re-add an outcome diff
+  here: it graded work the agent had already graded, one terminal away from
+  being able to do anything about it.
+
+`resolveFixMode` is the single decision point: `--no-fix` always wins (CI needs
+one flag that cannot block), `--fix [agent]` runs unattended, `--fix-dry-run`
+prints the prompt, and everything else only offers where both stdin and stdout
+are TTYs. `--fix` with `--format` is a hard error, not a silent skip. The
+install-hint footer box is suppressed when the menu is about to appear.
+
+Adding an agent means one entry in `FIX_AGENTS` — id, label, PATH command,
+install URL. Anything needing a prompt argument to open does not belong there.
+
+The prompt tells the agent **not to commit, stage, or push**, and to end with a
+one-line-per-file summary of what changed and why. That summary is what the
+developer reads before reviewing the diff, since there is no commit message.
+
+Two invariants:
+
+- The prompt carries the finding's **intent** (message, fix guidance, docsUrl) and
+  never what the rule matches on. Handing over the matcher teaches the agent to
+  satisfy the matcher instead of the requirement. `tests/fix.test.ts` asserts the
+  prompt contains no `AST`/`oxlint`/visitor vocabulary — keep it that way when
+  editing the wording.
+- Pass/fail is behavioural — the rule stops firing and nothing new appears —
+  never "the code looks like this snippet".
+
+If a legitimate fix cannot pass, the rule is too narrow. Fix the rule.
+
 ### Three names that must stay in sync
 
 ```
@@ -167,7 +345,7 @@ The test suite is the contract for rule behavior — **never edit existing tests
 
 ## Adding a rule (checklist)
 
-1. `src/providers/<name>/rules/js/<check>.ts` — AST visitors, named export + default export
+1. `src/providers/<name>/rules/js/<check>.ts` — AST visitors, **named export only** (the plugin imports named; a default export is dead weight)
 2. Register in `src/plugin/index.ts` — import `../providers/<name>/rules/js/<check>.js`
 3. Add entry to `src/providers/<name>/manifest.ts` → `rules[]` (set `languages` when Python applies)
 4. Optional Python port: `src/providers/<name>/rules/python/<check>.py` with `RULE_KEY` + `check(tree, path, source)`
@@ -181,19 +359,35 @@ The test suite is the contract for rule behavior — **never edit existing tests
 ## Adding a new provider (checklist)
 
 1. `src/providers/<name>/manifest.ts` — detection signals + `rules[]`
-2. `src/providers/<name>/rules/js/*.ts` — one file per JS/TS check
-3. `src/providers/<name>/utils.ts` — shared AST helpers (if needed)
-4. `src/providers/<name>/README.md` — rule catalog by category
-5. Register manifest in `src/providers/index.ts`
-6. Register JS rules in `src/plugin/index.ts`
-7. Fixtures and tests under `tests/`
-8. `tests/fixtures/<name>/docs-examples/` — verbatim official doc samples
-9. `pnpm build && pnpm test` and `pnpm check:links`
+2. **`src/providers/<name>/anchor.ts`** — derive `packages`/`urlSubstrings` from the manifest, never restate them
+3. `src/providers/<name>/rules/js/*.ts` — one file per JS/TS check
+4. `src/providers/<name>/utils.ts` — provider-semantic helpers only (generic ones live in `_shared/ast.ts`)
+5. `src/providers/<name>/README.md` — rule catalog by category
+6. Register manifest in `src/providers/index.ts`
+7. **Register anchor in `src/plugin/anchors.ts`** — skip this and the gate silently drops every rule
+8. Register JS rules in `src/plugin/index.ts`
+9. Fixtures and tests under `tests/`
+10. `tests/fixtures/<name>/docs-examples/` — verbatim official doc samples
+11. `pnpm build && pnpm test` and `pnpm check:links`
+
+Steps 1, 6, 7, 8 are four separate registries. Nothing checks them against each
+other — a provider missing from any one fails quietly, not loudly.
 
 ## Rule implementation notes
 
 - Use AST visitors, never regex over raw source text as the primary detector.
 - JS: ESTree visitors (`CallExpression`, `ImportDeclaration`, `Program:exit`); track file-level state in `create()` closures.
 - Python: `ast.parse` + `check(tree, path, source) -> list[Diagnostic]`; export `RULE_KEY`.
-- Shared helpers: `utils.ts` / `utils.py` when two or more rules share a pattern.
+- Generic AST helpers come from `_shared/ast.ts`. Provider-semantic ones go in that provider's `utils.ts` / `utils.py`.
 - Reference: `src/providers/resend/rules/js/webhook-signature.ts` and `rules/python/api_key_hardcoded.py`
+- Rules are gated: a finding only fires when `anchor.ts` evidence ties the file to the provider. A rule that never fires end-to-end is usually a missing anchor, not a broken visitor.
+
+## Known gaps
+
+Facts a change here would otherwise have to rediscover:
+
+- **Nothing tests the four registries** (manifest / plugin / anchors / providers index). They are 137/137 aligned by hand today.
+- **`buildParsedFiles` runs twice per surface-provider** (`coverage/collect.ts` — `collectCoverage` and `collectClientBindings` each call it with the same input). Memoizing halves in-process AST work.
+- **Rule counts in READMEs are hand-maintained** and drift (root README's Resend count is one behind).
+- **`providers.find(p => p.name === …)`** is repeated at ~10 sites; no `providerByName` map exists.
+- **package.json is parsed by three separate implementations** (`detector.ts`, `plugin/installed-version.ts`, `cli.ts`) with different field sets.
