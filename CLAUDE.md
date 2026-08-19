@@ -136,6 +136,40 @@ cli.ts
 
 Detection reads **manifests only**. Engines produce diagnostics; reporting merges them with manifest metadata and rule docs from `plugin/rule-registry.ts`.
 
+### The JS engine (`src/engines/js/runner.ts`)
+
+**oxlint is pinned exact.** It is the engine, and its file-walking and ignore
+semantics are load-bearing — the same reasoning that pins `oxc-parser`. A range
+here is not a convenience, it is an untested dependency: the lockfile pinned
+1.68.0 for the suite while `^1.68.0` resolved to 1.79.0 on a fresh install, so
+every test ran against a version no user had. That gap hid a real bug for as
+long as it existed. Bump it deliberately and re-run `pnpm test:unit`.
+
+**The engine lints the file list, never a directory.** `scanner.ts`'s walk is
+the single answer to "what gets scanned" — it skips dot directories, applies
+`SKIP_DIR_NAMES`, classifies language, and its count is what the report prints.
+Handing oxlint `.` gave that question a second answer, and the two disagreed:
+oxlint 1.79 does not honour `ignorePatterns` when a JS plugin is registered, so
+every dependency's shipped `.js` was linted and reported. A scan claimed
+`filesScanned: 2` and returned 22 findings across 5 files, 15 of them inside
+`node_modules`, which also wrecked the score with issues in code the developer
+does not own.
+
+Two guarantees, deliberately independent of any oxlint version:
+
+- `batchFileArgs` passes `input.files` explicitly, chunked under the argv limit
+  (ARG_MAX covers the environment block too, so the budget is conservative; a
+  single over-budget path still gets its own batch rather than being dropped).
+- `mapDiagnosticToResult` drops any diagnostic naming a file outside the walked
+  set. A finding in code the developer does not own is worse than no finding.
+
+`ignorePatterns` stays in the generated config as a second line of defence, not
+as the mechanism. `tests/scanner-skip-dependency-dirs.test.ts` builds the tree
+at runtime — a committed fixture containing `node_modules/` would be swallowed
+by `.gitignore` — and its dependency copies are plain JS on purpose: a type
+annotation in a `.js` file does not parse, and an unparseable file yields no
+diagnostics, which would make the suite pass no matter what the engine did.
+
 ### SDK surface coverage (`src/coverage/`)
 
 Coverage records which SDK method paths a codebase actually calls (`report.coverage`, plus `sdk_used`/`unknown_sdk_calls` on the `provider_scanned` telemetry event). Rules that must never be broken:

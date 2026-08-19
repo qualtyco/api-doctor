@@ -67,7 +67,7 @@
   "dependencies": {
     "commander": "^13.1.0",
     "oxc-parser": "0.141.0",
-    "oxlint": "^1.68.0",
+    "oxlint": "1.79.0",
     "picocolors": "^1.1.1"
   },
   "devDependencies": {

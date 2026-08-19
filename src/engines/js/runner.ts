@@ -61,11 +61,42 @@ function runOxlint(
   });
 }
 
+/**
+ * Splits the file list into argv-sized batches.
+ *
+ * The files are passed to oxlint explicitly rather than letting it walk the
+ * directory (see runJsEngine), which means a large repo can push past the
+ * platform's argv limit. ARG_MAX is 1 MiB on macOS and 2 MiB on common Linux;
+ * the budget below is deliberately far under the smaller of those, because the
+ * limit covers the environment block too and blowing it is an opaque E2BIG
+ * rather than a useful error.
+ */
+export function batchFileArgs(files: string[], budgetBytes = 96 * 1024): string[][] {
+  const batches: string[][] = [];
+  let current: string[] = [];
+  let size = 0;
+  for (const file of files) {
+    const cost = Buffer.byteLength(file, 'utf8') + 1; // + argv NUL
+    // A single path over budget still gets its own batch: dropping a file
+    // silently would be a scan that lies about its coverage.
+    if (current.length > 0 && size + cost > budgetBytes) {
+      batches.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(file);
+    size += cost;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
 function mapDiagnosticToResult(
   d: any,
   absRoot: string,
   ruleMetaByKey: Map<string, RuleMeta>,
   filesContent: Map<string, string>,
+  scannedFiles: ReadonlySet<string>,
 ): ScanResult | null {
   const code = String(d.code ?? '');
   const matched = [...ruleMetaByKey.entries()].find(([key]) => code.includes(key));
@@ -78,6 +109,12 @@ function mapDiagnosticToResult(
     if (filename.startsWith(absRoot)) return relative(absRoot, filename);
     return filename.replace(/^[.\\/]+/, '');
   })();
+
+  // Second line of defence behind passing an explicit file list: a finding may
+  // only name a file the scan actually walked. Reporting one from anywhere
+  // else — a dependency's shipped .js, a build artifact — is worse than
+  // missing it, because the developer cannot act on code they do not own.
+  if (!scannedFiles.has(relFile)) return null;
 
   const span = d.labels?.[0]?.span;
   const line = typeof span?.line === 'number' ? span.line : 1;
@@ -183,35 +220,62 @@ export async function runJsEngine(input: EngineInput): Promise<ScanResult[]> {
   }
 
   try {
-    const res = await runOxlint(
-      oxlintBin,
-      ['--config', configPath, '--format', 'json', '.'],
-      input.absRoot,
-      clientMapPath,
-    );
-
-    if (res.error) throw new ScanError('Failed to run oxlint', res.error);
-
-    let parsed: any;
-    try {
-      parsed = JSON.parse(res.stdout);
-    } catch (err) {
-      const stderr = (res.stderr ?? '').toString().trim();
-      throw new ScanError(
-        `oxlint produced no parseable output${stderr ? `: ${stderr}` : ''}`,
-        err,
-      );
-    }
-
+    // Lint exactly the files scanner.ts walked — never `.`.
+    //
+    // Passing a directory makes oxlint do its own walk, and its ignore
+    // handling does not reliably exclude node_modules when a JS plugin is
+    // registered (oxlint 1.68: `ignorePatterns` had no effect on a real
+    // install, so every dependency's shipped .js was linted and reported).
+    // That produced findings in files the scan never opened, in a report whose
+    // own filesScanned count said otherwise.
+    //
+    // The deeper point is that there were two answers to "what gets scanned":
+    // scanner.ts's walk, and oxlint's. The walk is the one that skips dot
+    // directories, applies SKIP_DIR_NAMES and classifies language, and it is
+    // the one whose count the report prints — so it is the only one that may
+    // decide. ignorePatterns stays in the config as a second line of defence,
+    // not as the mechanism.
     const results: ScanResult[] = [];
-    for (const d of parsed.diagnostics ?? []) {
-      const mapped = mapDiagnosticToResult(
-        d,
+    const scannedFiles = new Set(input.files);
+    for (const batch of batchFileArgs(input.files)) {
+      const res = await runOxlint(
+        oxlintBin,
+        [
+          '--config',
+          configPath,
+          '--format',
+          'json',
+          // A file deleted between the walk and the lint must not fail the run.
+          '--no-error-on-unmatched-pattern',
+          ...batch,
+        ],
         input.absRoot,
-        input.ruleMetaByKey,
-        input.filesContent,
+        clientMapPath,
       );
-      if (mapped) results.push(mapped);
+
+      if (res.error) throw new ScanError('Failed to run oxlint', res.error);
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(res.stdout);
+      } catch (err) {
+        const stderr = (res.stderr ?? '').toString().trim();
+        throw new ScanError(
+          `oxlint produced no parseable output${stderr ? `: ${stderr}` : ''}`,
+          err,
+        );
+      }
+
+      for (const d of parsed.diagnostics ?? []) {
+        const mapped = mapDiagnosticToResult(
+          d,
+          input.absRoot,
+          input.ruleMetaByKey,
+          input.filesContent,
+          scannedFiles,
+        );
+        if (mapped) results.push(mapped);
+      }
     }
     return results;
   } finally {
