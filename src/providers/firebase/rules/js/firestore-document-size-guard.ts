@@ -64,4 +64,3 @@ const rule = {
 };
 
 export const firebaseFirestoreDocumentSizeGuardRule = rule;
-export default rule;

@@ -98,4 +98,3 @@ const rule = {
 };
 
 export const s2MetricsDateArgumentsRule = rule;
-export default rule;

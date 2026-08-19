@@ -1,3 +1,6 @@
+import { contains, endOffset, findProperty, isInsideTestFile, startOffset } from '../_shared/ast.js';
+export { contains, endOffset, findProperty, isInsideTestFile, startOffset };
+
 /**
  * Shared AST helpers for Tiptap rules.
  */
@@ -18,42 +21,6 @@ export function isNodeOrMarkCreate(node: any): boolean {
   if (callee?.type !== 'MemberExpression') return false;
   const prop = callee.property;
   return prop?.type === 'Identifier' && prop.name === 'create';
-}
-
-/** Returns the Property node named `name` on an ObjectExpression, else undefined. */
-export function findProperty(objectExpression: any, name: string): any | undefined {
-  if (objectExpression?.type !== 'ObjectExpression') return undefined;
-  return objectExpression.properties?.find(
-    (p: any) =>
-      p?.type === 'Property' &&
-      ((p.key?.type === 'Identifier' && p.key.name === name) ||
-        (p.key?.type === 'Literal' && p.key.value === name)),
-  );
-}
-
-/** True when the file path looks like a test file. */
-export function isInsideTestFile(filename: string): boolean {
-  return /(^|[\\/])__tests__[\\/]|\.(test|spec)\.[cm]?[jt]sx?$/.test(filename);
-}
-
-/** Best-effort start offset of a node. */
-export function startOffset(n: any): number {
-  if (typeof n?.range?.[0] === 'number') return n.range[0];
-  if (typeof n?.start === 'number') return n.start;
-  return (n?.loc?.start?.line ?? 0) * 1_000_000 + (n?.loc?.start?.column ?? 0);
-}
-
-/** Best-effort end offset of a node. */
-export function endOffset(n: any): number {
-  if (typeof n?.range?.[1] === 'number') return n.range[1];
-  if (typeof n?.end === 'number') return n.end;
-  return (n?.loc?.end?.line ?? n?.loc?.start?.line ?? 0) * 1_000_000 + (n?.loc?.end?.column ?? 0);
-}
-
-/** True when `outer` fully contains `inner`'s start. */
-export function contains(outer: any, inner: any): boolean {
-  const s = startOffset(inner);
-  return s >= startOffset(outer) && s <= endOffset(outer);
 }
 
 /**

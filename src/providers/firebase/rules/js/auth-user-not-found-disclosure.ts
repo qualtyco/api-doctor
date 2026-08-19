@@ -52,4 +52,3 @@ const rule = {
 };
 
 export const firebaseAuthUserNotFoundDisclosureRule = rule;
-export default rule;

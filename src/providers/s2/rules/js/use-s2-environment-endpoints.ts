@@ -79,4 +79,3 @@ const rule = {
 };
 
 export const s2UseS2EnvironmentEndpointsRule = rule;
-export default rule;

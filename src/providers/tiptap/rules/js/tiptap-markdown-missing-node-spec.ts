@@ -92,4 +92,3 @@ const rule = {
 };
 
 export const tiptapTiptapMarkdownMissingNodeSpecRule = rule;
-export default rule;

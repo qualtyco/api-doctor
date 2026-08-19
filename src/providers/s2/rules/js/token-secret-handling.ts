@@ -147,4 +147,3 @@ const rule = {
 };
 
 export const s2TokenSecretHandlingRule = rule;
-export default rule;

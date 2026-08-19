@@ -42,4 +42,3 @@ const rule = {
 };
 
 export const browserbaseNoConnectUrlInApiResponseRule = rule;
-export default rule;

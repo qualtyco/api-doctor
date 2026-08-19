@@ -65,4 +65,3 @@ const rule = {
 };
 
 export const s2TailOffsetClampRule = rule;
-export default rule;

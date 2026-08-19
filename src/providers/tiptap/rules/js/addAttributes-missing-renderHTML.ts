@@ -232,4 +232,3 @@ const rule = {
 };
 
 export const tiptapAddAttributesMissingRenderHTMLRule = rule;
-export default rule;

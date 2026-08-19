@@ -61,4 +61,3 @@ const rule = {
 };
 
 export const firebaseEffectDepsWholeUserObjectRule = rule;
-export default rule;

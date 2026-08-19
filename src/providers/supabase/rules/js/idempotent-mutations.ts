@@ -6,7 +6,7 @@
  * a duplicate row. `.upsert(..., { onConflict: ... })` is the documented
  * fix and is exempt — only plain `.insert()` calls are checked.
  */
-import { chainObjectCall, memberPropName } from '../../utils.js';
+import { chainObjectCall, callPropName } from '../../utils.js';
 
 function objectHasIdempotencyKey(objectExpression: any): boolean {
   if (objectExpression?.type !== 'ObjectExpression') return false;
@@ -50,11 +50,11 @@ const rule = {
   create(context: any) {
     return {
       CallExpression(node: any) {
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
         if (prop !== 'insert') return;
 
         const objCall = chainObjectCall(node);
-        if (!objCall || memberPropName(objCall) !== 'from') return;
+        if (!objCall || callPropName(objCall) !== 'from') return;
 
         const arg = node.arguments?.[0];
         if (!arg) return;
@@ -67,4 +67,3 @@ const rule = {
 };
 
 export const supabaseIdempotentMutationsRule = rule;
-export default rule;

@@ -1,20 +1,10 @@
+import { callPropName } from '../_shared/ast.js';
+export { callPropName };
+
 /**
  * Shared AST helpers for Supabase rules. Kept intentionally small; extend
  * only when logic is genuinely reused across rules.
  */
-
-/** Returns the property name of a (possibly computed) MemberExpression callee, e.g. `obj["select"]()` -> 'select'. */
-export function memberPropName(node: any): string | undefined {
-  if (node?.type !== 'CallExpression') return undefined;
-  const callee = node.callee;
-  if (callee?.type !== 'MemberExpression') return undefined;
-  const prop = callee.property;
-  if (!callee.computed && prop?.type === 'Identifier') return prop.name;
-  if (callee.computed && prop?.type === 'Literal' && typeof prop.value === 'string') {
-    return prop.value;
-  }
-  return undefined;
-}
 
 /** The CallExpression this call is chained onto (`<this>.method()`), or null if the base isn't itself a call. */
 export function chainObjectCall(node: any): any | null {
@@ -43,14 +33,14 @@ export function isTimestampColumnName(name: string): boolean {
 
 /** True when `node` is the `.from("table")` base of a Supabase query chain. */
 export function isSupabaseFromCall(node: any): boolean {
-  return memberPropName(node) === 'from' && node?.callee?.object?.type === 'Identifier';
+  return callPropName(node) === 'from' && node?.callee?.object?.type === 'Identifier';
 }
 
 /** Returns the table name from a `.from("table")` call anywhere in the chain. */
 export function fromTableName(node: any): string | undefined {
   let current: any | null = node;
   while (current?.type === 'CallExpression') {
-    if (memberPropName(current) === 'from') {
+    if (callPropName(current) === 'from') {
       const arg = current.arguments?.[0];
       return arg?.type === 'Literal' && typeof arg.value === 'string' ? arg.value : undefined;
     }
@@ -63,7 +53,7 @@ export function fromTableName(node: any): string | undefined {
 export function chainHasMethod(node: any, method: string): boolean {
   let current: any | null = node;
   while (current?.type === 'CallExpression') {
-    if (memberPropName(current) === method) return true;
+    if (callPropName(current) === method) return true;
     current = chainObjectCall(current);
   }
   return false;
@@ -76,7 +66,7 @@ export function isSupabaseMutationKind(
   if (!chainHasMethod(node, kind)) return false;
   let current: any | null = node;
   while (current?.type === 'CallExpression') {
-    if (memberPropName(current) === 'from') return true;
+    if (callPropName(current) === 'from') return true;
     current = chainObjectCall(current);
   }
   return false;

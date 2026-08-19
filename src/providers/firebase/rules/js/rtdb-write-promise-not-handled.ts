@@ -7,7 +7,7 @@
  * means the caller proceeds (and may navigate away) as if the write
  * succeeded.
  */
-import { chainLinks, contains, isIdentifierCall, memberPropName, namedImportsFrom } from '../../utils.js';
+import { chainLinks, contains, isIdentifierCall, callPropName, namedImportsFrom } from '../../utils.js';
 
 const rule = {
   meta: {
@@ -61,7 +61,7 @@ const rule = {
       CallExpression(node: any) {
         if (isWriteCall(node)) writeCalls.add(node);
 
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
         const isCatch = prop === 'catch';
         const isTwoArgThen = prop === 'then' && (node.arguments ?? []).length >= 2;
         if (isCatch || isTwoArgThen) {
@@ -85,4 +85,3 @@ const rule = {
 };
 
 export const firebaseRtdbWritePromiseNotHandledRule = rule;
-export default rule;

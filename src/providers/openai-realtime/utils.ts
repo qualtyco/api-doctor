@@ -1,3 +1,6 @@
+import { findProperty } from '../_shared/ast.js';
+export { findProperty };
+
 /** Shared AST helpers for OpenAI Realtime provider rules. */
 
 /** True when a URL argument (string or template literal) targets the OpenAI Realtime endpoint. */
@@ -54,18 +57,6 @@ export function isOpenAIRealtimeNewWebSocket(node: any, urlVarNames: Set<string>
   if (node?.type !== 'NewExpression') return false;
   if (node.callee?.type !== 'Identifier' || node.callee.name !== 'WebSocket') return false;
   return isOpenAIRealtimeUrlNode(node.arguments?.[0], urlVarNames);
-}
-
-/** Finds a Property node in an ObjectExpression by its key name (Identifier or string Literal). */
-export function findProperty(objectExpression: any, propertyName: string): any {
-  if (objectExpression?.type !== 'ObjectExpression') return null;
-  for (const prop of objectExpression.properties ?? []) {
-    if (prop?.type !== 'Property') continue;
-    const key = prop.key;
-    const name = key?.type === 'Identifier' ? key.name : key?.type === 'Literal' ? key.value : null;
-    if (name === propertyName) return prop;
-  }
-  return null;
 }
 
 /**

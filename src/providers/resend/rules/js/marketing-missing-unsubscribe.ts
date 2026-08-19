@@ -92,4 +92,3 @@ const rule = {
 };
 
 export const resendMarketingMissingUnsubscribeRule = rule;
-export default rule;

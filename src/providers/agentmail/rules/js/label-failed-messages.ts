@@ -130,4 +130,3 @@ const rule = {
 };
 
 export const agentmailLabelFailedMessagesRule = rule;
-export default rule;

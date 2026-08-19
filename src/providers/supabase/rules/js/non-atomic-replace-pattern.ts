@@ -114,4 +114,3 @@ const rule = {
 };
 
 export const supabaseNonAtomicReplacePatternRule = rule;
-export default rule;

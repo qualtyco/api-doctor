@@ -7,7 +7,7 @@
  * Promise.all batch creates 2+ sessions simultaneously attached to one
  * Context.
  */
-import { findProperty, isSessionsCall, memberPropName } from '../../utils.js';
+import { findProperty, isSessionsCall, callPropName } from '../../utils.js';
 
 function isPromiseAllCall(node: any): boolean {
   return (
@@ -22,7 +22,7 @@ function isPromiseAllCall(node: any): boolean {
 }
 
 function isMapCall(node: any): boolean {
-  return memberPropName(node) === 'map';
+  return callPropName(node) === 'map';
 }
 
 function callbackParamNames(callback: any): Set<string> {
@@ -135,4 +135,3 @@ const rule = {
 };
 
 export const browserbaseNoConcurrentSharedContextRule = rule;
-export default rule;

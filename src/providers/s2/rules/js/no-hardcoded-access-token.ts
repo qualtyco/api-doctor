@@ -82,4 +82,3 @@ const rule = {
 };
 
 export const s2NoHardcodedAccessTokenRule = rule;
-export default rule;

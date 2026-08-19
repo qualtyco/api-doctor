@@ -16,7 +16,7 @@
 import {
   chainObjectCall,
   isTenantColumnName,
-  memberPropName,
+  callPropName,
   resolvePropertyValueName,
   typeofStringCheckTarget,
 } from '../../utils.js';
@@ -76,7 +76,7 @@ const rule = {
       },
 
       CallExpression(node: any) {
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
 
         if (prop === 'test') {
           const objNode = node.callee.object;
@@ -95,7 +95,7 @@ const rule = {
 
         if (prop !== 'insert' && prop !== 'upsert') return;
         const objCall = chainObjectCall(node);
-        if (!objCall || memberPropName(objCall) !== 'from') return;
+        if (!objCall || callPropName(objCall) !== 'from') return;
 
         const arg = node.arguments?.[0];
         if (arg?.type !== 'ObjectExpression') return;
@@ -124,4 +124,3 @@ const rule = {
 };
 
 export const supabaseValidateUuidColumnsRule = rule;
-export default rule;

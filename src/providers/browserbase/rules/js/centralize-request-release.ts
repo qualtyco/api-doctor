@@ -46,4 +46,3 @@ const rule = {
 };
 
 export const browserbaseCentralizeRequestReleaseRule = rule;
-export default rule;

@@ -86,4 +86,3 @@ const rule = {
 };
 
 export const resendApiKeyInClientBundleRule = rule;
-export default rule;

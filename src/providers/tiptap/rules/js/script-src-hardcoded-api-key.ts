@@ -96,4 +96,3 @@ const rule = {
 };
 
 export const tiptapScriptSrcHardcodedApiKeyRule = rule;
-export default rule;

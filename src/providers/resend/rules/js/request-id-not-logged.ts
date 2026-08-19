@@ -99,4 +99,3 @@ const rule = {
 };
 
 export const resendRequestIdNotLoggedRule = rule;
-export default rule;

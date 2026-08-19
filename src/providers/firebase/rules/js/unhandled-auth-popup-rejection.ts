@@ -7,7 +7,7 @@
  * unhandled — loading state never clears and the user has no way to retry
  * without reloading the page.
  */
-import { chainLinks, contains, isIdentifierCall, memberPropName, namedImportsFrom } from '../../utils.js';
+import { chainLinks, contains, isIdentifierCall, callPropName, namedImportsFrom } from '../../utils.js';
 
 const rule = {
   meta: {
@@ -45,7 +45,7 @@ const rule = {
           calls.push(node);
           return;
         }
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
         const isCatch = prop === 'catch';
         const isTwoArgThen = prop === 'then' && (node.arguments ?? []).length >= 2;
         if (!isCatch && !isTwoArgThen) return;
@@ -65,4 +65,3 @@ const rule = {
 };
 
 export const firebaseUnhandledAuthPopupRejectionRule = rule;
-export default rule;

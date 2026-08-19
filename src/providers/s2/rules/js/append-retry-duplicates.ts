@@ -88,4 +88,3 @@ const rule = {
 };
 
 export const s2AppendRetryDuplicatesRule = rule;
-export default rule;

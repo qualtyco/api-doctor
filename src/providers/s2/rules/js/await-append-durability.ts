@@ -89,4 +89,3 @@ const rule = {
 };
 
 export const s2AwaitAppendDurabilityRule = rule;
-export default rule;

@@ -64,4 +64,3 @@ const rule = {
 };
 
 export const s2SingleReadIsCappedRule = rule;
-export default rule;

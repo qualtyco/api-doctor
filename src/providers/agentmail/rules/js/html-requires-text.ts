@@ -74,4 +74,3 @@ const rule = {
 };
 
 export const agentmailHtmlRequiresTextRule = rule;
-export default rule;

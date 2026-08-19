@@ -79,4 +79,3 @@ const rule = {
 };
 
 export const agentmailCheckUnauthenticatedLabelRule = rule;
-export default rule;

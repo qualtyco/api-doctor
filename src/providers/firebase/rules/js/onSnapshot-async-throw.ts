@@ -66,4 +66,3 @@ const rule = {
 };
 
 export const firebaseOnSnapshotAsyncThrowRule = rule;
-export default rule;

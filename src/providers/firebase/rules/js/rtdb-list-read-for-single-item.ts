@@ -82,4 +82,3 @@ const rule = {
 };
 
 export const firebaseRtdbListReadForSingleItemRule = rule;
-export default rule;

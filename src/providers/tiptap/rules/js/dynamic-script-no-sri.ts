@@ -138,4 +138,3 @@ const rule = {
 };
 
 export const tiptapDynamicScriptNoSriRule = rule;
-export default rule;

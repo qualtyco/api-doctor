@@ -4,7 +4,7 @@
  * Storage `.upload()` failures return `{ error }` — `if (!uploadError) { ... }`
  * with no else branch silently continues with a stale URL.
  */
-import { memberPropName } from '../../utils.js';
+import { callPropName } from '../../utils.js';
 
 function isStorageUploadCall(node: any): boolean {
   let current: any = node;
@@ -15,7 +15,7 @@ function isStorageUploadCall(node: any): boolean {
   // property access, not a call, so a calls-only walk never sees it.
   while (current) {
     if (current.type === 'CallExpression') {
-      const prop = memberPropName(current);
+      const prop = callPropName(current);
       if (prop === 'storage') sawStorage = true;
       if (prop === 'upload') sawUpload = true;
       current = current.callee?.object;
@@ -86,4 +86,3 @@ const rule = {
 };
 
 export const supabaseStorageErrorNotSurfacedRule = rule;
-export default rule;

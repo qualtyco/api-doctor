@@ -13,7 +13,7 @@
  * so a `.eq()` two links up the chain is still recorded against the
  * `.select()` that introduced the tenant column.
  */
-import { chainObjectCall, isTenantColumnName, memberPropName, parseSelectColumns } from '../../utils.js';
+import { chainObjectCall, isTenantColumnName, callPropName, parseSelectColumns } from '../../utils.js';
 
 interface ChainState {
   selectNode: any;
@@ -49,12 +49,12 @@ const rule = {
 
     return {
       'CallExpression:exit'(node: any) {
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
         if (!prop) return;
 
         const objCall = chainObjectCall(node);
 
-        if (prop === 'select' && objCall && memberPropName(objCall) === 'from') {
+        if (prop === 'select' && objCall && callPropName(objCall) === 'from') {
           const columns = parseSelectColumns(node.arguments?.[0]);
           const tenantColumns = columns.filter(isTenantColumnName);
           if (tenantColumns.length === 0) return;
@@ -109,4 +109,3 @@ const rule = {
 };
 
 export const supabaseScopeQueriesByTenantColumnRule = rule;
-export default rule;

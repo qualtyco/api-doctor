@@ -99,4 +99,3 @@ const rule = {
 };
 
 export const browserbaseMobileDeviceRequiresOsSettingRule = rule;
-export default rule;

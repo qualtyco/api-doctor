@@ -93,4 +93,3 @@ const rule = {
 };
 
 export const browserbaseUseSdkNotRawRequestsRule = rule;
-export default rule;

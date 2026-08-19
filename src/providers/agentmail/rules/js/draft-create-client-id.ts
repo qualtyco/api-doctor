@@ -66,4 +66,3 @@ const rule = {
 };
 
 export const agentmailDraftCreateClientIdRule = rule;
-export default rule;

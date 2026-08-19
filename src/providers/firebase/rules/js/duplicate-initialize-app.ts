@@ -62,4 +62,3 @@ const rule = {
 };
 
 export const firebaseDuplicateInitializeAppRule = rule;
-export default rule;

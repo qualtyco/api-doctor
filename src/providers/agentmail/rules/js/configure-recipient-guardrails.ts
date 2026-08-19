@@ -94,4 +94,3 @@ const rule = {
 };
 
 export const agentmailConfigureRecipientGuardrailsRule = rule;
-export default rule;

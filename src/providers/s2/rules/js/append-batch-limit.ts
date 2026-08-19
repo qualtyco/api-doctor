@@ -100,4 +100,3 @@ const rule = {
 };
 
 export const s2AppendBatchLimitRule = rule;
-export default rule;

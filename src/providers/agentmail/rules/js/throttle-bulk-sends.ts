@@ -93,4 +93,3 @@ const rule = {
 };
 
 export const agentmailThrottleBulkSendsRule = rule;
-export default rule;

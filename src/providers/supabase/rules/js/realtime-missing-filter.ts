@@ -6,7 +6,7 @@
  * per-user feeds (fan-out cost), but can be intentional for admin/global views.
  * Reported as a warning so deliberate whole-table listens are not scored as errors.
  */
-import { memberPropName } from '../../utils.js';
+import { callPropName } from '../../utils.js';
 
 const rule = {
   meta: {
@@ -28,7 +28,7 @@ const rule = {
   create(context: any) {
     return {
       CallExpression(node: any) {
-        if (memberPropName(node) !== 'on') return;
+        if (callPropName(node) !== 'on') return;
         const eventArg = node.arguments?.[0];
         if (eventArg?.type !== 'Literal' || eventArg.value !== 'postgres_changes') return;
 
@@ -55,4 +55,3 @@ const rule = {
 };
 
 export const supabaseRealtimeMissingFilterRule = rule;
-export default rule;

@@ -9,7 +9,7 @@
  * cap" in isolation (a single uncapped field with no capped siblings is out
  * of scope for this rule).
  */
-import { chainObjectCall, memberPropName, resolvePropertyValueName, typeofStringCheckTarget } from '../../utils.js';
+import { chainObjectCall, callPropName, resolvePropertyValueName, typeofStringCheckTarget } from '../../utils.js';
 
 interface VarValidation {
   typeofStringChecked: boolean;
@@ -67,10 +67,10 @@ const rule = {
       },
 
       CallExpression(node: any) {
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
         if (prop !== 'insert' && prop !== 'upsert') return;
         const objCall = chainObjectCall(node);
-        if (!objCall || memberPropName(objCall) !== 'from') return;
+        if (!objCall || callPropName(objCall) !== 'from') return;
 
         const arg = node.arguments?.[0];
         if (arg?.type !== 'ObjectExpression') return;
@@ -108,4 +108,3 @@ const rule = {
 };
 
 export const supabaseConsistentInputLengthLimitsRule = rule;
-export default rule;

@@ -42,4 +42,3 @@ const rule = {
 };
 
 export const firebaseHardcodedUserIdRule = rule;
-export default rule;

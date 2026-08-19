@@ -52,4 +52,3 @@ const rule = {
 };
 
 export const tiptapDropHandlerPosPrecedenceRule = rule;
-export default rule;

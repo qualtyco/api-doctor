@@ -103,4 +103,3 @@ const rule = {
 };
 
 export const s2NoManualAppendRetryLoopRule = rule;
-export default rule;

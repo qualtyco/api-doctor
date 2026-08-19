@@ -71,4 +71,3 @@ const rule = {
 };
 
 export const agentmailInboxCreateClientIdRule = rule;
-export default rule;

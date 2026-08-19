@@ -76,4 +76,3 @@ const rule = {
 };
 
 export const resendApiKeyHardcodedRule = rule;
-export default rule;

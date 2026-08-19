@@ -152,4 +152,3 @@ const rule = {
 };
 
 export const firebaseUnvalidatedExternalDataToRtdbRule = rule;
-export default rule;

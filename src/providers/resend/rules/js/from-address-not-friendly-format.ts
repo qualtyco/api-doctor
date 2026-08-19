@@ -47,4 +47,3 @@ const rule = {
 };
 
 export const resendFromAddressNotFriendlyFormatRule = rule;
-export default rule;

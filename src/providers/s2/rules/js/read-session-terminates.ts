@@ -103,4 +103,3 @@ const rule = {
 };
 
 export const s2ReadSessionTerminatesRule = rule;
-export default rule;

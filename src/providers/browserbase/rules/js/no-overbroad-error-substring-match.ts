@@ -8,7 +8,7 @@
  * as a confirmed 404/410, especially when the action taken is destructive
  * (tearing down a healthy session).
  */
-import { memberPropName, someDescendant } from '../../utils.js';
+import { callPropName, someDescendant } from '../../utils.js';
 
 const OVERBROAD_TERMS = new Set(['session', 'context', 'browser', 'browserbase']);
 
@@ -19,7 +19,7 @@ function collectIncludesLiterals(test: any, literals: string[]): void {
     collectIncludesLiterals(test.right, literals);
     return;
   }
-  if (test.type === 'CallExpression' && memberPropName(test) === 'includes') {
+  if (test.type === 'CallExpression' && callPropName(test) === 'includes') {
     const arg = test.arguments?.[0];
     if (arg?.type === 'Literal' && typeof arg.value === 'string') literals.push(arg.value.toLowerCase());
   }
@@ -28,7 +28,7 @@ function collectIncludesLiterals(test: any, literals: string[]): void {
 function isCleanupCall(node: any): boolean {
   if (node?.type !== 'CallExpression') return false;
   const callee = node.callee;
-  const name = callee?.type === 'Identifier' ? callee.name : memberPropName(node);
+  const name = callee?.type === 'Identifier' ? callee.name : callPropName(node);
   return !!name && /release|remove|cleanup|stop|teardown/i.test(name);
 }
 
@@ -68,4 +68,3 @@ const rule = {
 };
 
 export const browserbaseNoOverbroadErrorSubstringMatchRule = rule;
-export default rule;

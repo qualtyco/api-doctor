@@ -128,4 +128,3 @@ const rule = {
 };
 
 export const resendBatchSizeNotEnforcedRule = rule;
-export default rule;

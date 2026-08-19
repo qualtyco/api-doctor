@@ -1,3 +1,6 @@
+import { contains, endOffset, findProperty, isInsideTestFile, memberPropName, startOffset } from '../_shared/ast.js';
+export { contains, endOffset, findProperty, isInsideTestFile, memberPropName, startOffset };
+
 /**
  * Shared AST helpers for S2 (@s2-dev/streamstore) rules.
  *
@@ -24,17 +27,6 @@ export function unwrapExpr(node: any): any {
   return n;
 }
 
-/** Name of a MemberExpression property: `x.append` or `x["append"]` → "append". */
-export function memberPropName(member: any): string | null {
-  if (member?.type !== 'MemberExpression') return null;
-  const prop = member.property;
-  if (!member.computed && prop?.type === 'Identifier') return prop.name;
-  if (member.computed && prop?.type === 'Literal' && typeof prop.value === 'string') {
-    return prop.value;
-  }
-  return null;
-}
-
 /**
  * If `node` is a call of the form `<obj>.<name>(...)` (including dynamic
  * `<obj>["<name>"](...)`), returns the callee object; else null.
@@ -44,17 +36,6 @@ export function memberCallObject(node: any, name: string): any | null {
   const callee = unwrapExpr(node.callee);
   if (memberPropName(callee) !== name) return null;
   return callee.object;
-}
-
-/** Returns the Property node named `name` on an ObjectExpression, else undefined. */
-export function findProperty(objectExpression: any, name: string): any | undefined {
-  if (objectExpression?.type !== 'ObjectExpression') return undefined;
-  return objectExpression.properties?.find(
-    (p: any) =>
-      p?.type === 'Property' &&
-      ((p.key?.type === 'Identifier' && !p.computed && p.key.name === name) ||
-        (p.key?.type === 'Literal' && p.key.value === name)),
-  );
 }
 
 /** Returns `arguments[index]` if it is an ObjectExpression, else null. */
@@ -75,31 +56,6 @@ export function processEnvVarName(node: any): string | null {
   if (!n.computed && prop?.type === 'Identifier') return prop.name;
   if (n.computed && prop?.type === 'Literal' && typeof prop.value === 'string') return prop.value;
   return null;
-}
-
-/** True when the file path looks like a test file. */
-export function isInsideTestFile(filename: string): boolean {
-  return /(^|[\\/])__tests__[\\/]|\.(test|spec)\.[cm]?[jt]sx?$/.test(filename);
-}
-
-/** Best-effort absolute start offset of a node (range → start → loc fallback). */
-export function startOffset(n: any): number {
-  if (typeof n?.range?.[0] === 'number') return n.range[0];
-  if (typeof n?.start === 'number') return n.start;
-  return (n?.loc?.start?.line ?? 0) * 1_000_000 + (n?.loc?.start?.column ?? 0);
-}
-
-/** Best-effort absolute end offset of a node (range → end → loc fallback). */
-export function endOffset(n: any): number {
-  if (typeof n?.range?.[1] === 'number') return n.range[1];
-  if (typeof n?.end === 'number') return n.end;
-  return (n?.loc?.end?.line ?? n?.loc?.start?.line ?? 0) * 1_000_000 + (n?.loc?.end?.column ?? 0);
-}
-
-/** True when `outer`'s range fully contains `inner`'s start position. */
-export function contains(outer: any, inner: any): boolean {
-  const s = startOffset(inner);
-  return s >= startOffset(outer) && s <= endOffset(outer);
 }
 
 export interface S2FileTracker {

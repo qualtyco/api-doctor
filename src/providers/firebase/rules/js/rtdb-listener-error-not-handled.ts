@@ -44,4 +44,3 @@ const rule = {
 };
 
 export const firebaseRtdbListenerErrorNotHandledRule = rule;
-export default rule;

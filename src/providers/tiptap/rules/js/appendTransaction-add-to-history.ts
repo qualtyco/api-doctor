@@ -92,4 +92,3 @@ const rule = {
 };
 
 export const tiptapAppendTransactionAddToHistoryRule = rule;
-export default rule;

@@ -71,4 +71,3 @@ const rule = {
 };
 
 export const agentmailNoMessageIdAsThreadIdRule = rule;
-export default rule;

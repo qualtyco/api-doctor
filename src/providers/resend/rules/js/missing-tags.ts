@@ -41,4 +41,3 @@ const rule = {
 };
 
 export const resendMissingTagsRule = rule;
-export default rule;

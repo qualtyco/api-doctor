@@ -82,4 +82,3 @@ const rule = {
 };
 
 export const s2AppendSessionForStreamsRule = rule;
-export default rule;

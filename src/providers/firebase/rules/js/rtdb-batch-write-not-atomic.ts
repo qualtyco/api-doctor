@@ -96,4 +96,3 @@ const rule = {
 };
 
 export const firebaseRtdbBatchWriteNotAtomicRule = rule;
-export default rule;

@@ -64,4 +64,3 @@ const rule = {
 };
 
 export const browserbaseDontStackCustomRetryOnSdkRetryRule = rule;
-export default rule;

@@ -7,7 +7,7 @@
  * docstring warns: "Use REQUEST_RELEASE before session's timeout to avoid
  * additional charges."
  */
-import { contains, findProperty, isSessionsCall, memberPropName, someDescendant } from '../../utils.js';
+import { contains, findProperty, isSessionsCall, callPropName, someDescendant } from '../../utils.js';
 
 function isSessionsCreateAwait(node: any): boolean {
   return node?.type === 'AwaitExpression' && isSessionsCall(node.argument, 'create');
@@ -16,7 +16,7 @@ function isSessionsCreateAwait(node: any): boolean {
 function isConnectCall(node: any): boolean {
   if (node?.type !== 'CallExpression') return false;
   const callee = node.callee;
-  const name = callee?.type === 'Identifier' ? callee.name : memberPropName(node);
+  const name = callee?.type === 'Identifier' ? callee.name : callPropName(node);
   return !!name && /connect/i.test(name);
 }
 
@@ -28,7 +28,7 @@ function isReleaseCall(node: any): boolean {
     if (statusProp?.value?.type === 'Literal' && statusProp.value.value === 'REQUEST_RELEASE') return true;
   }
   const callee = node.callee;
-  const name = callee?.type === 'Identifier' ? callee.name : memberPropName(node);
+  const name = callee?.type === 'Identifier' ? callee.name : callPropName(node);
   return !!name && /requeststop|releasesession|release_session/i.test(name);
 }
 
@@ -79,4 +79,3 @@ const rule = {
 };
 
 export const browserbaseReleaseSessionOnConnectFailureRule = rule;
-export default rule;

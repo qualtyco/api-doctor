@@ -97,4 +97,3 @@ const rule = {
 };
 
 export const supabaseUncheckedMutationErrorRule = rule;
-export default rule;

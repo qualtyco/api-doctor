@@ -158,4 +158,3 @@ const rule = {
 };
 
 export const resendMissingIdempotencyKeyRule = rule;
-export default rule;

@@ -45,4 +45,3 @@ const rule = {
 };
 
 export const resendMarketingViaBatchSendRule = rule;
-export default rule;

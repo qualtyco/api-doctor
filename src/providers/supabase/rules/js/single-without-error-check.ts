@@ -8,7 +8,7 @@
  * whole-result binding whose `.error` is read later, and chains ending in
  * `.throwOnError()` (documented opt-in to exceptions).
  */
-import { chainHasMethod, destructuresKey, memberPropName } from '../../utils.js';
+import { chainHasMethod, destructuresKey, callPropName } from '../../utils.js';
 
 function isSingleSupabaseQuery(awaitArg: any): boolean {
   return awaitArg?.type === 'CallExpression' && chainHasMethod(awaitArg, 'single');
@@ -76,7 +76,7 @@ const rule = {
         if (expr?.type !== 'AwaitExpression') return;
         if (!isSingleSupabaseQuery(expr.argument)) return;
         if (chainHasMethod(expr.argument, 'throwOnError')) return;
-        if (memberPropName(expr.argument) === 'single') {
+        if (callPropName(expr.argument) === 'single') {
           context.report({ node, messageId: 'missingErrorCheck' });
         }
       },
@@ -92,4 +92,3 @@ const rule = {
 };
 
 export const supabaseSingleWithoutErrorCheckRule = rule;
-export default rule;

@@ -126,4 +126,3 @@ const rule = {
 };
 
 export const resendUncheckedSendErrorRule = rule;
-export default rule;

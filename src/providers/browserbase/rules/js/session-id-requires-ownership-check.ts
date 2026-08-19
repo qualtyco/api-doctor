@@ -104,4 +104,3 @@ const rule = {
 };
 
 export const browserbaseSessionIdRequiresOwnershipCheckRule = rule;
-export default rule;

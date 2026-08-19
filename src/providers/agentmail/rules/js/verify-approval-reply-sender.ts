@@ -134,4 +134,3 @@ const rule = {
 };
 
 export const agentmailVerifyApprovalReplySenderRule = rule;
-export default rule;

@@ -115,4 +115,3 @@ const rule = {
 };
 
 export const browserbaseUseTypedExceptionStatusNotSubstringRule = rule;
-export default rule;

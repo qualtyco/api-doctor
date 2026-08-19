@@ -95,4 +95,3 @@ const rule = {
 };
 
 export const tiptapAppendTransactionFullScanRule = rule;
-export default rule;

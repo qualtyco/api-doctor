@@ -50,4 +50,3 @@ const rule = {
 };
 
 export const firebaseFirestoreRulesExpiredRule = rule;
-export default rule;

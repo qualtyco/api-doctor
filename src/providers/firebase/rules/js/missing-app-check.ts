@@ -69,4 +69,3 @@ const rule = {
 };
 
 export const firebaseMissingAppCheckRule = rule;
-export default rule;

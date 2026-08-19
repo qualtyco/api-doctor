@@ -50,4 +50,3 @@ const rule = {
 };
 
 export const resendTestDomainInProductionPathRule = rule;
-export default rule;

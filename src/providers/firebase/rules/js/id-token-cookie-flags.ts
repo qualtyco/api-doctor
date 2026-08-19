@@ -122,4 +122,3 @@ const rule = {
 };
 
 export const firebaseIdTokenCookieFlagsRule = rule;
-export default rule;

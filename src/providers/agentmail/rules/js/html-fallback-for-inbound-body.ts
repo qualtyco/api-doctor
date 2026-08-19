@@ -87,4 +87,3 @@ const rule = {
 };
 
 export const agentmailHtmlFallbackForInboundBodyRule = rule;
-export default rule;

@@ -172,4 +172,3 @@ const rule = {
 };
 
 export const s2ScopedTokenForClientRule = rule;
-export default rule;

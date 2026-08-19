@@ -97,4 +97,3 @@ const rule = {
 };
 
 export const tiptapAtomNodeWrapInRule = rule;
-export default rule;

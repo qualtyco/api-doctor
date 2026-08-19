@@ -4,7 +4,7 @@
  * `raw_user_meta_data` is client-writable — using `user_metadata` for roles
  * lets any authenticated user self-promote via updateUser({ data: { role } }).
  */
-import { isUserMetadataAuthzRead, memberPropName } from '../../utils.js';
+import { isUserMetadataAuthzRead, callPropName } from '../../utils.js';
 
 const AUTHZ_DATA_KEYS = new Set(['role', 'roles', 'admin', 'is_admin', 'permission', 'permissions']);
 
@@ -50,7 +50,7 @@ function findAuthDataPayload(args: any[]): any | null {
 }
 
 function isAuthUserMetadataWrite(node: any): boolean {
-  const prop = memberPropName(node);
+  const prop = callPropName(node);
   if (prop !== 'signUp' && prop !== 'updateUser') return false;
   const dataPayload = findAuthDataPayload(node.arguments ?? []);
   return dataPayload ? objectHasAuthzDataKey(dataPayload) : false;
@@ -94,4 +94,3 @@ const rule = {
 };
 
 export const supabaseNoUserMetadataAuthzRule = rule;
-export default rule;

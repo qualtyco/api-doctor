@@ -127,4 +127,3 @@ const rule = {
 };
 
 export const browserbaseNoConditionalAuthzOnAnonymousUserRule = rule;
-export default rule;

@@ -78,4 +78,3 @@ const rule = {
 };
 
 export const s2IdempotentResourceCreateRule = rule;
-export default rule;

@@ -109,4 +109,3 @@ const rule = {
 };
 
 export const agentmailAttachmentSizeGuardRule = rule;
-export default rule;

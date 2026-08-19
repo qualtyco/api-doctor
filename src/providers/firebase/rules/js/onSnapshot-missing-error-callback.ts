@@ -47,4 +47,3 @@ const rule = {
 };
 
 export const firebaseOnSnapshotMissingErrorCallbackRule = rule;
-export default rule;

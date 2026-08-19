@@ -56,4 +56,3 @@ const rule = {
 };
 
 export const firebaseUseArrayUnionRemoveRule = rule;
-export default rule;

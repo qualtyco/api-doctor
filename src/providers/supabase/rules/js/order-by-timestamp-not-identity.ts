@@ -13,7 +13,7 @@
  * candidate timestamp column(s) is already recorded by the time the
  * `.order()` built on top of it is visited.
  */
-import { chainObjectCall, isTimestampColumnName, memberPropName, parseSelectColumns } from '../../utils.js';
+import { chainObjectCall, isTimestampColumnName, callPropName, parseSelectColumns } from '../../utils.js';
 
 interface ChainState {
   timestampColumns: string[];
@@ -41,12 +41,12 @@ const rule = {
 
     return {
       'CallExpression:exit'(node: any) {
-        const prop = memberPropName(node);
+        const prop = callPropName(node);
         if (!prop) return;
 
         const objCall = chainObjectCall(node);
 
-        if (prop === 'select' && objCall && memberPropName(objCall) === 'from') {
+        if (prop === 'select' && objCall && callPropName(objCall) === 'from') {
           const columns = parseSelectColumns(node.arguments?.[0]);
           const timestampColumns = columns.filter(isTimestampColumnName);
           chainStates.set(node, { timestampColumns });
@@ -79,4 +79,3 @@ const rule = {
 };
 
 export const supabaseOrderByTimestampNotIdentityRule = rule;
-export default rule;

@@ -93,4 +93,3 @@ const rule = {
 };
 
 export const agentmailPreferWebhooksInProductionRule = rule;
-export default rule;

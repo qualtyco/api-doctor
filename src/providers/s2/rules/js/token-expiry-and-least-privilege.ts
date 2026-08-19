@@ -136,4 +136,3 @@ const rule = {
 };
 
 export const s2TokenExpiryAndLeastPrivilegeRule = rule;
-export default rule;

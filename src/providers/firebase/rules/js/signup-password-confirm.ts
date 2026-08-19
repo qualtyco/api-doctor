@@ -72,4 +72,3 @@ const rule = {
 };
 
 export const firebaseSignupPasswordConfirmRule = rule;
-export default rule;

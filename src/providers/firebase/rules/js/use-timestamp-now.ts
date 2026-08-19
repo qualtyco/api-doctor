@@ -38,4 +38,3 @@ const rule = {
 };
 
 export const firebaseUseTimestampNowRule = rule;
-export default rule;

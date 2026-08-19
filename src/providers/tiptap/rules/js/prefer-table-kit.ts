@@ -118,4 +118,3 @@ const rule = {
 };
 
 export const tiptapPreferTableKitRule = rule;
-export default rule;

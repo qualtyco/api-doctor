@@ -159,4 +159,3 @@ const rule = {
 };
 
 export const supabaseFailFastEnvValidationRule = rule;
-export default rule;

@@ -103,4 +103,3 @@ const rule = {
 };
 
 export const s2TailIsEndNotLastRecordRule = rule;
-export default rule;

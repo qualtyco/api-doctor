@@ -117,4 +117,3 @@ const rule = {
 };
 
 export const s2CloseStreamClientRule = rule;
-export default rule;

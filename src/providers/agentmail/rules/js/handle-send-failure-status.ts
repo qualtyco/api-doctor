@@ -122,4 +122,3 @@ const rule = {
 };
 
 export const agentmailHandleSendFailureStatusRule = rule;
-export default rule;

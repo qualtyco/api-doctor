@@ -115,4 +115,3 @@ const rule = {
 };
 
 export const resendWebhookNoIdempotencyRule = rule;
-export default rule;

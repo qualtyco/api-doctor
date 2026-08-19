@@ -95,4 +95,3 @@ const rule = {
 };
 
 export const agentmailCustomDomainForOutreachRule = rule;
-export default rule;

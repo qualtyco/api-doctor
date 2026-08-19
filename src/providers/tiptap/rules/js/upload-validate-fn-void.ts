@@ -106,4 +106,3 @@ const rule = {
 };
 
 export const tiptapUploadValidateFnVoidRule = rule;
-export default rule;
