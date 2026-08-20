@@ -8,6 +8,7 @@ import type { DetectedProvider, Report, ScanResult } from '../types.js';
 import { ScanError } from '../scan-error.js';
 import { writeReport } from './json-writer.js';
 import { renderMarkdown } from './markdown.js';
+import { writeStdout } from './stdout.js';
 import { countErrors, renderFooter, renderTerminalReport, renderUnsupportedPackagesHint } from './terminal.js';
 import { renderVerboseReport } from './verbose.js';
 import { getUnsupportedPackages } from '../unsupported-packages.js';
@@ -49,10 +50,12 @@ export async function emitReport(
 
   // Structured stdout formats suppress all human output so the stream can be piped.
   if (options.format) {
+    // Awaited: the caller exits the process straight after this returns, and
+    // an unflushed pipe write would be thrown away. See reporter/stdout.ts.
     if (options.format === 'json') {
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeStdout(`${JSON.stringify(report, null, 2)}\n`);
     } else if (options.format === 'markdown') {
-      process.stdout.write(renderMarkdown(report));
+      await writeStdout(renderMarkdown(report));
     } else {
       throw new ScanError(`Unsupported format: ${options.format}`);
     }

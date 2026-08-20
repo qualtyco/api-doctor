@@ -55,6 +55,7 @@ import {
   writeMigrationReport,
 } from './reporter/json-writer.js';
 import { renderMigrationReport } from './reporter/migration-terminal.js';
+import { writeStdout } from './reporter/stdout.js';
 import { buildReport } from './reporter/report-builder.js';
 import { countErrors, emitReport, type OutputFormat } from './reporter/index.js';
 import { readProjectHistory } from './run-history.js';
@@ -613,7 +614,7 @@ async function runMigration(input: MigrationRunInput): Promise<void> {
   if (wroteFile) writeMigrationReport(report, outputPath);
 
   if (jsonOut) {
-    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    await writeStdout(`${JSON.stringify(report, null, 2)}\n`);
     process.exit(0);
   }
 
