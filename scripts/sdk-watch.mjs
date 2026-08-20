@@ -91,6 +91,48 @@ const WATCHED = [
     sourceDir: 'src',
     url: 'https://github.com/elevenlabs/elevenlabs-js',
   },
+  {
+    provider: 'agentmail',
+    repo: 'agentmail-node',
+    pkgDir: '.',
+    sourceDir: 'src',
+    url: 'https://github.com/agentmail-to/agentmail-node',
+  },
+  {
+    // Published from a private staging repo, so the public history is mostly
+    // release commits — the diff worth reading is in src/resources, where the
+    // generator writes the method bodies.
+    provider: 'browserbase',
+    repo: 'sdk-node',
+    pkgDir: '.',
+    sourceDir: 'src/resources',
+    url: 'https://github.com/browserbase/sdk-node',
+  },
+  {
+    // nx monorepo: packages/core is a DIRECTORY of packages, not a package —
+    // the root client is packages/core/supabase-js and its sub-clients
+    // (auth-js, storage-js, functions-js, realtime-js, postgrest-js) are
+    // siblings, all versioned in lockstep with it. Hence pkgDir on the root
+    // package but sourceDir on the whole of packages/core: the breaking
+    // changes worth reading land in the sub-clients at least as often as in
+    // the root, and one entry has to cover them all.
+    provider: 'supabase',
+    repo: 'supabase-js',
+    pkgDir: 'packages/core/supabase-js',
+    sourceDir: 'packages/core',
+    url: 'https://github.com/supabase/supabase-js',
+  },
+  {
+    // Tiptap has no HTTP surface, so it has no surface manifest — it is
+    // watched for its compatibility data instead. `packages/react` is the
+    // scope that matters: the removals recorded so far are React component
+    // exports, and the full monorepo diff is unreadable weekly.
+    provider: 'tiptap',
+    repo: 'tiptap',
+    pkgDir: 'packages/react',
+    sourceDir: 'packages/react/src',
+    url: 'https://github.com/ueberdosis/tiptap',
+  },
 ];
 
 /**

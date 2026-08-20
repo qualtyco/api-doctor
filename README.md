@@ -32,17 +32,17 @@ at `.agents/skills/api-doctor/SKILL.md` type _"\api-doctor fix it"_ to get a qui
 | Provider | Rules | SDK verified |
 | --- | --- | --- |
 | [Resend](https://resend.com/docs) | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/resend/README.md) | `resend` 6.20.0 |
-| [Supabase](https://supabase.com/docs) | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md) | — |
+| [Supabase](https://supabase.com/docs) | [13 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/supabase/README.md) | `@supabase/supabase-js` 2.112.3 |
 | [Auth0](https://auth0.com/docs) | [4 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/auth0/README.md) | `auth0` 6.3.0 |
 | [Firebase](https://firebase.google.com/docs) | [19 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/firebase/README.md) | — |
-| [Browserbase](https://docs.browserbase.com) | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) | — |
-| [OpenAI](https://platform.openai.com/docs/api-reference) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai/README.md) | — |
-| [Tiptap](https://tiptap.dev/docs) | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md) | — |
+| [Browserbase](https://docs.browserbase.com) | [12 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/browserbase/README.md) | `@browserbasehq/sdk` 2.18.0 |
+| [OpenAI](https://platform.openai.com/docs/api-reference) | [6 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai/README.md) | — |
+| [Tiptap](https://tiptap.dev/docs) | [11 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/tiptap/README.md) | `@tiptap/react` 3.30.2 |
 | [ElevenLabs](https://elevenlabs.io/docs) | [10 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/elevenlabs/README.md) | `@elevenlabs/elevenlabs-js` 2.64.0 |
-| [Twilio](https://www.twilio.com/docs) | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md) | — |
+| [Twilio](https://www.twilio.com/docs) | [7 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/twilio/README.md) | — |
 | [OpenAI Realtime](https://developers.openai.com/api/docs/guides/realtime) | [9 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/openai-realtime/README.md) | — |
 | [S2](https://s2.dev/docs/intro) | [18 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/s2/README.md) | `@s2-dev/streamstore` 0.26.0 |
-| [AgentMail](https://docs.agentmail.to/welcome) | [14 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/agentmail/README.md) | — |
+| [AgentMail](https://docs.agentmail.to/welcome) | [15 rules](https://github.com/qualtyco/api-doctor/blob/main/src/providers/agentmail/README.md) | `agentmail` 0.5.20 |
 
 Full rule catalogs live in the [GitHub repo](https://github.com/qualtyco/api-doctor/tree/main/src/providers) under `src/providers/<name>/README.md`.
 
