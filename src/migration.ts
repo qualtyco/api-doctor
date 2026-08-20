@@ -244,6 +244,11 @@ const GROUP_COPY: Record<MigrationDifficulty, { title: string; guidance: string 
 function instructionsFor(report: Omit<MigrationReport, 'instructions'>): string[] {
   return [
     `This file is a MIGRATION PLAN, not a defect report. Every call site listed here works today against ${report.package}@${report.from}. They are listed because they would stop working at ${report.to}.`,
+    ...(report.fromVersions
+      ? [
+          `This workspace installs ${report.package} at more than one version (${report.fromVersions.join(', ')}). Each call site below was resolved against the version its own package.json declares, and only sites below ${report.to} are listed — do not assume one version across the repo, and check the nearest package.json before changing a file.`,
+        ]
+      : []),
     `The companion file .api-doctor/report.json (kind: "scan") is the other shape: those findings are wrong NOW. Do not confuse the two, and do not treat this file as a list of bugs.`,
     'Work the groups in the order they appear. They are sorted by how much judgement each change needs, so the safe bulk edits land first and the diff for the hard changes stays small and readable.',
     'Each change lists every call site under it. Decide once how that change is made, then apply that decision at each site — do not re-derive it per site.',
@@ -260,6 +265,8 @@ export interface BuildMigrationReportInput {
   packageName: string;
   /** Version resolved from the project, or undefined when unresolvable. */
   installed?: string;
+  /** Every distinct version in the tree, when a workspace holds more than one. */
+  installedVersions?: string[];
   /** Compatibility results from the reversed-gate scan. */
   results: ScanResult[];
   directory: string;
@@ -344,6 +351,9 @@ export function buildMigrationReport(input: BuildMigrationReportInput): Migratio
     // migration it cannot resolve a from-version for, because every gate below
     // depends on that number.
     from: input.installed ?? 'unknown',
+    ...(input.installedVersions && input.installedVersions.length > 1
+      ? { fromVersions: input.installedVersions }
+      : {}),
     to: input.target.label,
     directory: input.directory,
     generatedAt: (input.generatedAt ?? new Date()).toISOString(),

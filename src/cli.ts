@@ -562,14 +562,20 @@ async function runMigration(input: MigrationRunInput): Promise<void> {
     process.exit(0);
   }
 
-  const version = resolveProviderVersions(detected, scannedDir).get(target.provider);
+  const compatPackage = providers.find((p) => p.name === target.provider)?.compatibility?.package;
+  const resolved = resolveProviderVersions(detected, scannedDir).get(target.provider);
+  // The version MUST come from the package the removals were verified against.
+  // A number read off a sibling package (`@tiptap/core` in a Vue project that
+  // has no `@tiptap/react`) would head the plan with a version for a package
+  // this project does not install.
+  const version = resolved && resolved.packageName === compatPackage ? resolved : undefined;
   if (!version) {
     // Unresolvable must never be read as "latest" here either. Without a
     // starting version the plan cannot say which removals are ahead of this
     // project and which are behind, and a plan built on a guess is worse than
     // no plan.
     fail(
-      `could not resolve the installed version of ${target.provider} in ${directory} — a migration plan needs to know which version you are starting from`,
+      `could not resolve an installed version of ${compatPackage ?? target.provider} in ${directory} — a migration plan needs to know which version you are starting from`,
     );
   }
 
@@ -585,13 +591,13 @@ async function runMigration(input: MigrationRunInput): Promise<void> {
     process.exit(0);
   }
 
-  const packageName = providers.find((p) => p.name === target.provider)?.compatibility?.package
-    ?? version.packageName;
+  const packageName = version.packageName;
 
   const report = buildMigrationReport({
     target,
     packageName,
     installed: version.installed,
+    installedVersions: version.versions,
     results,
     directory: scannedDir,
     filesContent,

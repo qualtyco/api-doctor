@@ -575,8 +575,15 @@ export interface MigrationReport {
   provider: string;
   /** npm package the versions below refer to. */
   package: string;
-  /** Version resolved from the project right now. */
+  /** Version resolved from the project right now — the lowest, in a workspace. */
   from: string;
+  /**
+   * Every distinct version of this package in the scanned tree, when there is
+   * more than one. A monorepo can hold two, and the plan covers only the call
+   * sites in files resolving to a version below the target — so a reader who
+   * assumes one version would mis-scope the work.
+   */
+  fromVersions?: string[];
   /** Version the user asked to move to, in human form: '2.x', '3.0.1'. */
   to: string;
   /**

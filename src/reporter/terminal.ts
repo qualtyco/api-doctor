@@ -79,6 +79,14 @@ async function printDetectedProviders(
     } else {
       console.log(`  ${pc.dim('○')} ${label}${versionTag} ${via} ${pc.dim('— no checks yet')}`);
     }
+    // A workspace can install the same SDK at several versions. Printing one
+    // of them as "the" version is simply false, and it is the reader who has to
+    // know, since a finding in one package may not apply in another.
+    if (version && version.versions.length > 1) {
+      console.log(
+        pc.dim(`      ${version.versions.length} versions in this workspace: ${version.versions.join(', ')}`),
+      );
+    }
     // States the two versions and stops. Whether the gap matters is the
     // reader's call; this must never read as an upgrade recommendation.
     if (version?.differs) {
