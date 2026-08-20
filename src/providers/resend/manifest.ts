@@ -5,9 +5,7 @@ export const resendManifest: ProviderManifest = {
   displayName: 'Resend',
   detect: {
     packages: ['resend'],
-    pythonPackages: ['resend'],
     imports: ['resend'],
-    pythonImports: ['resend'],
     urlPatterns: ['api.resend.com'],
   },
   surface: {
@@ -153,11 +151,9 @@ export const resendManifest: ProviderManifest = {
       fix: 'Verify incoming webhooks with Svix (Resend uses Svix signatures). Validate headers and payload before handling events.',
       docsUrl: 'https://resend.com/docs/webhooks/verify-webhooks-requests',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     // RULE-DISABLED 2026-07-28 (pre-launch): overfitting, 46/47 (98%) false
-    // positives in review. Disables both engines at once (the JS rule and its
-    // dormant Python port share this key). Rule, tests and fixtures are intact.
+    // positives in review. Rule, tests and fixtures are intact.
     // NOTE: tests/fixtures/resend/docs-examples/send-batch.ts had this rule in
     // its `docs-example-expected` list; that entry is commented out there too
     // and must be restored in the same change that re-enables this rule.
@@ -168,7 +164,6 @@ export const resendManifest: ProviderManifest = {
     //   fix: 'Move the key to an environment variable and read it via process.env.RESEND_API_KEY.',
     //   docsUrl: 'https://resend.com/docs/send-with-nextjs#prerequisites',
     //   severity: 'error',
-    //   languages: ['javascript', 'python'],
     // },
     {
       key: 'resend-api-key-in-client-bundle',
@@ -177,7 +172,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Import and use Resend only in server code (route handlers, server actions, server components).',
       docsUrl: 'https://resend.com/docs/send-with-nextjs',
       severity: 'error',
-      languages: ['javascript'],
     },
     {
       key: 'resend-marketing-via-batch-send',
@@ -186,7 +180,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Use the Broadcasts API (resend.broadcasts.*) or the Dashboard Broadcasts workflow for marketing sends.',
       docsUrl: 'https://resend.com/docs/dashboard/emails/batch-sending',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-marketing-missing-unsubscribe',
@@ -195,7 +188,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Add a List-Unsubscribe header (RFC 8058) or include {{{RESEND_UNSUBSCRIBE_URL}}} in the HTML, or send via Broadcasts.',
       docsUrl: 'https://resend.com/docs/dashboard/broadcasts/introduction',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-test-domain-in-production-path',
@@ -204,7 +196,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Send from a verified domain configured via process.env.RESEND_FROM_EMAIL.',
       docsUrl: 'https://resend.com/docs/send-with-nextjs',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-from-address-not-friendly-format',
@@ -213,7 +204,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Use a friendly-name sender, e.g. "Acme <onboarding@acme.com>".',
       docsUrl: 'https://resend.com/docs/api-reference/emails/send-email',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-batch-size-not-enforced',
@@ -222,7 +212,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Guard the array length (max 100) before calling batch.send, or chunk the array.',
       docsUrl: 'https://resend.com/docs/api-reference/emails/send-batch-emails',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-missing-idempotency-key',
@@ -231,7 +220,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Pass an idempotencyKey (e.g. welcome/${userId}) to prevent duplicate sends on retry.',
       docsUrl: 'https://resend.com/docs/send-with-nextjs',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-unchecked-send-error',
@@ -240,9 +228,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Bind the result and check it: const { data, error } = await resend.emails.send(...); if (error) throw new Error(error.message);',
       docsUrl: 'https://resend.com/docs/api-reference/errors',
       severity: 'error',
-      // JavaScript only: the Python SDK raises resend.exceptions.ResendError
-      // instead of returning { data, error }, so there is no unchecked field.
-      languages: ['javascript'],
     },
     {
       key: 'resend-no-error-code-mapping',
@@ -251,7 +236,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Map Resend error codes (400/401/403/422/429) to appropriate HTTP statuses instead of always 500.',
       docsUrl: 'https://resend.com/docs/ai-onboarding',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-webhook-no-idempotency',
@@ -260,7 +244,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Track processed event ids (e.g. event.data.email_id) in a store or set, since Resend retries for 24h.',
       docsUrl: 'https://resend.com/docs/webhooks/introduction',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-missing-tags',
@@ -269,7 +252,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Add tags, e.g. tags: [{ name: "category", value: "welcome" }].',
       docsUrl: 'https://resend.com/docs/dashboard/emails/tags',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'resend-request-id-not-logged',
@@ -278,7 +260,6 @@ export const resendManifest: ProviderManifest = {
       fix: 'Log error.headers?.["x-request-id"] (or x-resend-request-id) alongside error.message.',
       docsUrl: 'https://resend.com/docs/api-reference/errors',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
   ],
 };

@@ -55,12 +55,6 @@ function detectionSourceLabel(source: DetectedProvider['source']): string {
       return 'imports';
     case 'url-patterns':
       return 'URL patterns';
-    case 'pyproject':
-      return 'pyproject.toml';
-    case 'requirements':
-      return 'requirements.txt';
-    case 'python-imports':
-      return 'Python imports';
   }
 }
 

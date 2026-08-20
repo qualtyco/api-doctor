@@ -9,7 +9,7 @@ export type FindingCategory = 'security' | 'correctness' | 'reliability' | 'comp
 export type ReportSeverityLabel = 'excellent' | 'good' | 'needs-work' | 'critical';
 
 /** Languages api-doctor can analyze. */
-export type RuleLanguage = 'javascript' | 'python';
+export type RuleLanguage = 'javascript';
 
 export interface ScanResult {
   file: string;
@@ -71,12 +71,8 @@ export interface ProviderManifest {
   detect: {
     /** npm package names in package.json */
     packages?: string[];
-    /** PyPI package names in requirements.txt / pyproject.toml */
-    pythonPackages?: string[];
     /** JS/TS import/require module strings */
     imports?: string[];
-    /** Python import module names (e.g. `resend`) */
-    pythonImports?: string[];
     urlPatterns?: string[];
   };
   rules: RuleMeta[];
@@ -298,13 +294,7 @@ export interface CoverageCollection extends ProviderCoverage {
   unknownSdkCalls: number;
 }
 
-export type DetectionSource =
-  | 'package.json'
-  | 'imports'
-  | 'url-patterns'
-  | 'pyproject'
-  | 'requirements'
-  | 'python-imports';
+export type DetectionSource = 'package.json' | 'imports' | 'url-patterns';
 
 export interface DetectedProvider {
   name: string;

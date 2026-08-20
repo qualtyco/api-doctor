@@ -24,10 +24,6 @@ docs/
 # Build output (publish via npm, not git)
 dist/
 
-# Python bytecode
-__pycache__/
-*.py[cod]
-
 # Local validation clones (not part of the product)
 validation/
 

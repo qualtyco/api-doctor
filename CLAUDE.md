@@ -46,45 +46,13 @@ Two outputs from a single build (`tsup.config.ts`):
 | `dist/cli.{mjs,cjs}` | `src/cli.ts` | CLI binary (`api-doctor` bin) |
 | `dist/plugin.js` | `src/plugin/index.ts` | Oxlint JS plugin (consumed by the CLI and directly by users) |
 
-### Python engine — present but dormant
-
-Python rule sources live under `src/providers/*/rules/python/` with a stdlib runtime in
-`src/engines/python/runtime/`, **but the shipped product is TypeScript-only.** Every call
-site that could classify, walk, detect, or lint a `.py` file is commented out behind a
-`PYTHON-DORMANT` marker:
-
-```bash
-grep -rn PYTHON-DORMANT src tests    # every switch, in one command
-```
-
-The master switch is the `.py` branch in `src/engines/classify.ts` — while it is off,
-`.py` files are never walked, read, classified, or linted. `src/detector.ts` needs its
-own switch because pyproject/requirements detection reads disk directly and does not go
-through file classification. `src/scanner.ts` does not import the Python runner at all,
-so `dist/` contains no code that can spawn a Python process, and `package.json` `files`
-ships no `.py` at all.
-
-Rules for keeping it dormant:
-
-- **Never re-enable one site alone** — the switches are a set; flip them together.
-- Python rule tests (`tests/rules/*-python-rules.test.ts`) drive the runtime directly via
-  `lintPythonFixture` and bypass `scan()`, so they keep running and keep the rule pack
-  under test. Only `tests/scanner-python.test.ts` (end-to-end through `scan()`) is skipped.
-- Do not add `src/providers` or `src/engines/python/runtime` to `package.json` `files`:
-  an explicit `files` entry force-includes everything beneath it, which `.gitignore`
-  cannot override — that leaks local `__pycache__/*.pyc` and every provider `.ts` source
-  into the published tarball.
-- When Python does ship: a repo containing `.py` files but no `python3` on PATH must
-  degrade to a JS-only report, never abort the whole scan (today `runPythonEngine`
-  throws `ScanError` → exit 2, discarding valid JS findings).
-
 ### Source layout
 
 ```
 src/
 ├── cli.ts              Entry point — one command: scan + skill + fix
 ├── scanner.ts          Walks files, classifies language, fans out to engines
-├── detector.ts         package.json / pyproject / import / URL heuristics
+├── detector.ts         package.json / import / URL heuristics
 ├── types.ts            Shared contracts + computeScore (the only score formula)
 ├── scan-error.ts       ScanError — import from here, never via scanner.ts
 ├── fix.ts              Fix phase: prompt build, outcome diff, agent registry
@@ -95,9 +63,8 @@ src/
 ├── run-history.ts      .api-doctor/run-history.json (score delta, compat symbols)
 ├── telemetry.ts        PostHog events; agent-detector.ts feeds it ai_model
 ├── engines/
-│   ├── classify.ts     Per-file language (javascript | python)
-│   ├── js/runner.ts    Oxlint engine
-│   └── python/         Node runner + stdlib-ast runtime/
+│   ├── classify.ts     Per-file language classification
+│   └── js/runner.ts    Oxlint engine
 ├── reporter/           Terminal, JSON, markdown, and file output
 ├── coverage/           SDK surface coverage (CLI-only; JS/TS; never scored)
 │   └── collect.ts      oxc-parser pass over provider files → used method paths
@@ -116,7 +83,6 @@ src/
         ├── utils.ts       Provider-SEMANTIC helpers only
         ├── compatibility.ts  Optional — hand-verified removals; declare on the manifest
         ├── rules/js/     Oxlint / ESTree rules
-        ├── rules/python/ stdlib-ast rules (same rule keys)
         └── README.md
 ```
 
@@ -129,7 +95,6 @@ cli.ts
        ├─ detectProviders()    detector.ts + manifests
        ├─ collectCoverage()    coverage/ (JS files only)
        ├─ runJsEngine()        oxlint + providers/*/rules/js
-       ├─ runPythonEngine()    python -m runtime + providers/*/rules/python
        └─ ScanResult[] (merged)
   └─ buildReport()             reporter/report-builder.ts
   └─ emitReport()
@@ -182,7 +147,6 @@ Coverage records which SDK method paths a codebase actually calls (`report.cover
 - Undercounting stays measurable: calls on a verified client outside the surface manifest are counted (never named) as `unknown_sdk_calls` in telemetry. The report itself carries no counts.
 - Coverage runs in the CLI via its own `oxc-parser` pass — **`src/plugin/index.ts` must never import from `src/coverage/`** (dist/plugin.js stays lint-only). `oxc-parser` is pinned exact (0.x native dep) — bump it deliberately and re-run the coverage tests.
 - **Coverage must never fail a scan**: `walkAst` is iterative (deep ASTs blow the call stack) and `parseFile` wraps parse *and* walk, dropping unanalysable files rather than propagating. An informational feature must not be able to take down the tool.
-- Coverage is **JS/TS only** — never feed `.py` files into `collectCoverage`.
 - Notables (hand-written unused-capability pointers) were deliberately dropped from v1: too heuristic-heavy to scale across providers. If they return, they must be justified by telemetry data, fire only on positive code evidence, and scope suppression signals to the provider.
 
 ### Shared AST helpers (`src/providers/_shared/ast.ts`)
@@ -465,13 +429,12 @@ Two invariants:
 
 If a legitimate fix cannot pass, the rule is too narrow. Fix the rule.
 
-### Three names that must stay in sync
+### Names that must stay in sync
 
 ```
 manifest rules[].key        →  resend-missing-idempotency-key
 plugin/index.ts object key  →  resend-missing-idempotency-key
 oxlint rule id              →  api-doctor/resend-missing-idempotency-key
-Python RULE_KEY             →  resend-missing-idempotency-key
 ```
 
 ### Test layout
@@ -482,9 +445,8 @@ tests/
 ├── fixtures/<provider>/<rule-key>-fixed/    should not flag
 ├── fixtures/<provider>/docs-examples/       verbatim official doc samples
 ├── rules/<rule-key>.test.ts                 one vitest file per rule
-├── scanner.test.ts / scanner-python.test.ts end-to-end scan()
-├── helpers/lint-rule.ts                     oxlint harness
-└── helpers/lint-python-rule.ts              Python runtime harness
+├── scanner.test.ts                          end-to-end scan()
+└── helpers/lint-rule.ts                     oxlint harness
 ```
 
 Fixture files may be named `*.test.ts` to exercise test-file detection; vitest excludes `tests/fixtures/**`.
@@ -497,12 +459,11 @@ The test suite is the contract for rule behavior — **never edit existing tests
 
 1. `src/providers/<name>/rules/js/<check>.ts` — AST visitors, **named export only** (the plugin imports named; a default export is dead weight)
 2. Register in `src/plugin/index.ts` — import `../providers/<name>/rules/js/<check>.js`
-3. Add entry to `src/providers/<name>/manifest.ts` → `rules[]` (set `languages` when Python applies)
-4. Optional Python port: `src/providers/<name>/rules/python/<check>.py` with `RULE_KEY` + `check(tree, path, source)`
-5. Rule registry coverage via plugin import (automatic)
-6. `tests/fixtures/<name>/<rule-key>-broken/` and `-fixed/` (JS and/or `.py`)
-7. `tests/rules/<rule-key>.test.ts`
-8. `pnpm build && pnpm test:unit`
+3. Add entry to `src/providers/<name>/manifest.ts` → `rules[]`
+4. Rule registry coverage via plugin import (automatic)
+5. `tests/fixtures/<name>/<rule-key>-broken/` and `-fixed/`
+6. `tests/rules/<rule-key>.test.ts`
+7. `pnpm build && pnpm test:unit`
 
 `scanner.ts` reads manifests automatically — do not edit it when adding rules.
 
@@ -526,10 +487,9 @@ other — a provider missing from any one fails quietly, not loudly.
 ## Rule implementation notes
 
 - Use AST visitors, never regex over raw source text as the primary detector.
-- JS: ESTree visitors (`CallExpression`, `ImportDeclaration`, `Program:exit`); track file-level state in `create()` closures.
-- Python: `ast.parse` + `check(tree, path, source) -> list[Diagnostic]`; export `RULE_KEY`.
-- Generic AST helpers come from `_shared/ast.ts`. Provider-semantic ones go in that provider's `utils.ts` / `utils.py`.
-- Reference: `src/providers/resend/rules/js/webhook-signature.ts` and `rules/python/api_key_hardcoded.py`
+- ESTree visitors (`CallExpression`, `ImportDeclaration`, `Program:exit`); track file-level state in `create()` closures.
+- Generic AST helpers come from `_shared/ast.ts`. Provider-semantic ones go in that provider's `utils.ts`.
+- Reference: `src/providers/resend/rules/js/webhook-signature.ts`
 - Rules are gated: a finding only fires when `anchor.ts` evidence ties the file to the provider. A rule that never fires end-to-end is usually a missing anchor, not a broken visitor.
 
 ## Known gaps

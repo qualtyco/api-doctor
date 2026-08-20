@@ -5,9 +5,7 @@ export const openaiManifest: ProviderManifest = {
   displayName: 'OpenAI',
   detect: {
     packages: ['openai'],
-    pythonPackages: ['openai'],
     imports: ['openai'],
-    pythonImports: ['openai'],
     urlPatterns: ['api.openai.com'],
   },
   surface: {
@@ -357,10 +355,8 @@ export const openaiManifest: ProviderManifest = {
   },
   rules: [
     // RULE-DISABLED 2026-07-28 (pre-launch): overfitting, 295/307 (96%) false
-    // positives in review. Commenting out the entry disables the rule for BOTH
-    // engines at once (the JS rule and its dormant Python port share this key),
-    // so it cannot quietly come back when the Python engine is switched on.
-    // Rule, tests and fixtures are intact.
+    // positives in review. Commenting out the entry disables the rule; rule,
+    // tests and fixtures are intact.
     // {
     //   key: 'openai-no-domain-allowlist',
     //   resultRule: 'openai/security/no-domain-allowlist',
@@ -368,7 +364,6 @@ export const openaiManifest: ProviderManifest = {
     //   fix: 'Check the page origin against a configured allowlist before executing click/type/fill actions, and require explicit opt-in for cross-domain navigation.',
     //   docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
     //   severity: 'error',
-    //   languages: ['javascript', 'python'],
     // },
     {
       key: 'openai-scroll-delta-default-zero',
@@ -377,7 +372,6 @@ export const openaiManifest: ProviderManifest = {
       fix: 'Default the missing scroll delta to 0 on both axes, matching the reference scroll handler.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-structured-step-metadata-not-text-json',
@@ -386,7 +380,6 @@ export const openaiManifest: ProviderManifest = {
       fix: 'Add a function tool (e.g. report_step) or use structured output (text.format) instead of parsing JSON found via indexOf/lastIndexOf in the message text.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-no-blind-safety-check-ack',
@@ -395,7 +388,6 @@ export const openaiManifest: ProviderManifest = {
       fix: 'Evaluate each check\'s code/message against an actual policy before acknowledging it, or omit acknowledged_safety_checks entirely if you rely on harness-level confirmation instead.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-retry-transient-turn-errors',
@@ -404,7 +396,6 @@ export const openaiManifest: ProviderManifest = {
       fix: 'Catch typed transient exceptions (RateLimitError, APIConnectionError, InternalServerError) and retry that turn with backoff before falling back to ending the run.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-check-response-status-incomplete',
@@ -413,7 +404,6 @@ export const openaiManifest: ProviderManifest = {
       fix: 'Check response.status === "incomplete" before treating a tool-call-free response as a successful completion; retry with a larger token budget or fail the run explicitly otherwise.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/tools-computer-use',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'openai-set-safety-identifier',
@@ -422,7 +412,6 @@ export const openaiManifest: ProviderManifest = {
       fix: 'Thread a stable, hashed per-customer identifier through to every responses.create() call as safety_identifier.',
       docsUrl: 'https://developers.openai.com/api/docs/guides/safety-best-practices',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
   ],
 };

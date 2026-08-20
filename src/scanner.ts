@@ -3,7 +3,7 @@
  * 1) walks source files and classifies each by language,
  * 2) detects API providers/SDKs,
  * 3) collects JS SDK surface coverage (informational),
- * 4) runs the JS (oxlint) and/or Python (stdlib ast) engines,
+ * 4) runs the JS (oxlint) engine,
  * 5) merges diagnostics into ScanResult objects for the reporter.
  */
 import { readdir, readFile } from 'node:fs/promises';
@@ -13,10 +13,6 @@ import { collectClientBindings, collectCoverage } from './coverage/collect.js';
 import { detectProviders } from './detector.js';
 import { classifyFileLanguage, isJavascriptFile } from './engines/classify.js';
 import { buildJsRuleConfig, runJsEngine } from './engines/js/runner.js';
-// PYTHON-DORMANT: importing the Python runner is what pulls a `spawn('python3')`
-// call site into dist/cli — leaving it commented out keeps the shipped bundle
-// free of any code that can start a Python process.
-// import { buildPythonRuleConfig, runPythonEngine } from './engines/python/runner.js';
 import { ScanError } from './scan-error.js';
 import type { CoverageCollection, DetectedProvider, RuleLanguage, ScanResult } from './types.js';
 
@@ -82,10 +78,6 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   const jsFiles = paths.filter(isJavascriptFile);
   const languagesScanned: RuleLanguage[] = [];
   if (jsFiles.length) languagesScanned.push('javascript');
-  // PYTHON-DORMANT: `paths` cannot contain .py while classifyFileLanguage's
-  // python branch is off, so pyFiles would always be empty anyway.
-  // const pyFiles = paths.filter(isPythonFile);
-  // if (pyFiles.length) languagesScanned.push('python');
 
   // Coverage uses oxc-parser — only feed JS/TS sources.
   const jsFilesContent = new Map(
@@ -108,7 +100,6 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
 
   const detectedNames = new Set(detected.map((d) => d.name));
   const { ruleMetaByKey: jsRules } = buildJsRuleConfig(detectedNames);
-  // PYTHON-DORMANT: const pyRules = buildPythonRuleConfig(detectedNames);
 
   const results: ScanResult[] = [];
 
@@ -124,20 +115,6 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
       })),
     );
   }
-
-  // PYTHON-DORMANT: the Python engine is not wired up for the TypeScript-only
-  // release. Restore this block together with the other PYTHON-DORMANT sites.
-  // if (pyFiles.length > 0 && pyRules.size > 0) {
-  //   results.push(
-  //     ...(await runPythonEngine({
-  //       absRoot,
-  //       files: pyFiles,
-  //       filesContent,
-  //       detectedNames,
-  //       ruleMetaByKey: pyRules,
-  //     })),
-  //   );
-  // }
 
   return {
     results,

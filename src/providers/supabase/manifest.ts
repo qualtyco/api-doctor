@@ -7,8 +7,6 @@ export const supabaseManifest: ProviderManifest = {
   detect: {
     packages: ['@supabase/supabase-js'],
     imports: ['@supabase/supabase-js', '@supabase/ssr'],
-    pythonPackages: ['supabase'],
-    pythonImports: ['supabase'],
     urlPatterns: ['supabase.co'],
   },
   surface: {
@@ -201,7 +199,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Add .eq("<column>", value) (or .match()/.filter()) to scope results to the caller. If RLS scopes this table the filter is still worth adding — defense-in-depth, and it avoids overfetching.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/eq',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-validate-uuid-columns',
@@ -210,7 +207,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Validate UUID shape with a regex (e.g. /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) before insert/upsert.',
       docsUrl: 'https://supabase.com/docs/guides/database/tables#data-types',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-order-by-timestamp-not-identity',
@@ -219,7 +215,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Order by the timestamp column (e.g. .order("created_at", { ascending: false })) instead of the surrogate key.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/order',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-consistent-input-length-limits',
@@ -228,7 +223,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Apply the same length cap pattern used for the other fields, e.g. field.length > 2000.',
       docsUrl: 'https://supabase.com/docs/guides/database/tables',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-idempotent-mutations',
@@ -237,7 +231,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Include a client-generated unique key (e.g. an id or *_key field backed by a unique constraint), or use .upsert(..., { onConflict: "<key column>" }).',
       docsUrl: 'https://supabase.com/docs/reference/javascript/upsert',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-fail-fast-env-validation',
@@ -246,7 +239,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Throw an error naming the env var (e.g. if (!url || !key) throw new Error("SUPABASE_URL/KEY must be set")) before creating the client — the SDK\'s own error ("supabaseKey is required.") does not say which variable to fix.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/initializing',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-no-user-metadata-authz',
@@ -255,7 +247,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Store roles in app_metadata via a trusted server path, or in an RLS-protected profiles table — never user_metadata.',
       docsUrl: 'https://supabase.com/docs/guides/auth/users',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-single-without-error-check',
@@ -264,7 +255,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Destructure and check error, or use .maybeSingle() and handle a missing row explicitly.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/single',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-non-atomic-replace-pattern',
@@ -273,7 +263,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Wrap delete+insert in a Postgres RPC (single transaction) and surface error from each step.',
       docsUrl: 'https://supabase.com/docs/guides/database/functions',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-unchecked-mutation-error',
@@ -282,7 +271,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Destructure { error } from every mutation and revert optimistic UI or show a toast on failure.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/insert',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-realtime-missing-filter',
@@ -290,10 +278,9 @@ export const supabaseManifest: ProviderManifest = {
       message:
         'postgres_changes subscription has no filter — every row change on the table will notify this client (often intentional for admin/global views; prefer a filter for per-user feeds).',
       fix:
-        'If this should be scoped to one user/row, add filter (JS: filter: `receiver_id=eq.${user.id}`; Python: filter=f"receiver_id=eq.{user_id}"). Leave unfiltered only for deliberate whole-table listens.',
+        'If this should be scoped to one user/row, add filter: `receiver_id=eq.${user.id}`. Leave unfiltered only for deliberate whole-table listens.',
       docsUrl: 'https://supabase.com/docs/guides/realtime/postgres-changes#filtering',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-storage-error-not-surfaced',
@@ -302,7 +289,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'On uploadError, stop and show an error instead of saving a stale URL.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/storage-from-upload',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'supabase-removed-method',

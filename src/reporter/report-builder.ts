@@ -111,11 +111,7 @@ export function buildReport(input: BuildReportInput): Report {
         manifest.rules
           .filter((rule) => {
             if (!langs) return true;
-            const rl = ruleLanguages(rule);
-            return (
-              (langs.has('javascript') && rl.includes('javascript')) ||
-              (langs.has('python') && rl.includes('python'))
-            );
+            return langs.has('javascript') && ruleLanguages(rule).includes('javascript');
           })
           .map((r) => r.key),
       ).size;

@@ -17,7 +17,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Change validateFn return type to boolean and guard: if (validateFn && !validateFn(file)) return;',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-script-src-hardcoded-api-key',
@@ -26,7 +25,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Read the key from process.env and assemble the URL at runtime.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/node-views',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-dynamic-script-no-sri',
@@ -35,7 +33,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Add script.setAttribute("integrity", "sha384-...") before appending the script.',
       docsUrl: 'https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Subresource_Integrity',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-addAttributes-missing-renderHTML',
@@ -44,7 +41,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Add renderHTML to the attribute descriptor, writing back the same name parseHTML reads.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node#attributes',
       severity: 'error',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-appendTransaction-add-to-history',
@@ -53,7 +49,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Chain .setMeta("addToHistory", false) onto the transaction before dispatching.',
       docsUrl: 'https://prosemirror.net/docs/ref/#state.Transaction.setMeta',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-appendTransaction-full-scan',
@@ -62,7 +57,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Guard with: const docChanged = transactions.some(tr => tr.docChanged); if (!docChanged) return;',
       docsUrl: 'https://prosemirror.net/docs/ref/#state.PluginSpec.appendTransaction',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-atom-node-wrap-in',
@@ -71,7 +65,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Use replaceSelectionWith(nodeType.create()) instead of wrapIn().',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/custom-extensions/create-new/node',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-drop-handler-pos-precedence',
@@ -80,7 +73,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Add parentheses: (coordinates?.pos ?? 0) - 1',
       docsUrl: 'https://prosemirror.net/docs/ref/#view.EditorView.posAtCoords',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-prefer-table-kit',
@@ -89,7 +81,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Import TableKit from @tiptap/extension-table and configure all table elements together.',
       docsUrl: 'https://tiptap.dev/docs/editor/extensions/functionality/table-kit',
       severity: 'info',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-tiptap-markdown-missing-node-spec',
@@ -98,7 +89,6 @@ export const tiptapManifest: ProviderManifest = {
       fix: 'Return a markdown serialize/parse spec (MarkdownNodeSpec) from addStorage — tiptap-markdown reads only extension.storage.markdown.',
       docsUrl: 'https://github.com/aguingand/tiptap-markdown',
       severity: 'warning',
-      languages: ['javascript', 'python'],
     },
     {
       key: 'tiptap-removed-symbol',
