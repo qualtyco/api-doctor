@@ -165,10 +165,24 @@ function formatDuration(ms?: number): string {
   return sec < 10 ? `${sec.toFixed(1)}s` : `${Math.round(sec)}s`;
 }
 
+/**
+ * Groups findings for display, keyed by rule AND message.
+ *
+ * Rule alone is not enough. Most rules render one fixed message, so keying on
+ * the pair changes nothing for them — but compatibility rules set
+ * `dynamicMessage`, and every finding they emit names a different symbol,
+ * version and successor. Keyed on rule alone, nine removed Supabase methods
+ * collapse under whichever one happened to come first, and the group's Verify
+ * line — which is deliberately taken from the headline's own finding — then
+ * describes a different removal than the eight lines beneath it. A hint about
+ * the wrong endpoint is worse than no hint, which is the reason the Verify
+ * line has its provenance rule in the first place.
+ */
 function groupResults(results: ScanResult[]): IssueGroup[] {
   const groups = new Map<string, IssueGroup>();
   for (const r of results) {
-    let group = groups.get(r.rule);
+    const key = `${r.rule}\u0000${r.message}`;
+    let group = groups.get(key);
     if (!group) {
       group = {
         rule: r.rule,
@@ -178,7 +192,7 @@ function groupResults(results: ScanResult[]): IssueGroup[] {
         verifyHint: r.verifyHint,
         items: [],
       };
-      groups.set(r.rule, group);
+      groups.set(key, group);
     }
     group.items.push(r);
   }
