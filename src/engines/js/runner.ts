@@ -10,7 +10,7 @@ import { PLUGIN_NAME, SKIP_DIR_NAMES } from '../../constants.js';
 import { getRuleDocsMeta } from '../../plugin/rule-registry.js';
 import { providers, verifyHintFromMessage } from '../../providers/index.js';
 import { ScanError } from '../../scan-error.js';
-import { ruleLanguages, type RuleMeta, type ScanResult } from '../../types.js';
+import { ruleLanguages, type MigrationTarget, type RuleMeta, type ScanResult } from '../../types.js';
 import type { EngineInput } from '../types.js';
 
 export const ENGINE_SKIP_DIRS = SKIP_DIR_NAMES;
@@ -40,13 +40,20 @@ function runOxlint(
   args: string[],
   cwd: string,
   clientMapPath?: string,
+  migrate?: MigrationTarget,
 ): Promise<{ stdout: string; stderr: string; error?: Error }> {
   return new Promise((resolveRun) => {
-    // Always own this variable: a stale API_DOCTOR_CLIENT_MODULES inherited
-    // from the parent environment must never leak into the subprocess.
+    // Always own these variables: a stale value inherited from the parent
+    // environment must never leak into the subprocess. That matters more for
+    // API_DOCTOR_MIGRATE than for the client map — an inherited migration
+    // target would silently reverse the meaning of a plain scan.
     const env = { ...process.env };
     delete env.API_DOCTOR_CLIENT_MODULES;
+    delete env.API_DOCTOR_MIGRATE;
     if (clientMapPath) env.API_DOCTOR_CLIENT_MODULES = clientMapPath;
+    // Two short strings — inline rather than via a temp file, unlike the
+    // client map, which can be large.
+    if (migrate) env.API_DOCTOR_MIGRATE = JSON.stringify(migrate);
     const child = spawn(process.execPath, [oxlintBin, ...args], { cwd, env });
     let stdout = '';
     let stderr = '';
@@ -251,6 +258,7 @@ export async function runJsEngine(input: EngineInput): Promise<ScanResult[]> {
         ],
         input.absRoot,
         clientMapPath,
+        input.migrate,
       );
 
       if (res.error) throw new ScanError('Failed to run oxlint', res.error);

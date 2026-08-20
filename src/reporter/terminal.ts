@@ -5,6 +5,7 @@
  * This is the default human terminal output and is intentionally kept stable.
  */
 import pc from 'picocolors';
+import { suggestTarget } from '../migration.js';
 import { providers } from '../providers/index.js';
 import type { ProviderVersion } from '../sdk-versions.js';
 import { computeScore, type DetectedProvider, type ProviderCoverage, type ScanResult } from '../types.js';
@@ -82,6 +83,21 @@ async function printDetectedProviders(
     // reader's call; this must never read as an upgrade recommendation.
     if (version?.differs) {
       console.log(pc.dim(`      checks verified against ${version.packageName}@${version.verified}`));
+    }
+    // Names a capability of the tool, never an action for the reader. "Run
+    // this to see what would change" is a fact about api-doctor; "you should
+    // upgrade" is advice about their dependency, and this file does not give
+    // that. Keep the wording in the indicative — no "should", no "outdated",
+    // no severity colour.
+    if (version?.migrationTarget && manifest) {
+      // suggestTarget, never the bare major: on a 0.x package the major says
+      // nothing, and a suggestion that resolves to a line containing no
+      // removals prints "nothing changes" at a project with work to do.
+      console.log(
+        pc.dim(
+          `      --migrate ${d.name}@${suggestTarget(manifest)} maps every call site that would change`,
+        ),
+      );
     }
     await revealDelay();
   }

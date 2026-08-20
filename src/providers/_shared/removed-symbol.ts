@@ -24,11 +24,18 @@
  * letting the precision guarantees drift apart.
  */
 import { compareSemver, resolveInstalledVersion } from '../../plugin/installed-version.js';
+import { migrationTargetFor } from '../../plugin/migration-target.js';
 import type { SymbolRemoval } from '../../types.js';
 
 export interface RemovedSymbolRuleOptions {
   /** npm package the removals belong to (e.g. '@s2-dev/streamstore'). */
   packageName: string;
+  /**
+   * Provider name as the manifests spell it. Used only to ask whether THIS
+   * provider is the one being migrated — the detection below is import-based
+   * and needs no provider attribution beyond the package match.
+   */
+  provider: string;
   /** Hand-verified removals for that package. */
   removals: SymbolRemoval[];
   /** One-line rule description for the registry. */
@@ -47,8 +54,23 @@ export interface RemovedSymbolRuleOptions {
  * everything else gets the bare removal message, so a signature change is
  * never described in words that imply a drop-in replacement.
  */
+/**
+ * Which forward-looking message a removal gets in migration mode. Mirrors the
+ * same helper in `removed-method.ts`, including why the `signature-change`
+ * case names its successor here and not in the backward set: a plan has to
+ * state a destination, a defect report must not imply a drop-in.
+ */
+function migrationMessageId(removal: SymbolRemoval): string {
+  if (removal.kind === 'rename' && removal.wireIdentical && removal.replacement) {
+    return 'migrateRenamedSymbol';
+  }
+  if (removal.kind === 'moved' && removal.movedTo) return 'migrateMovedSymbol';
+  if (removal.replacement) return 'migrateChangedSymbol';
+  return 'migrateRemovedSymbol';
+}
+
 export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
-  const { packageName, removals, description, rationale, docsUrl } = options;
+  const { packageName, provider, removals, description, rationale, docsUrl } = options;
   const removalsBySymbol = new Map(removals.map((r) => [r.symbol, r]));
 
   /**
@@ -86,6 +108,15 @@ export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
           "{{symbol}} was removed from '{{packageName}}' in {{removedIn}} — you have {{installed}} installed. Import it from '{{movedTo}}' instead.",
         removedSymbol:
           '{{symbol}} was removed in {{removedIn}} — you have {{installed}} installed.',
+        // Migration mode: same facts, opposite tense. Nothing here is broken
+        // yet, so none of these may read as a defect.
+        migrateRenamedSymbol:
+          '{{symbol}} becomes {{replacement}} in {{removedIn}} — a rename, same request and same arguments.',
+        migrateMovedSymbol:
+          "{{symbol}} moves to '{{movedTo}}' in {{removedIn}} — same symbol, new import path.",
+        migrateChangedSymbol:
+          '{{symbol}} becomes {{replacement}} in {{removedIn}}, with a different contract — read the Verify line before rewriting this call.',
+        migrateRemovedSymbol: '{{symbol}} is removed in {{removedIn}} with no successor.',
       },
       schema: [],
     },
@@ -184,11 +215,25 @@ export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
           const installed = resolveInstalledVersion(filename, packageName);
           if (!installed) return; // cannot resolve → stay silent, never assume latest
 
+          // Undefined on every ordinary run, and on any run migrating a
+          // different provider. Its presence is the only thing that reverses
+          // the comparison below.
+          const migrate = migrationTargetFor(provider);
+
           for (const symbol of referenced) {
             const removal = removalsBySymbol.get(symbol)!;
             const cmp = compareSemver(installed, removal.removedIn);
-            // Fire only when installed >= removedIn; unparseable stays silent.
-            if (cmp === null || cmp < 0) continue;
+            if (cmp === null) continue; // unparseable stays silent in both directions
+
+            if (migrate) {
+              // Forward: below removedIn today, at or past it after the move.
+              if (cmp >= 0) continue;
+              const reach = compareSemver(migrate.target, removal.removedIn);
+              if (reach === null || reach < 0) continue;
+            } else {
+              // Backward: fire only when installed >= removedIn.
+              if (cmp < 0) continue;
+            }
 
             const data = {
               symbol,
@@ -198,8 +243,9 @@ export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
               replacement: removal.replacement ?? '',
               movedTo: removal.movedTo ?? '',
             };
-            const messageId =
-              removal.kind === 'rename' && removal.wireIdentical && removal.replacement
+            const messageId = migrate
+              ? migrationMessageId(removal)
+              : removal.kind === 'rename' && removal.wireIdentical && removal.replacement
                 ? 'renamedSymbol'
                 : removal.kind === 'moved' && removal.movedTo
                   ? 'movedSymbol'

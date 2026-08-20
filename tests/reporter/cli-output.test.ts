@@ -30,7 +30,7 @@ describe('cli output modes', () => {
   it('--format json emits clean parseable JSON to stdout', () => {
     const res = run([ERROR_FIXTURE, '--format', 'json', '--no-report']);
     const parsed = JSON.parse(res.stdout);
-    expect(parsed.schemaVersion).toBe('1.1.0');
+    expect(parsed.schemaVersion).toBe('1.2.0');
     expect(parsed.findings.length).toBeGreaterThan(0);
     // No human output should leak into the stream.
     expect(res.stdout).not.toContain('Detected APIs');

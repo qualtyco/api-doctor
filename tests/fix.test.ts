@@ -34,7 +34,8 @@ function finding(overrides: Partial<Finding> & { rule: string }): Finding {
 
 function report(findings: Finding[]): Report {
   return {
-    schemaVersion: '1.1.0',
+    kind: 'scan',
+    schemaVersion: '1.2.0',
     tool: { name: 'api-doctor', version: '0.0.0' },
     scanMeta: {
       directory: '/tmp/x',

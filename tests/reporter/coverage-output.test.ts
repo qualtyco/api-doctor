@@ -102,7 +102,7 @@ describe('cli coverage output', () => {
       '--no-report',
     ]);
     const parsed = JSON.parse(res.stdout);
-    expect(parsed.schemaVersion).toBe('1.1.0');
+    expect(parsed.schemaVersion).toBe('1.2.0');
     expect(parsed.coverage).toHaveLength(1);
     expect(parsed.coverage[0]).toEqual({
       provider: 'resend',

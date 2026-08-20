@@ -13,8 +13,15 @@ import { collectClientBindings, collectCoverage } from './coverage/collect.js';
 import { detectProviders } from './detector.js';
 import { classifyFileLanguage, isJavascriptFile } from './engines/classify.js';
 import { buildJsRuleConfig, runJsEngine } from './engines/js/runner.js';
+import { getRuleDocsMeta } from './plugin/rule-registry.js';
 import { ScanError } from './scan-error.js';
-import type { CoverageCollection, DetectedProvider, RuleLanguage, ScanResult } from './types.js';
+import type {
+  CoverageCollection,
+  DetectedProvider,
+  MigrationTarget,
+  RuleLanguage,
+  ScanResult,
+} from './types.js';
 
 export { ScanError } from './scan-error.js';
 
@@ -47,6 +54,17 @@ async function walk(
 
 export interface ScanOptions {
   onlyProviders?: string[];
+  /**
+   * Set only by a `--migrate` run. It narrows the scan to that provider's
+   * compatibility rules and reverses their version gate, so what comes back is
+   * a list of calls that work today and would not after the move.
+   *
+   * Narrowing is deliberate. A migration run is answering one question, and
+   * carrying the other 100-odd correctness rules through it would mean a plan
+   * file that mixes "this would break on upgrade" with "this is wrong now" —
+   * exactly the confusion the two separate reports exist to prevent.
+   */
+  migrate?: MigrationTarget;
 }
 
 export interface ScanOutput {
@@ -91,6 +109,10 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
     detected = detected.filter((d) => allowed.has(d.name));
   }
 
+  if (options.migrate) {
+    detected = detected.filter((d) => d.name === options.migrate!.provider);
+  }
+
   const coverage = collectCoverage(detected, jsFilesContent);
 
   // Verified client identities per file, including clients constructed in one
@@ -99,7 +121,13 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
   const clientBindings = collectClientBindings(detected, jsFilesContent);
 
   const detectedNames = new Set(detected.map((d) => d.name));
-  const { ruleMetaByKey: jsRules } = buildJsRuleConfig(detectedNames);
+  let { ruleMetaByKey: jsRules } = buildJsRuleConfig(detectedNames);
+
+  if (options.migrate) {
+    jsRules = new Map(
+      [...jsRules].filter(([key]) => getRuleDocsMeta(key)?.category === 'compatibility'),
+    );
+  }
 
   const results: ScanResult[] = [];
 
@@ -112,6 +140,7 @@ export async function scan(directory: string, options: ScanOptions = {}): Promis
         detectedNames,
         ruleMetaByKey: jsRules,
         clientBindings,
+        migrate: options.migrate,
       })),
     );
   }

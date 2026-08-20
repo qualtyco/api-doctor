@@ -27,7 +27,40 @@ flag if you don't know your model id.
 Findings are written to `.api-doctor/report.json`. Re-run after fixing issues
 until all `error` findings are gone.
 
-## Read the report
+## Map an SDK upgrade
+
+Only when the developer has asked to move to a newer major version of an SDK:
+
+```bash
+npx @api-doctor/cli@latest . --migrate <provider>@<major>
+```
+
+That writes `.api-doctor/migration-<provider>.json` — every call site that
+changes on the way, grouped by how much judgement each change needs, with a
+hand-verified note on what to check. It does not upgrade anything, and it never
+runs on its own. Do not suggest it unless the developer raised the upgrade
+first; a scan that reports no errors is a project with nothing to do.
+
+## Two report shapes — check `kind` first
+
+`.api-doctor/` can hold two different files, and they mean opposite things.
+Every report says which it is in a top-level `kind` field. Read that before
+anything else.
+
+| File | `kind` | What it means |
+| --- | --- | --- |
+| `report.json` | `"scan"` | These findings are **wrong now**, against the SDK version installed in this project. Fix them. |
+| `migration-<provider>.json` | `"migration"` | These call sites **work now**. They are listed because they stop working at a newer SDK version the developer asked to move to. |
+
+Never treat a migration plan as a list of bugs, and never treat scan findings
+as optional future work. A migration plan appears only when someone ran
+`--migrate` — a plain scan never produces one.
+
+If a migration plan is present, read its `instructions` array: it is
+self-describing and tells you how to work it, group by group. Follow that file
+rather than these instructions, which cover the scan report.
+
+## Read the scan report
 
 Open `.api-doctor/report.json`. Key fields:
 

@@ -45,8 +45,18 @@ export function fixtureFiles(
 /**
  * Lints a single file with only `<plugin>/<ruleKey>` enabled (as an error so
  * oxlint always emits it), and returns diagnostics belonging to that rule.
+ *
+ * `env` adds variables to the linter subprocess. The plugin reads its CLI-side
+ * channels (client bindings, the migration target) from the environment, so
+ * this is how a test exercises them at the same level oxlint sees them —
+ * rather than by importing the rule and calling it directly, which would test
+ * a code path no scan uses.
  */
-export function lintFileForRule(ruleKey: string, filePath: string): any[] {
+export function lintFileForRule(
+  ruleKey: string,
+  filePath: string,
+  env: Record<string, string> = {},
+): any[] {
   const ruleId = `${PLUGIN_NAME}/${ruleKey}`;
   const tmp = mkdtempSync(join(os.tmpdir(), 'api-doctor-oxlint-'));
   const configPath = join(tmp, 'oxlintrc.json');
@@ -66,7 +76,7 @@ export function lintFileForRule(ruleKey: string, filePath: string): any[] {
   const res = spawnSync(
     process.execPath,
     [oxlintBin, '-c', configPath, '--format', 'json', filePath],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: { ...process.env, ...env } },
   );
 
   try {

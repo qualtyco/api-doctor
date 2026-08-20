@@ -11,6 +11,7 @@ import { S2_PACKAGE, s2Removals } from '../../compatibility.js';
 
 export const s2RemovedSymbolRule = createRemovedSymbolRule({
   packageName: S2_PACKAGE,
+  provider: 's2',
   removals: s2Removals,
   description:
     'SDK symbol used by this code does not exist in the installed @s2-dev/streamstore version',

@@ -30,7 +30,8 @@
 import { spawn } from 'node:child_process';
 import { statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import type { Finding, Report } from './types.js';
+import { describeDestination } from './migration.js';
+import type { Finding, MigrationReport, Report } from './types.js';
 
 /** How the agent is told to re-check its own work. Pinned to @latest on purpose. */
 export const VERIFY_COMMAND = 'npx @api-doctor/cli@latest .';
@@ -387,4 +388,91 @@ export function launchAgent(agent: FixAgent, cwd: string): Promise<LaunchResult>
     });
     child.on('close', (code: number | null) => resolvePromise({ launched: true, code: code ?? 0 }));
   });
+}
+
+/**
+ * The prompt handed to the agent after a `--migrate` run.
+ *
+ * A separate prompt from `buildFixPrompt` because the task is a different one
+ * and describing it in the fix prompt's vocabulary would misdirect the agent
+ * twice over. Nothing listed here is broken, so "fix each one" is wrong; and
+ * the pass condition cannot be "re-run until the scan is clean", because the
+ * scan is clean already — this code works against the version that is
+ * installed. The verification an upgrade actually needs (install the new
+ * version, run the project) is not something api-doctor performs or should
+ * pretend to.
+ *
+ * Like the fix prompt it carries intent and never the matcher: what the call
+ * becomes and what to check, never what the rule looked for.
+ */
+export function buildMigrationPrompt(
+  report: MigrationReport,
+  reportPath?: string,
+): string {
+  const lines: string[] = [];
+  const siteWord = report.summary.sites === 1 ? 'call site' : 'call sites';
+
+  lines.push(
+    `Migrate this project's ${report.package} usage from ${report.from} to ${report.to}.`,
+    '',
+    `api-doctor mapped ${report.summary.sites} ${siteWord} that change on the way. These come`,
+    'from deterministic checks over your source against hand-verified records of what each',
+    'version removed — not from a model. Every one names a real call site.',
+    '',
+    'IMPORTANT: none of this code is broken right now. It all works against the installed',
+    `version. It is listed because it stops working at ${report.to}.`,
+    '',
+  );
+
+  for (const group of report.groups) {
+    const sites = group.changes.reduce((n, c) => n + c.sites.length, 0);
+    lines.push(`${group.title} — ${sites} ${sites === 1 ? 'site' : 'sites'}`);
+    lines.push(`  ${group.guidance}`);
+    for (const change of group.changes) {
+      lines.push(`  - ${change.from} → ${describeDestination(change)}`);
+      for (const site of change.sites) {
+        lines.push(`      ${site.file}:${site.line}`);
+      }
+    }
+    lines.push('');
+  }
+
+  if (reportPath) {
+    lines.push(
+      `Read \`${reportPath}\` before editing. It is the full plan: every site above with the`,
+      'verified note on what to check for that specific change, the exact successor, and a',
+      'code snippet. Work from that file rather than from this summary.',
+      '',
+    );
+  }
+
+  lines.push(
+    'How to approach this:',
+    '- Work the groups in the order above. The early ones are safe in bulk; the later ones',
+    '  need judgement, and their diffs are easier to read once the noise is gone.',
+    '- Keep the surrounding business logic, variable names, and code style as they are.',
+    '- Do not upgrade the package yourself. Rewrite the call sites and leave the version',
+    '  bump to the developer — an upgrade that lands before the code is ready breaks the',
+    '  project in the middle of the work.',
+    '- Where a change has no successor, or the arguments do not tell you which successor',
+    '  applies, leave the call alone and say so. A guess that type-checks is worse than a',
+    '  line in your summary.',
+    '',
+    'How to check yourself:',
+    '- Type-check and run the project\'s test suite if it has one.',
+    `- Re-run \`${VERIFY_COMMAND}\` to confirm you introduced nothing that is wrong against`,
+    '  the CURRENTLY installed version. That is a regression check, not the finish line —',
+    '  it cannot see the target version, so it will not tell you the migration is complete.',
+    '- The real verification is the developer bumping the dependency and running the app.',
+    '  Say in your summary what you could not verify from here.',
+    '',
+    'Do NOT commit, stage, or push anything. Do not run `git commit`, `git add`, or',
+    '`git push`. Leave every change uncommitted in the working tree so the developer',
+    'can review the diff themselves.',
+    '',
+    'Then print a short summary — one line per file you changed, saying what you changed',
+    'and why, followed by anything you deliberately left alone and the reason.',
+  );
+
+  return lines.join('\n');
 }

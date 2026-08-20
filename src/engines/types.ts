@@ -1,7 +1,7 @@
 /**
  * Shared types for language-specific scan engines.
  */
-import type { RuleMeta, ScanResult } from '../types.js';
+import type { MigrationTarget, RuleMeta, ScanResult } from '../types.js';
 
 export interface EngineInput {
   absRoot: string;
@@ -20,6 +20,13 @@ export interface EngineInput {
    * single-file behaviour rather than silencing rules.
    */
   clientBindings?: Record<string, Record<string, { yes: string[]; no: string[] }>>;
+  /**
+   * Set only by a `--migrate` run. Forwarded to the plugin, where it reverses
+   * the version gate on that one provider's compatibility rules. Absent means
+   * every rule keeps its ordinary backward-looking behaviour, which is what a
+   * plain scan must always do.
+   */
+  migrate?: MigrationTarget;
 }
 
 export type { ScanResult };

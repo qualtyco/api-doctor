@@ -128,7 +128,8 @@ export function buildReport(input: BuildReportInput): Report {
     .map(({ provider, used }) => ({ provider, used }));
 
   return {
-    schemaVersion: '1.1.0',
+    kind: 'scan',
+    schemaVersion: '1.2.0',
     tool: { name: 'api-doctor', version: input.version },
     scanMeta: {
       directory: input.directory,

@@ -37,6 +37,7 @@
  */
 import { compareSemver, resolveInstalledVersion } from '../../plugin/installed-version.js';
 import { calleeChain } from '../../plugin/client-tracker.js';
+import { migrationTargetFor } from '../../plugin/migration-target.js';
 import type { MethodRemoval } from '../../types.js';
 
 export interface RemovedMethodRuleOptions {
@@ -64,6 +65,28 @@ export interface RemovedMethodRuleOptions {
  * removal message, so a behaviour change is never described in words that
  * imply a drop-in replacement.
  */
+/**
+ * Which forward-looking message a removal gets in migration mode.
+ *
+ * It differs from the backward set in exactly one place, on purpose: a
+ * `signature-change` carrying a replacement gets `migrateChangedMethod`, which
+ * NAMES the successor. The backward path deliberately collapses that case to
+ * the bare removal message, because a developer whose code is already broken
+ * needs to know it is broken and must not be handed a name that reads like a
+ * drop-in. Someone planning an upgrade has the opposite need — they cannot plan
+ * toward a destination the report refuses to name — so the message states where
+ * it goes and points at the Verify line for what changes on the way.
+ */
+function migrationMessageId(removal: MethodRemoval): string {
+  if (removal.kind === 'rename' && removal.wireIdentical && removal.replacement) {
+    return 'migrateRenamedMethod';
+  }
+  if (removal.kind === 'moved' && removal.replacement) return 'migrateMovedMethod';
+  if (removal.kind === 'split' && removal.replacements?.length) return 'migrateSplitMethod';
+  if (removal.replacement) return 'migrateChangedMethod';
+  return 'migrateRemovedMethod';
+}
+
 export function createRemovedMethodRule(options: RemovedMethodRuleOptions) {
   const { packageName, provider, removals, description, rationale, docsUrl } = options;
 
@@ -91,6 +114,17 @@ export function createRemovedMethodRule(options: RemovedMethodRuleOptions) {
           '{{path}} was removed in {{removedIn}} — you have {{installed}} installed. It was split into {{replacements}}; which one applies depends on the arguments.',
         removedMethod:
           '{{path}} was removed in {{removedIn}} — you have {{installed}} installed.',
+        // Migration mode. Same facts, opposite tense: nothing here is broken
+        // yet, so none of these may read as a defect. They are only ever
+        // rendered when the user named a target on the command line.
+        migrateRenamedMethod:
+          '{{path}} becomes {{replacement}} in {{removedIn}} — a rename, same request and same arguments.',
+        migrateMovedMethod: '{{path}} becomes {{replacement}} in {{removedIn}}.',
+        migrateChangedMethod:
+          '{{path}} becomes {{replacement}} in {{removedIn}}, with a different contract — read the Verify line before rewriting this call.',
+        migrateSplitMethod:
+          '{{path}} is split into {{replacements}} in {{removedIn}}; which one applies depends on the arguments at this call site.',
+        migrateRemovedMethod: '{{path}} is removed in {{removedIn}} with no successor.',
       },
       schema: [],
     },
@@ -131,10 +165,29 @@ export function createRemovedMethodRule(options: RemovedMethodRuleOptions) {
           const installed = resolveInstalledVersion(filename, packageName);
           if (!installed) return; // cannot resolve → stay silent, never assume latest
 
+          // Undefined on every ordinary run, and on any run migrating a
+          // different provider. Its presence is the only thing that reverses
+          // the comparison below — nothing infers a migration from the
+          // versions alone.
+          const migrate = migrationTargetFor(provider);
+
           for (const { removal, node } of hits) {
             const cmp = compareSemver(installed, removal.removedIn);
-            // Fire only when installed >= removedIn; unparseable stays silent.
-            if (cmp === null || cmp < 0) continue;
+            if (cmp === null) continue; // unparseable stays silent in both directions
+
+            if (migrate) {
+              // Forward: the project is BELOW removedIn (so this call works
+              // today) and the requested target is at or past it (so the call
+              // would stop working). Both halves are required — without the
+              // second, asking to go from 1.20 to 1.30 would list breaks that
+              // only land in 2.0.
+              if (cmp >= 0) continue; // already past this removal — nothing to plan
+              const reach = compareSemver(migrate.target, removal.removedIn);
+              if (reach === null || reach < 0) continue; // target never crosses it
+            } else {
+              // Backward: fire only when installed >= removedIn.
+              if (cmp < 0) continue;
+            }
 
             // Receiver identity, checked last because it is the expensive
             // question and the version gate rejects most files before it.
@@ -154,8 +207,9 @@ export function createRemovedMethodRule(options: RemovedMethodRuleOptions) {
             const owner = tracker.resolveOwner(node);
             if (owner.tier === 'unknown' || owner.provider !== provider) continue;
 
-            const messageId =
-              removal.kind === 'rename' && removal.wireIdentical && removal.replacement
+            const messageId = migrate
+              ? migrationMessageId(removal)
+              : removal.kind === 'rename' && removal.wireIdentical && removal.replacement
                 ? 'renamedMethod'
                 : removal.kind === 'moved' && removal.replacement
                   ? 'movedMethod'

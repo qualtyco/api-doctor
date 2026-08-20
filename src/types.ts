@@ -314,7 +314,15 @@ export interface DetectedProvider {
  * versioned independently of the package so downstream consumers can pin to it.
  */
 export interface Report {
-  schemaVersion: '1.1.0';
+  /**
+   * Discriminator against `MigrationReport`, which carries `kind: 'migration'`.
+   *
+   * There are two report shapes on disk now and an agent may be handed either
+   * one, so each says what it is rather than relying on its filename or on the
+   * reader having a current SKILL.md. Added in schema 1.2.0.
+   */
+  kind: 'scan';
+  schemaVersion: '1.2.0';
   tool: { name: 'api-doctor'; version: string };
   scanMeta: ScanMeta;
   summary: ReportSummary;
@@ -434,4 +442,165 @@ export interface ProviderAnchor {
    * (`/^streamSid$/i`), never substrings.
    */
   identifierPattern?: RegExp;
+}
+
+/**
+ * A requested SDK upgrade: "take this project's <provider> from what it has
+ * installed to <target>".
+ *
+ * Migration is the mirror image of the compatibility category, and the two must
+ * never be confused. A compatibility finding says *this call is broken right
+ * now* against what is in node_modules. A migration entry says *this call would
+ * have to change if you moved forward*, and it only exists because the user
+ * asked for it by name on the command line. Nothing about an upgrade is ever
+ * volunteered: a plain scan resolves no target and every rule keeps its
+ * original, backward-looking gate.
+ *
+ * Held in one shape so the CLI (which parses it), the engine (which forwards
+ * it) and the plugin (which reads it back out of the environment) all agree on
+ * what a target is.
+ */
+export interface MigrationTarget {
+  /** Provider name as the manifests spell it — 'supabase', not '@supabase/supabase-js'. */
+  provider: string;
+  /**
+   * The UPPER BOUND of the requested move, as a full semver triple so
+   * `compareSemver` can use it.
+   *
+   * A partial version is padded UP, not down: `supabase@2` means "the 2.x
+   * line", so it becomes `2.<max>.<max>` and reaches every removal anywhere in
+   * that line. Padding down to `2.0.0` was wrong and silently so — it produced
+   * an empty plan for every provider whose breaking change did not land in
+   * `x.0.0`, which is most of them. Tiptap removes at 3.0.1, s2 at 0.24.0,
+   * agentmail at 0.5.12; all three would have reported nothing to do.
+   *
+   * Never render this. It is a comparison bound and reads as a real version
+   * number without being one — `label` is what a human sees.
+   */
+  target: string;
+  /** The move as a person would say it: '2.x', '2.4.x', '2.0.0'. */
+  label: string;
+  /** What the user typed, for messages that should echo it back. */
+  raw: string;
+}
+
+/**
+ * How much judgement a single change needs, derived from the removal's own
+ * hand-verified `kind` and `wireIdentical` — never assigned per entry, so a
+ * provider cannot quietly grade its own migration as easier than it is.
+ *
+ * The order is the order the work should be done in, and it is the order the
+ * report emits: clear the safe bulk first so the diff for the hard changes is
+ * small and readable.
+ */
+export type MigrationDifficulty =
+  /** Same call, new name, verified identical on the wire. Safe to apply in bulk. */
+  | 'mechanical'
+  /** Name maps one-to-one, but behaviour does not. Each site needs reading. */
+  | 'behavior-check'
+  /** One entry point became several; only the arguments at the call site decide. */
+  | 'argument-dependent'
+  /** Same capability, different contract — sync to async, new return shape. */
+  | 'restructure'
+  /** Gone with no successor. A person has to decide what replaces it. */
+  | 'decision-required';
+
+/** One call site that has to change, with enough context to find and read it. */
+export interface MigrationSite {
+  file: string;
+  line: number;
+  column: number;
+  endLine?: number;
+  endColumn?: number;
+  /** Source lines around the call, same shape the scan report's findings use. */
+  codeSnippet?: CodeSnippet;
+}
+
+/**
+ * Every call site of one removed symbol or method path, with the verified facts
+ * about what it becomes.
+ *
+ * Sites are grouped under the change rather than listed flat because the unit
+ * of work is the change: an agent decides once how `auth.session()` is rewritten
+ * and then applies that decision at eleven places, and a flat list invites it
+ * to re-derive the answer eleven times.
+ */
+export interface MigrationChange {
+  /** Stable id: `<provider>-<from>`. */
+  id: string;
+  /** Symbol or dotted method path as written today. */
+  from: string;
+  /** The single successor, when the removal has exactly one. */
+  to?: string;
+  /** Successors when the entry point was split; the caller picks by arguments. */
+  toOptions?: string[];
+  /** Module the symbol moved to, when that is the whole change. */
+  movedTo?: string;
+  kind: RemovalFacts['kind'];
+  difficulty: MigrationDifficulty;
+  /** First version without it — always ≤ the migration target. */
+  removedIn: string;
+  wireIdentical: boolean;
+  /** The hand-written `verifyHint`: what to check before trusting the rewrite. */
+  verify: string;
+  docsUrl?: string;
+  sites: MigrationSite[];
+}
+
+/** Changes of one difficulty, with the instruction that applies to all of them. */
+export interface MigrationGroup {
+  difficulty: MigrationDifficulty;
+  title: string;
+  /** What to do with every change in this group, written for whoever executes it. */
+  guidance: string;
+  changes: MigrationChange[];
+}
+
+/**
+ * The migration plan written to `.api-doctor/migration-<provider>.json`.
+ *
+ * Deliberately self-describing. `src/skill.ts` never overwrites a SKILL.md that
+ * already exists, so a project installed before this feature shipped has a skill
+ * that has never heard of a migration report and will never be updated by a
+ * scan. An agent must therefore be able to pick this file up cold and know what
+ * it is: `kind` says which of the two report shapes it is holding, and
+ * `instructions` says what to do with it. Nothing here may depend on the reader
+ * having a current skill.
+ */
+export interface MigrationReport {
+  /** Discriminator against the scan report, which carries `kind: 'scan'`. */
+  kind: 'migration';
+  schemaVersion: '1.0.0';
+  tool: { name: 'api-doctor'; version: string };
+  provider: string;
+  /** npm package the versions below refer to. */
+  package: string;
+  /** Version resolved from the project right now. */
+  from: string;
+  /** Version the user asked to move to, in human form: '2.x', '3.0.1'. */
+  to: string;
+  /**
+   * Highest `removedIn` across every change in this plan — the exact version at
+   * which the plan is provably finished, and the only thing `pruneCompletedPlans`
+   * may compare against.
+   *
+   * `to` cannot serve: it is a human label ('2.x') and not always a version.
+   * Absent when the plan has no changes, which is its own kind of finished.
+   */
+  completedAt?: string;
+  /** Scanned directory, so a stale plan cannot be read against another project. */
+  directory: string;
+  generatedAt: string;
+  /** Provider's own upgrade guide. */
+  docsUrl?: string;
+  /** How to use this file, for a reader with no api-doctor skill installed. */
+  instructions: string[];
+  summary: {
+    /** Distinct symbols/method paths that must change. */
+    changes: number;
+    /** Individual call sites across those changes. */
+    sites: number;
+    byDifficulty: Partial<Record<MigrationDifficulty, number>>;
+  };
+  groups: MigrationGroup[];
 }

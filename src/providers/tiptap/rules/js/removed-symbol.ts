@@ -11,6 +11,7 @@ import { TIPTAP_REACT_PACKAGE, tiptapRemovals } from '../../compatibility.js';
 
 export const tiptapRemovedSymbolRule = createRemovedSymbolRule({
   packageName: TIPTAP_REACT_PACKAGE,
+  provider: 'tiptap',
   removals: tiptapRemovals,
   description:
     'React component imported from @tiptap/react does not exist in the installed version',

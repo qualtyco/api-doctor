@@ -37,6 +37,13 @@ Smoke-test against a fixture directory:
 node dist/cli.mjs tests/fixtures/resend/resend-api-key-hardcoded-broken
 ```
 
+Map an upgrade against a fixture pinned to an old SDK:
+
+```bash
+node dist/cli.mjs tests/fixtures/supabase/supabase-removed-method-pinned-v1 \
+  --migrate supabase@2 --no-fix --no-report
+```
+
 ## Architecture
 
 Two outputs from a single build (`tsup.config.ts`):
@@ -319,6 +326,172 @@ describes a different removal than the lines beneath it.
 `wireIdentical`, `evidence` and `verifyHint` are hand-verified against both
 published tarballs — implementation, not the type diff. Never infer one from a
 changelog, a rename, or `pnpm sdk:watch` output.
+
+### Version resolution is the thing everything else rests on
+
+Every compatibility finding, the migration gate, the prune, and the version on
+the provider line all come from `plugin/installed-version.ts` and
+`sdk-versions.ts`. Three failures found by running the tool over twenty real
+projects, all of which had been silent:
+
+**Resolve from the files that use the SDK, not from the scanned root.**
+`resolveProviderVersions` used to anchor at `<root>/package.json` alone. A
+workspace root lists `workspaces` and none of its members' dependencies, so the
+lookup found nothing on six of twenty real projects — while the rules, which
+resolve per file, were gating correctly the whole time. Two answers to one
+question and users saw the weaker one. `anchorsFor()` now walks the provider's
+own evidence files (`DetectedProvider.files`), deduplicated by directory, with
+the root last for a provider detected from `package.json` alone.
+
+**A workspace can hold several versions of one SDK.** `ProviderVersion.versions`
+carries all of them and `installed` is the LOWEST, because every consumer asks a
+furthest-behind question. The terminal names them when there is more than one,
+and a plan built over a mixed workspace says so in its `instructions` — a report
+claiming a single version there is stating something false.
+
+**The version must come from the compatibility package.** Candidates are ordered
+with `compatibility.package` first, and `migrationTarget` is offered only when
+the resolved `packageName` is that package. Taking whichever candidate resolved
+first produced a false report on a real project: a **Vue** Tiptap app has no
+`@tiptap/react`, so the lookup fell through to `@tiptap/core@2.27.2` and the plan
+printed that number under the heading `@tiptap/react`. `runMigration` refuses
+rather than head a plan with a version read from a sibling package.
+
+**`catalog:` is dereferenced.** Bun and pnpm workspaces increasingly write
+`"@supabase/supabase-js": "catalog:"` and keep the range in one shared place.
+That is an unparseable spec, and unparseable means silent — so the whole
+compatibility category was switched off across every catalog monorepo, with
+nothing failing and nothing reported. `resolveCatalogSpec` reads Bun's
+`catalog`/`catalogs` (top level and under `workspaces`) and pnpm-workspace.yaml,
+dereferences exactly once, and feeds the result back through the ordinary path
+so a catalog entry is trusted no further than the same text written inline. The
+YAML reader is deliberately not a YAML parser: it accepts one flat shape and
+gives up on anything else, because a guessed version reaches a rule that claims
+a call throws at runtime.
+
+Everything here still ends at the same contract: **unresolvable means silent,
+never "latest"**.
+
+### stdout is a pipe, and `process.exit()` discards it
+
+`--format json` emitted exactly 65536 bytes of a 244 KB document and exited 0.
+Node buffers pipe writes; `process.exit()` throws away whatever has not drained.
+A machine-readable mode that succeeds and emits invalid JSON is worse than one
+that fails, because the consumer blames its own parser. Every large stdout write
+goes through `reporter/stdout.ts` and is awaited before the process exits.
+`tests/stdout-truncation.test.ts` runs the real binary with a real pipe — no
+in-process capture can observe this, which is how it survived.
+
+### Migration mode (`src/migration.ts`, `--migrate`)
+
+The mirror image of the compatibility category, and the two must never blur
+together:
+
+```
+compatibility   installed >= removedIn    this call is broken NOW      always on
+migration       installed <  removedIn    this call breaks if you move  only when asked
+                <= target
+```
+
+**Nothing about an upgrade is ever volunteered.** A migration plan exists only
+because the user typed `--migrate <provider>@<major>`. `api-doctor .` behaves
+identically whether or not this feature exists — same rules, same gate, same
+report file. The single addition to a plain scan is one dim line under the
+provider (`--migrate supabase@2 maps every call site that would change`), which
+names a capability of the tool in the indicative and gives no advice about the
+dependency. That line appears only when the installed version is genuinely below
+a removal this provider has data for. Keep it that way: `sdk-versions.ts` keeps
+`migrationTarget` separate from `differs` for exactly this reason.
+
+**Detection is the compatibility rules with the comparison reversed.** No new
+AST code, no second engine. The CLI parses the target, `scanner.ts` narrows to
+that provider's `compatibility`-category rules, `runner.ts` puts the target in
+`API_DOCTOR_MIGRATE`, and `plugin/migration-target.ts` reads it back — the same
+channel shape as `client-modules.ts`, inline rather than via a temp file because
+the payload is two strings. Absent, malformed or half-formed all mean the same
+thing: no target, ordinary backward behaviour. A broken env var must never be
+able to reverse the meaning of a scan, and `runOxlint` deletes the variable
+before setting it so an inherited one cannot leak in.
+
+The reversal needs BOTH halves — `installed < removedIn` *and*
+`target >= removedIn`. Without the second, `--migrate supabase@1.9` would list
+everything 2.0 removed.
+
+**A partial target is padded UP, never down.** `@2` means "the 2.x line", so it
+becomes `2.999999.999999`. Padding down to `2.0.0` looks obviously right and is
+wrong for most providers, silently: only Supabase and Browserbase break at
+`x.0.0`. Tiptap removes at `3.0.1`, s2 at `0.24.0`, agentmail at `0.5.12` — a
+downward bound prints "nothing changes" at a project with a dozen breaks ahead
+of it. `MigrationTarget` therefore keeps two fields: `target` is the comparison
+bound and must never be rendered, `label` (`2.x`, `3.0.1`) is what a human sees.
+The plan's `to` is the label; `completedAt` — the highest `removedIn` the plan
+actually contains — is the only thing `pruneCompletedPlans` may compare against.
+`tests/migration.test.ts` asserts, for every shipped provider, that the target
+`suggestTarget()` proposes reaches every one of that provider's removals.
+
+`suggestTarget()` proposes the major on a 1.0-and-up package and `0.<minor>` on
+a 0.x one, where semver puts the breaking axis on the minor. It drives both the
+error message and the plain-scan pointer line, so neither can suggest a target
+that finds nothing.
+
+Difficulty buckets hold renames AND moves, which is why the group titles say
+"replacement" rather than "rename", and why `describeDestination()` checks
+`movedTo` before `replacement`: a moved symbol keeps its name, so a
+replacement-first reading renders `BubbleMenu → BubbleMenu` and hides the only
+thing that changed. One helper, shared by the terminal and the prompt, so the
+two can never describe a change differently.
+
+**Difficulty is derived, never declared.** `difficultyOf()` reads each removal's
+own hand-verified `kind` and `wireIdentical`; there is no per-entry difficulty
+field and there must not be, because a grade a provider assigns itself drifts in
+one direction — everything looks like a rename to whoever just wrote it.
+`wireIdentical` is the only thing that licenses `mechanical`, and it is a field
+nobody may set without having read both published tarballs.
+
+| kind | wireIdentical | difficulty |
+|---|---|---|
+| `rename` / `moved` | true | `mechanical` |
+| `rename` / `moved` | false | `behavior-check` |
+| `split` | — | `argument-dependent` |
+| `signature-change` | — | `restructure` |
+| `removed` | — | `decision-required` |
+
+That order is the work order and the emit order: clear the safe bulk first so
+the diff for the hard changes stays small. Sites are grouped under their change
+because the unit of work is the change — an agent decides once how
+`auth.session()` is rewritten and applies it eleven times, rather than
+re-deriving it per site.
+
+**The plan is self-describing.** `.api-doctor/migration-<provider>.json` carries
+`kind: 'migration'` and an `instructions` array, and the scan report now carries
+`kind: 'scan'` (schema 1.2.0). That is load-bearing, not decoration: `skill.ts`
+**never overwrites** an existing SKILL.md, so any project installed before this
+shipped has a skill that has never heard of a migration report and never will.
+An agent must be able to open either file cold and know what it is holding.
+Nothing in the plan may depend on the reader having a current skill.
+
+**Its own file, its own lifetime.** The scan report is rewritten by every run; a
+plan is generated once, worked through, and then wants to be gone. A stale plan
+is worse than none — an agent that reads one after the upgrade landed will
+migrate already-migrated code — so `pruneCompletedPlans` deletes it on the next
+ordinary scan, but only once `installed >= plan.to`, the one moment it is
+provably finished. It never throws and never touches a plan whose target is
+still ahead.
+
+**A plan never fails a build.** `--migrate` always exits 0, never touches the
+score, and refuses a target at or below the installed version rather than
+rendering `2.112.3 → 2.0.0`, which reads as a downgrade recommendation.
+`buildMigrationPrompt` is separate from `buildFixPrompt` for the same reason:
+"fix each one" is wrong when nothing is broken, and the fix prompt's pass
+condition ("re-run until the scan is clean") is already true here. The migration
+prompt says so explicitly and names the verification api-doctor cannot perform —
+bumping the dependency and running the app.
+
+**`migrate` is a flag, not a subcommand.** `api-doctor migrate supabase@2` works
+via `normalizeArgv`, which rewrites it in argv before commander sees it (it takes
+an argument, so it cannot be handled like the `install`/`fix` redirects inside
+the action). The flag is the real surface — two subcommands have already been
+retired from this CLI and each left a redirect behind.
 
 ### The agent skill (`src/skill.ts`)
 

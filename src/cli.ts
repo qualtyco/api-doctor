@@ -21,6 +21,7 @@ import {
   agentById,
   buildAgentMenu,
   buildFixPrompt,
+  buildMigrationPrompt,
   defaultAgentIndex,
   defaultFixAgent,
   describeHandoff,
@@ -38,18 +39,30 @@ import {
   type FixAgent,
   type FixMode,
 } from './fix.js';
+import {
+  buildMigrationReport,
+  migrationFileName,
+  parseMigrationTarget,
+  pruneCompletedPlans,
+} from './migration.js';
 import { canPrompt, selectFromList, waitForAcknowledgement } from './select.js';
 import { ensureAgentSkill } from './skill.js';
 import { providers } from './providers/index.js';
 import { createSpinner } from './reporter/animate.js';
-import { DEFAULT_REPORT_DIR, DEFAULT_REPORT_FILE } from './reporter/json-writer.js';
+import {
+  DEFAULT_REPORT_DIR,
+  DEFAULT_REPORT_FILE,
+  writeMigrationReport,
+} from './reporter/json-writer.js';
+import { renderMigrationReport } from './reporter/migration-terminal.js';
 import { buildReport } from './reporter/report-builder.js';
 import { countErrors, emitReport, type OutputFormat } from './reporter/index.js';
 import { readProjectHistory } from './run-history.js';
 import { scan, ScanError } from './scanner.js';
+import { compareSemver } from './plugin/installed-version.js';
 import { resolveProviderVersions } from './sdk-versions.js';
 import { trackError, trackFix, trackRun } from './telemetry.js';
-import type { Report } from './types.js';
+import type { MigrationReport, MigrationTarget, Report } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -80,6 +93,8 @@ interface CliOptions {
    */
   fix?: boolean | string;
   fixDryRun?: boolean;
+  /** `--migrate <provider>@<version>`. Absent on every ordinary scan. */
+  migrate?: string;
 }
 
 function fail(message: string): never {
@@ -164,6 +179,10 @@ program
   .option('--no-fix', 'Never offer to fix — scan and exit (implied outside a terminal)')
   .option('--fix-dry-run', 'Print the fix prompt instead of opening an agent')
   .option(
+    '--migrate <target>',
+    'Map the call sites that change on the way to a newer SDK (e.g. supabase@2)',
+  )
+  .option(
     '--agent-model <model>',
     'AI agents: identify yourself — set this to your own model id (e.g. claude-opus-4-8)',
   )
@@ -195,6 +214,7 @@ program
       }
       process.exit(0);
     }
+
 
     let format: OutputFormat | undefined;
     if (opts.format) {
@@ -228,6 +248,39 @@ program
       ? opts.provider.split(',').map((s) => s.trim()).filter(Boolean)
       : undefined;
 
+    // A migration is a different question with a different answer file, so it
+    // takes its own path here rather than becoming a mode inside the scan. The
+    // ordinary scan below is left exactly as it was — that is the point: a
+    // plain `api-doctor .` must behave identically whether or not this feature
+    // exists.
+    if (opts.migrate !== undefined) {
+      const target = parseMigrationTarget(opts.migrate);
+      if ('error' in target) fail(target.error);
+      // `--migrate` already names the one provider it plans for. Accepting
+      // `--provider` alongside it and quietly ignoring it is worse than saying
+      // no: a flag that does nothing reads as a flag that worked.
+      if (onlyProviders?.length) {
+        fail('--provider cannot be combined with --migrate — the target already names the provider');
+      }
+      try {
+        await runMigration({
+          directory,
+          target,
+          opts,
+          format,
+          noTelemetry,
+        });
+      } catch (err) {
+        if (err instanceof ScanError) {
+          await trackError(err, noTelemetry, pkg.version);
+          fail(err.message);
+        }
+        await trackError(err, noTelemetry, pkg.version);
+        throw err;
+      }
+      return;
+    }
+
     try {
       const {
         report,
@@ -250,6 +303,18 @@ program
       // against the previous run rather than this one.
       const previousScore = readProjectHistory(scannedDir)?.last_score;
 
+      const versions = resolveProviderVersions(detected, scannedDir);
+
+      // A finished migration plan is worse than no plan: an agent that reads
+      // one after the upgrade landed will try to migrate code that is already
+      // migrated. Cleared here, on the command people actually re-run.
+      if (opts.report !== false) {
+        pruneCompletedPlans(
+          join(scannedDir, DEFAULT_REPORT_DIR),
+          new Map([...versions].map(([name, v]) => [name, v.installed])),
+        );
+      }
+
       // Writing the skill is what removes the second command: after any scan
       // that found a provider, an agent opened in this project already knows
       // how to read the report and act on it, with nothing else to run.
@@ -271,7 +336,7 @@ program
         reportDisplayPath,
         elapsedMs,
         rawPackages,
-        versions: resolveProviderVersions(detected, scannedDir),
+        versions,
         previousScore,
         skillPaths: skill?.created,
       });
@@ -444,4 +509,243 @@ async function runFixPhase(input: FixPhaseInput): Promise<void> {
   await trackFix({ ...baseTelemetry, agent: agent.id, launched: true });
 }
 
-program.parse();
+interface MigrationRunInput {
+  directory: string;
+  target: MigrationTarget;
+  opts: CliOptions;
+  /**
+   * Already validated by the shared flag handling above — never `opts.format`
+   * re-read here. Dispatching before that validation meant `--format bogus`
+   * exited 2 on a scan and was silently ignored on a migration: the same flag,
+   * two behaviours, decided by which branch happened to read it.
+   */
+  format?: OutputFormat;
+  noTelemetry: boolean;
+}
+
+/**
+ * The `--migrate` run.
+ *
+ * Structurally the same pipeline as a scan — walk, detect, lint, report, offer
+ * the agent — with three deliberate differences:
+ *
+ *   - `scan()` narrows to this provider's compatibility rules and reverses
+ *     their version gate, so what comes back are calls that work today and
+ *     would not at the target;
+ *   - the plan goes to its own file and never touches `report.json`, which
+ *     belongs to the scan and is rewritten by every run of it;
+ *   - it always exits 0. A plan is not a defect, and a migration a developer is
+ *     considering must never be able to fail their build.
+ */
+async function runMigration(input: MigrationRunInput): Promise<void> {
+  const { directory, target, opts } = input;
+
+  if (input.format === 'markdown') {
+    fail('--format markdown is not available for --migrate — use --format json or read the plan file');
+  }
+  const jsonOut = input.format === 'json';
+
+  const spinner = jsonOut ? undefined : createSpinner(`Mapping the ${target.provider} migration…`);
+  let scanOutput;
+  try {
+    scanOutput = await scan(directory, { migrate: target });
+  } finally {
+    spinner?.stop();
+  }
+  const { results, detected, directory: scannedDir, filesContent } = scanOutput;
+
+  // Everything below needs a version to migrate FROM. Each of these exits 0:
+  // asking about a provider that is not here, or is already past every removal,
+  // is a reasonable question with a short answer, not a tool failure.
+  if (detected.length === 0) {
+    console.log(`api-doctor: ${target.provider} was not detected in ${directory} — nothing to migrate.`);
+    process.exit(0);
+  }
+
+  const version = resolveProviderVersions(detected, scannedDir).get(target.provider);
+  if (!version) {
+    // Unresolvable must never be read as "latest" here either. Without a
+    // starting version the plan cannot say which removals are ahead of this
+    // project and which are behind, and a plan built on a guess is worse than
+    // no plan.
+    fail(
+      `could not resolve the installed version of ${target.provider} in ${directory} — a migration plan needs to know which version you are starting from`,
+    );
+  }
+
+  // A target at or below the installed version is not a migration. Planning it
+  // anyway produces a report headed "2.112.3 → 2.0.0", which reads as a
+  // downgrade api-doctor is proposing — and downgrades are exactly as far
+  // outside this tool's remit as upgrades are.
+  const ahead = compareSemver(target.target, version.installed);
+  if (ahead !== null && ahead <= 0) {
+    console.log(
+      `api-doctor: ${target.provider} is already at ${version.installed} — ${target.label} is not ahead of it, so there is nothing to map.`,
+    );
+    process.exit(0);
+  }
+
+  const packageName = providers.find((p) => p.name === target.provider)?.compatibility?.package
+    ?? version.packageName;
+
+  const report = buildMigrationReport({
+    target,
+    packageName,
+    installed: version.installed,
+    results,
+    directory: scannedDir,
+    filesContent,
+    version: pkg.version,
+  });
+
+  const outputPath = opts.output
+    ? resolve(opts.output)
+    : join(scannedDir, DEFAULT_REPORT_DIR, migrationFileName(target.provider));
+  const rel = relative(scannedDir, outputPath);
+  const displayPath = rel.startsWith('..') ? outputPath : rel;
+  const wroteFile = opts.report !== false;
+  if (wroteFile) writeMigrationReport(report, outputPath);
+
+  if (jsonOut) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exit(0);
+  }
+
+  if (opts.quiet) {
+    const parts = [
+      report.summary.sites === 0
+        ? `Migration ${target.provider}→${report.to}: nothing to change`
+        : `Migration ${target.provider}→${report.to}: ${report.summary.sites} site(s), ${report.summary.changes} change(s)`,
+    ];
+    if (wroteFile) parts.push(`→ ${displayPath}`);
+    console.log(parts.join('  '));
+  } else {
+    renderMigrationReport(report, { reportDisplayPath: wroteFile ? displayPath : undefined });
+  }
+
+  await runMigrationFixPhase({
+    report,
+    scannedDir,
+    displayDirectory: directory,
+    mode: resolveFixMode({
+      requested: opts.fix,
+      dryRun: opts.fixDryRun ?? false,
+      // --quiet is a machine-readable mode, like --format: it must never end at
+      // an interactive menu.
+      structuredOutput: opts.quiet === true,
+      interactive: canPrompt(),
+    }),
+    requestedAgent: typeof opts.fix === 'string' ? opts.fix : undefined,
+    noTelemetry: input.noTelemetry,
+    reportPath: wroteFile ? displayPath : undefined,
+  });
+
+  // Always zero. The whole category is "work you could choose to do".
+  process.exit(0);
+}
+
+interface MigrationFixPhaseInput {
+  report: MigrationReport;
+  scannedDir: string;
+  displayDirectory: string;
+  mode: FixMode;
+  requestedAgent?: string;
+  noTelemetry: boolean;
+  reportPath?: string;
+}
+
+/**
+ * Hands the plan to an agent, on the same terms as the fix phase: the prompt
+ * goes to the clipboard, the agent opens empty, and the user presses enter.
+ */
+async function runMigrationFixPhase(input: MigrationFixPhaseInput): Promise<void> {
+  const { report, scannedDir, mode } = input;
+  if (mode === 'skip' || report.summary.sites === 0) return;
+
+  const prompt = buildMigrationPrompt(report, input.reportPath);
+
+  if (mode === 'dry-run') {
+    console.log(prompt);
+    return;
+  }
+
+  const agent =
+    mode === 'ask'
+      ? await chooseMigrationAgent(report.summary.sites)
+      : input.requestedAgent
+        ? agentById(input.requestedAgent)
+        : defaultFixAgent();
+
+  if (!agent) {
+    for (const line of describeMigrationRetrigger(input.displayDirectory, report)) {
+      console.log(line);
+    }
+    return;
+  }
+
+  if (!isOnPath(agent.command)) {
+    for (const line of describeMissingAgent(agent)) console.error(line);
+    if (mode !== 'ask') process.exit(2);
+    return;
+  }
+
+  const copied = await copyToClipboard(prompt);
+  if (!copied) console.log(prompt);
+  for (const line of describeHandoff(agent, copied)) console.log(line);
+  await waitForAcknowledgement(describeLaunchGate(agent));
+
+  const { launched } = await launchAgent(agent, scannedDir);
+  if (!launched) {
+    for (const line of describeMissingAgent(agent)) console.error(line);
+    process.exit(2);
+  }
+  for (const line of describeSessionEnd()) console.log(line);
+}
+
+async function chooseMigrationAgent(sites: number): Promise<FixAgent | undefined> {
+  const agents = detectFixAgents();
+  const chosen = await selectFromList({
+    title: `${sites} call site(s) to migrate. Open them in:`,
+    items: buildAgentMenu(agents),
+    initialIndex: defaultAgentIndex(agents),
+  });
+  return chosen && chosen !== 'skip' ? agentById(chosen) : undefined;
+}
+
+/** How to start the handoff later, echoing the target the user asked for. */
+function describeMigrationRetrigger(directory: string, report: MigrationReport): string[] {
+  const dir = directory === '.' ? '' : ` ${directory}`;
+  const major = report.to.split('.')[0];
+  return [
+    '',
+    'To hand this plan to an agent:',
+    `  api-doctor${dir} --migrate ${report.provider}@${major} --fix`,
+  ];
+}
+
+/**
+ * Accepts `api-doctor migrate supabase@2` as a spelling of
+ * `api-doctor --migrate supabase@2`.
+ *
+ * Rewritten in argv rather than handled like the `install` and `fix` redirects
+ * inside the action, because unlike those this one takes an argument: the
+ * command has a single `[directory]` positional, so `migrate supabase@2` would
+ * be rejected as an excess argument before any of our code ran.
+ *
+ * The flag is the real surface. Two subcommands have already been retired from
+ * this CLI and each left a redirect behind; adding a third would be the third
+ * time. This exists so that typing the obvious thing works, not as a second
+ * way to invoke the tool.
+ */
+function normalizeArgv(argv: string[]): string[] {
+  const [node, script, first, second, ...rest] = argv;
+  if (first !== 'migrate') return argv;
+  // `migrate` naming a real directory means what it says.
+  if (isDirectory('migrate')) return argv;
+  if (!second || second.startsWith('-')) {
+    fail('`migrate` needs a target — try `api-doctor --migrate supabase@2`');
+  }
+  return [node, script, '--migrate', second, ...rest];
+}
+
+program.parse(normalizeArgv(process.argv));
