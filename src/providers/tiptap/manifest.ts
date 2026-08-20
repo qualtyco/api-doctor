@@ -43,14 +43,6 @@ export const tiptapManifest: ProviderManifest = {
       severity: 'error',
     },
     {
-      key: 'tiptap-appendTransaction-add-to-history',
-      resultRule: 'tiptap/correctness/appendTransaction-add-to-history',
-      message: 'appendTransaction mutates without setMeta("addToHistory", false) — pollutes undo stack.',
-      fix: 'Chain .setMeta("addToHistory", false) onto the transaction before dispatching.',
-      docsUrl: 'https://prosemirror.net/docs/ref/#state.Transaction.setMeta',
-      severity: 'warning',
-    },
-    {
       key: 'tiptap-appendTransaction-full-scan',
       resultRule: 'tiptap/reliability/appendTransaction-full-scan',
       message: 'appendTransaction calls doc.descendants() on every transaction — O(n) per keystroke.',

@@ -16,17 +16,14 @@ import { resendUncheckedSendErrorRule } from '../providers/resend/rules/js/unche
 import { resendWebhookNoIdempotencyRule } from '../providers/resend/rules/js/webhook-no-idempotency.js';
 import { resendMissingTagsRule } from '../providers/resend/rules/js/missing-tags.js';
 import { resendRequestIdNotLoggedRule } from '../providers/resend/rules/js/request-id-not-logged.js';
-import { supabaseScopeQueriesByTenantColumnRule } from '../providers/supabase/rules/js/scope-queries-by-tenant-column.js';
 import { supabaseValidateUuidColumnsRule } from '../providers/supabase/rules/js/validate-uuid-columns.js';
 import { supabaseOrderByTimestampNotIdentityRule } from '../providers/supabase/rules/js/order-by-timestamp-not-identity.js';
 import { supabaseConsistentInputLengthLimitsRule } from '../providers/supabase/rules/js/consistent-input-length-limits.js';
-import { supabaseIdempotentMutationsRule } from '../providers/supabase/rules/js/idempotent-mutations.js';
 import { supabaseFailFastEnvValidationRule } from '../providers/supabase/rules/js/fail-fast-env-validation.js';
 import { supabaseNoUserMetadataAuthzRule } from '../providers/supabase/rules/js/no-user-metadata-authz.js';
 import { supabaseSingleWithoutErrorCheckRule } from '../providers/supabase/rules/js/single-without-error-check.js';
 import { supabaseNonAtomicReplacePatternRule } from '../providers/supabase/rules/js/non-atomic-replace-pattern.js';
 import { supabaseUncheckedMutationErrorRule } from '../providers/supabase/rules/js/unchecked-mutation-error.js';
-import { supabaseRealtimeMissingFilterRule } from '../providers/supabase/rules/js/realtime-missing-filter.js';
 import { supabaseStorageErrorNotSurfacedRule } from '../providers/supabase/rules/js/storage-error-not-surfaced.js';
 import { auth0RequiredAudienceValidationRule } from '../providers/auth0/rules/js/required-audience-validation.js';
 import { auth0NoAccountLinkWithoutVerifiedEmailRule } from '../providers/auth0/rules/js/no-account-link-without-verified-email.js';
@@ -74,7 +71,6 @@ import { tiptapUploadValidateFnVoidRule } from '../providers/tiptap/rules/js/upl
 import { tiptapScriptSrcHardcodedApiKeyRule } from '../providers/tiptap/rules/js/script-src-hardcoded-api-key.js';
 import { tiptapDynamicScriptNoSriRule } from '../providers/tiptap/rules/js/dynamic-script-no-sri.js';
 import { tiptapAddAttributesMissingRenderHTMLRule } from '../providers/tiptap/rules/js/addAttributes-missing-renderHTML.js';
-import { tiptapAppendTransactionAddToHistoryRule } from '../providers/tiptap/rules/js/appendTransaction-add-to-history.js';
 import { tiptapAppendTransactionFullScanRule } from '../providers/tiptap/rules/js/appendTransaction-full-scan.js';
 import { tiptapAtomNodeWrapInRule } from '../providers/tiptap/rules/js/atom-node-wrap-in.js';
 import { tiptapDropHandlerPosPrecedenceRule } from '../providers/tiptap/rules/js/drop-handler-pos-precedence.js';
@@ -167,17 +163,14 @@ const plugin = {
     'resend-missing-tags': resendMissingTagsRule,
     'resend-request-id-not-logged': resendRequestIdNotLoggedRule,
 
-    'supabase-scope-queries-by-tenant-column': supabaseScopeQueriesByTenantColumnRule,
     'supabase-validate-uuid-columns': supabaseValidateUuidColumnsRule,
     'supabase-order-by-timestamp-not-identity': supabaseOrderByTimestampNotIdentityRule,
     'supabase-consistent-input-length-limits': supabaseConsistentInputLengthLimitsRule,
-    'supabase-idempotent-mutations': supabaseIdempotentMutationsRule,
     'supabase-fail-fast-env-validation': supabaseFailFastEnvValidationRule,
     'supabase-no-user-metadata-authz': supabaseNoUserMetadataAuthzRule,
     'supabase-single-without-error-check': supabaseSingleWithoutErrorCheckRule,
     'supabase-non-atomic-replace-pattern': supabaseNonAtomicReplacePatternRule,
     'supabase-unchecked-mutation-error': supabaseUncheckedMutationErrorRule,
-    'supabase-realtime-missing-filter': supabaseRealtimeMissingFilterRule,
     'supabase-storage-error-not-surfaced': supabaseStorageErrorNotSurfacedRule,
 
     'auth0-required-audience-validation': auth0RequiredAudienceValidationRule,
@@ -229,7 +222,6 @@ const plugin = {
     'tiptap-script-src-hardcoded-api-key': tiptapScriptSrcHardcodedApiKeyRule,
     'tiptap-dynamic-script-no-sri': tiptapDynamicScriptNoSriRule,
     'tiptap-addAttributes-missing-renderHTML': tiptapAddAttributesMissingRenderHTMLRule,
-    'tiptap-appendTransaction-add-to-history': tiptapAppendTransactionAddToHistoryRule,
     'tiptap-appendTransaction-full-scan': tiptapAppendTransactionFullScanRule,
     'tiptap-atom-node-wrap-in': tiptapAtomNodeWrapInRule,
     'tiptap-drop-handler-pos-precedence': tiptapDropHandlerPosPrecedenceRule,

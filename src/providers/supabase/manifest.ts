@@ -193,14 +193,6 @@ export const supabaseManifest: ProviderManifest = {
   },
   rules: [
     {
-      key: 'supabase-scope-queries-by-tenant-column',
-      resultRule: 'supabase/correctness/scope-queries-by-tenant-column',
-      message: 'Query selects a tenant column but never filters by it.',
-      fix: 'Add .eq("<column>", value) (or .match()/.filter()) to scope results to the caller. If RLS scopes this table the filter is still worth adding — defense-in-depth, and it avoids overfetching.',
-      docsUrl: 'https://supabase.com/docs/reference/javascript/eq',
-      severity: 'warning',
-    },
-    {
       key: 'supabase-validate-uuid-columns',
       resultRule: 'supabase/correctness/validate-uuid-columns',
       message: 'Value passed to a uuid-typed column is only checked with typeof === "string".',
@@ -223,14 +215,6 @@ export const supabaseManifest: ProviderManifest = {
       fix: 'Apply the same length cap pattern used for the other fields, e.g. field.length > 2000.',
       docsUrl: 'https://supabase.com/docs/guides/database/tables',
       severity: 'warning',
-    },
-    {
-      key: 'supabase-idempotent-mutations',
-      resultRule: 'supabase/reliability/idempotent-mutations',
-      message: 'Insert payload has no unique/idempotency key field, so a retried request can create a duplicate row.',
-      fix: 'Include a client-generated unique key (e.g. an id or *_key field backed by a unique constraint), or use .upsert(..., { onConflict: "<key column>" }).',
-      docsUrl: 'https://supabase.com/docs/reference/javascript/upsert',
-      severity: 'info',
     },
     {
       key: 'supabase-fail-fast-env-validation',
@@ -270,16 +254,6 @@ export const supabaseManifest: ProviderManifest = {
       message: 'A Supabase insert/update/delete never checks the returned error field.',
       fix: 'Destructure { error } from every mutation and revert optimistic UI or show a toast on failure.',
       docsUrl: 'https://supabase.com/docs/reference/javascript/insert',
-      severity: 'warning',
-    },
-    {
-      key: 'supabase-realtime-missing-filter',
-      resultRule: 'supabase/reliability/realtime-missing-filter',
-      message:
-        'postgres_changes subscription has no filter — every row change on the table will notify this client (often intentional for admin/global views; prefer a filter for per-user feeds).',
-      fix:
-        'If this should be scoped to one user/row, add filter: `receiver_id=eq.${user.id}`. Leave unfiltered only for deliberate whole-table listens.',
-      docsUrl: 'https://supabase.com/docs/guides/realtime/postgres-changes#filtering',
       severity: 'warning',
     },
     {

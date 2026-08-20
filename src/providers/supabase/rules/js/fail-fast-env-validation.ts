@@ -13,7 +13,17 @@
  *     (`createClient` from @supabase/supabase-js, `createBrowserClient` /
  *     `createServerClient` from @supabase/ssr)
  *   - which local variables were assigned directly from `process.env.X`
- *   - which variables/env-vars an `if (!x || ...) throw/return` guard covers
+ *   - which variables/env-vars a guard covers, recognizing several shapes:
+ *       - `if (!x || !y) throw/return`
+ *       - `if (!(x && y)) throw/return` (De Morgan form of the above)
+ *       - `if (x && y) { ... } else { throw/return }` (positive form)
+ *       - `if (x == null) throw/return` / `if (typeof x === 'undefined') throw/return`
+ *       - `if (typeof x !== 'string') throw/return`
+ *       - a standalone assertion-style call (`assertEnv(x)`, `invariant(x, …)`,
+ *         `requireEnv(x)`, …) taking the variable/env-value as an argument
+ *   - whether the whole `process.env` object was passed to a `.parse(...)`
+ *     call (a Zod-style schema that throws on any invalid/missing key),
+ *     which validates every env var at once
  * then, at the factory call, flags any argument that resolves to a
  * `process.env` value with no matching guard.
  */
@@ -33,6 +43,13 @@ function processEnvMemberName(node: any): string | undefined {
   return n.property.name;
 }
 
+function isProcessEnvObject(node: any): boolean {
+  const n = unwrapNonNull(node);
+  if (n?.type !== 'MemberExpression' || n.computed) return false;
+  if (n.object?.type !== 'Identifier' || n.object.name !== 'process') return false;
+  return n.property?.type === 'Identifier' && n.property.name === 'env';
+}
+
 function hasThrowOrReturn(node: any): boolean {
   if (!node) return false;
   if (node.type === 'ThrowStatement' || node.type === 'ReturnStatement') return true;
@@ -41,6 +58,12 @@ function hasThrowOrReturn(node: any): boolean {
   }
   return false;
 }
+
+// Standalone assertion-style helpers: assertEnv(x), invariant(x, 'msg'),
+// requireEnv(x), ensureEnv(x), validateEnv(x). A call matching this shape is
+// trusted to fail fast on its own — the guard just lives in a different
+// statement shape than an `if`.
+const ASSERT_CALL_NAME = /^(assert|invariant|require|ensure|validate)/i;
 
 const rule = {
   meta: {
@@ -68,6 +91,7 @@ const rule = {
     const envVarOfVariable = new Map<string, string>();
     const validatedVarNames = new Set<string>();
     const validatedEnvNames = new Set<string>();
+    let envFullyValidated = false;
 
     function addTarget(node: any) {
       const n = unwrapNonNull(node);
@@ -79,6 +103,21 @@ const rule = {
       if (envName) validatedEnvNames.add(envName);
     }
 
+    // Targets that must ALL be present for the condition to be true —
+    // `x && y` (direct positive check), or the operands of a `&&` found
+    // inside a `!(...)` (De Morgan: `!(x && y)` throwing means the guard
+    // only passes when both x and y are present).
+    function collectAndedTargets(node: any) {
+      if (!node) return;
+      const n = unwrapNonNull(node);
+      if (n.type === 'LogicalExpression' && n.operator === '&&') {
+        collectAndedTargets(n.left);
+        collectAndedTargets(n.right);
+        return;
+      }
+      addTarget(n);
+    }
+
     function collectGuardTargets(node: any) {
       if (!node) return;
       if (node.type === 'LogicalExpression' && node.operator === '||') {
@@ -87,16 +126,44 @@ const rule = {
         return;
       }
       if (node.type === 'UnaryExpression' && node.operator === '!') {
+        const arg = unwrapNonNull(node.argument);
+        if (arg?.type === 'LogicalExpression' && arg.operator === '&&') {
+          collectAndedTargets(arg);
+          return;
+        }
         addTarget(node.argument);
         return;
       }
-      if (node.type === 'BinaryExpression' && (node.operator === '==' || node.operator === '===')) {
-        const sides = [node.left, node.right];
-        const isNullish = (n: any) =>
+      if (node.type === 'BinaryExpression') {
+        const { operator, left, right } = node;
+        const isNullishLiteral = (n: any) =>
           (n?.type === 'Literal' && n.value === null) || (n?.type === 'Identifier' && n.name === 'undefined');
-        const target = sides.find((s: any) => !isNullish(s));
-        const nullSide = sides.find(isNullish);
-        if (target && nullSide) addTarget(target);
+        const typeofArgOf = (n: any) => (n?.type === 'UnaryExpression' && n.operator === 'typeof' ? n.argument : undefined);
+        const stringLiteralOf = (n: any) => (n?.type === 'Literal' && typeof n.value === 'string' ? n : undefined);
+
+        if (operator === '==' || operator === '===') {
+          const sides = [left, right];
+          const target = sides.find((s: any) => !isNullishLiteral(s));
+          const nullSide = sides.find(isNullishLiteral);
+          if (target && nullSide) {
+            addTarget(target);
+            return;
+          }
+          const typeofArg = typeofArgOf(left) ?? typeofArgOf(right);
+          const strSide = stringLiteralOf(left) ?? stringLiteralOf(right);
+          if (typeofArg && strSide?.value === 'undefined') {
+            addTarget(typeofArg);
+            return;
+          }
+        }
+
+        if (operator === '!==' || operator === '!=') {
+          const typeofArg = typeofArgOf(left) ?? typeofArgOf(right);
+          const strSide = stringLiteralOf(left) ?? stringLiteralOf(right);
+          if (typeofArg && strSide && strSide.value !== 'undefined') {
+            addTarget(typeofArg);
+          }
+        }
       }
     }
 
@@ -123,13 +190,41 @@ const rule = {
       },
 
       IfStatement(node: any) {
-        if (!hasThrowOrReturn(node.consequent)) return;
-        collectGuardTargets(node.test);
+        if (hasThrowOrReturn(node.consequent)) {
+          collectGuardTargets(node.test);
+          return;
+        }
+        // Positive form: `if (x && y) { use them } else { throw/return }` —
+        // reaching past the else means every anded target was present.
+        if (hasThrowOrReturn(node.alternate)) {
+          collectAndedTargets(node.test);
+        }
       },
 
       CallExpression(node: any) {
+        // A schema `.parse(process.env)` call (Zod and friends) throws on
+        // any missing/invalid key, so it validates every env var at once —
+        // `.safeParse` does NOT throw and is deliberately not recognized.
+        if (
+          !envFullyValidated &&
+          node.callee?.type === 'MemberExpression' &&
+          !node.callee.computed &&
+          node.callee.property?.type === 'Identifier' &&
+          node.callee.property.name === 'parse' &&
+          node.arguments?.some(isProcessEnvObject)
+        ) {
+          envFullyValidated = true;
+        }
+
+        // A standalone assertion-style helper call validates its arguments,
+        // regardless of what statement shape surrounds it.
+        if (node.callee?.type === 'Identifier' && ASSERT_CALL_NAME.test(node.callee.name)) {
+          for (const rawArg of node.arguments ?? []) addTarget(rawArg);
+        }
+
         if (factoryLocalNames.size === 0) return;
         if (node.callee?.type !== 'Identifier' || !factoryLocalNames.has(node.callee.name)) return;
+        if (envFullyValidated) return;
 
         const missing: string[] = [];
         for (const rawArg of node.arguments ?? []) {

@@ -1,6 +1,6 @@
 # Supabase
 
-12 oxlint rules for the [Supabase](https://supabase.com) JavaScript client (`@supabase/supabase-js`).
+9 oxlint rules for the [Supabase](https://supabase.com) JavaScript client (`@supabase/supabase-js`).
 
 |                          |                                      |
 | ------------------------ | ------------------------------------ |
@@ -12,7 +12,7 @@
 
 Detection: `@supabase/supabase-js` in package.json, `import from '@supabase/supabase-js'` or `'@supabase/ssr'`, or `supabase.co` in source.
 
-Six of these rules target the `{ data, error }` return contract, Realtime fan-out, storage upload handling, and `user_metadata` authorization mistakes common in agent-generated apps.
+Five of these rules target the `{ data, error }` return contract, storage upload handling, and `user_metadata` authorization mistakes common in agent-generated apps.
 
 ---
 
@@ -36,11 +36,10 @@ Client-writable JWT metadata used as authorization.
 
 ### Correctness
 
-Query scoping, validation, and Supabase's non-throwing `{ data, error }` contract.
+Validation and Supabase's non-throwing `{ data, error }` contract.
 
 | Rule | Severity | Why it matters | Supabase docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
-| Scope queries by tenant column | warning | Without RLS on the table an unfiltered query returns every tenant's rows; even with RLS, an explicit filter is defense-in-depth and avoids overfetching. | [`.eq()`](https://supabase.com/docs/reference/javascript/eq) | [scope-queries-by-tenant-column.ts](rules/scope-queries-by-tenant-column.ts) | [supabase-scope-queries-by-tenant-column.test.ts](../../../tests/rules/supabase-scope-queries-by-tenant-column.test.ts) |
 | Single without error check | warning | .single() does not throw — zero or multiple rows set error (PGRST116) with data: null; ignoring error turns a missing row into a perpetual loading state. | [`.single()`](https://supabase.com/docs/reference/javascript/single) | [single-without-error-check.ts](rules/single-without-error-check.ts) | [supabase-single-without-error-check.test.ts](../../../tests/rules/supabase-single-without-error-check.test.ts) |
 | Unchecked mutation error | warning | Mutation errors like constraint violations are not checked, so the code proceeds assuming success when the write failed. | [`.insert()`](https://supabase.com/docs/reference/javascript/insert) | [unchecked-mutation-error.ts](rules/unchecked-mutation-error.ts) | [supabase-unchecked-mutation-error.test.ts](../../../tests/rules/supabase-unchecked-mutation-error.test.ts) |
 | Non-atomic replace pattern | warning | Separate delete and insert calls are not atomic; concurrent writes can interleave, leaving the database with partial data. | [Database functions](https://supabase.com/docs/guides/database/functions) | [non-atomic-replace-pattern.ts](rules/non-atomic-replace-pattern.ts) | [supabase-non-atomic-replace-pattern.test.ts](../../../tests/rules/supabase-non-atomic-replace-pattern.test.ts) |
@@ -52,7 +51,6 @@ Query scoping, validation, and Supabase's non-throwing `{ data, error }` contrac
 
 | Rule | Broken | Fixed |
 | --- | --- | --- |
-| Scope queries by tenant column | `supabase-scope-queries-by-tenant-column-broken/01-history-route.ts`, `02-orders-by-user.ts` | `supabase-scope-queries-by-tenant-column-fixed/01-eq-filter.ts`, `02-match-filter-adversarial.ts` |
 | Single without error check | `supabase-single-without-error-check-broken/01-project-detail.ts`, `02-edit-prefill.ts` | `supabase-single-without-error-check-fixed/01-checks-error.ts`, `02-maybe-single-adversarial.ts`, `03-throw-on-error-adversarial.ts`, `04-result-object-error-adversarial.ts` |
 | Unchecked mutation error | `supabase-unchecked-mutation-error-broken/01-save-for-later.ts`, `02-send-reply.ts` | `supabase-unchecked-mutation-error-fixed/01-checks-error.ts`, `02-select-not-mutation-adversarial.ts`, `03-throw-on-error-adversarial.ts`, `04-result-object-error-adversarial.ts` |
 | Non-atomic replace pattern | `supabase-non-atomic-replace-pattern-broken/01-education-replace.ts`, `02-experiences-replace.ts` | `supabase-non-atomic-replace-pattern-fixed/01-checks-both-steps.ts`, `02-delete-only-adversarial.ts` |
@@ -64,12 +62,10 @@ Query scoping, validation, and Supabase's non-throwing `{ data, error }` contrac
 
 ### Reliability
 
-Idempotency, env validation, Realtime scope, and storage error surfacing.
+Env validation and storage error surfacing.
 
 | Rule | Severity | Why it matters | Supabase docs | Rule file | Test |
 | --- | --- | --- | --- | --- | --- |
-| Realtime missing filter | warning | Unfiltered postgres_changes notifies this client on every table row change RLS allows — costly for per-user feeds, fine for deliberate admin/global listens. Prefer `filter` (e.g. `receiver_id=eq.{id}`) when the feed is user-scoped. | [Realtime filtering](https://supabase.com/docs/guides/realtime/postgres-changes#filtering) | [realtime-missing-filter.ts](rules/realtime-missing-filter.ts) | [supabase-realtime-missing-filter.test.ts](../../../tests/rules/supabase-realtime-missing-filter.test.ts) |
-| Idempotent mutations | info | An insert with no unique key in the payload duplicates the row when the request is retried (flaky network, double-click). A client-generated id counts as the dedupe key. | [`.upsert()`](https://supabase.com/docs/reference/javascript/upsert) | [idempotent-mutations.ts](rules/idempotent-mutations.ts) | [supabase-idempotent-mutations.test.ts](../../../tests/rules/supabase-idempotent-mutations.test.ts) |
 | Fail-fast env validation | info | createClient throws immediately on a missing arg, but with the SDK's message ("supabaseKey is required.") — an explicit presence check names the exact env var to fix. | [Initializing](https://supabase.com/docs/reference/javascript/initializing) | [fail-fast-env-validation.ts](rules/fail-fast-env-validation.ts) | [supabase-fail-fast-env-validation.test.ts](../../../tests/rules/supabase-fail-fast-env-validation.test.ts) |
 | Storage error not surfaced | warning | Storage upload errors are ignored, so files fail silently while the code proceeds as if the upload succeeded. | [Storage upload](https://supabase.com/docs/reference/javascript/storage-from-upload) | [storage-error-not-surfaced.ts](rules/storage-error-not-surfaced.ts) | [supabase-storage-error-not-surfaced.test.ts](../../../tests/rules/supabase-storage-error-not-surfaced.test.ts) |
 
@@ -77,8 +73,6 @@ Idempotency, env validation, Realtime scope, and storage error surfacing.
 
 | Rule | Broken | Fixed |
 | --- | --- | --- |
-| Realtime missing filter | `supabase-realtime-missing-filter-broken/01-app-layout.ts`, `02-messages-page.ts` | `supabase-realtime-missing-filter-fixed/01-filtered-subscription.ts`, `02-non-postgres-changes-adversarial.ts` |
-| Idempotent mutations | `supabase-idempotent-mutations-broken/01-history-insert.ts`, `02-orders-array-insert.ts` | `supabase-idempotent-mutations-fixed/01-insert-with-idempotency-key.ts`, `02-upsert-on-conflict-adversarial.ts`, `03-client-generated-id.ts` |
 | Fail-fast env validation | `supabase-fail-fast-env-validation-broken/01-lib-supabase.ts`, `02-cleanup-script.ts`, `03-ssr-server-client.ts` | `supabase-fail-fast-env-validation-fixed/01-guarded-extracted-vars.ts`, `02-non-env-args-adversarial.ts` |
 | Storage error not surfaced | `supabase-storage-error-not-surfaced-broken/01-avatar-upload.ts`, `02-resume-upload.ts`, `03-renamed-error-var.ts` | `supabase-storage-error-not-surfaced-fixed/01-throws-on-upload-error.ts`, `02-else-branch-adversarial.ts` |
 
@@ -97,9 +91,9 @@ Code versus the SDK version this project has installed. These rules never sugges
 | Category | Rules | Test files | Fixture pairs |
 | --- | --- | --- | --- |
 | Security | 1 | 1 | 1 |
-| Correctness | 7 | 7 | 7 |
-| Reliability | 4 | 4 | 4 |
-| **Total** | **12** | **12 rule tests** | **12 broken/fixed dirs** |
+| Correctness | 6 | 6 | 6 |
+| Reliability | 2 | 2 | 2 |
+| **Total** | **9** | **9 rule tests** | **9 broken/fixed dirs** |
 
 ## Out of scope (not AST rules)
 
