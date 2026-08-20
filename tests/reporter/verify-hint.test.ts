@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { allRemovals } from '../../src/providers/index.js';
+import { everyRemoval, removalName } from '../../src/providers/index.js';
 import { renderMarkdown } from '../../src/reporter/markdown.js';
 import { buildReport } from '../../src/reporter/report-builder.js';
 import type { DetectedProvider, ScanResult } from '../../src/types.js';
@@ -55,37 +55,74 @@ function compatResult(partial: Partial<ScanResult> = {}): ScanResult {
   };
 }
 
+// The discipline applies to BOTH removal shapes. `everyRemoval` is the union
+// of the exported-symbol removals and the client method-path removals, and
+// `removalName` is whichever of `symbol`/`path` that entry carries — a method
+// removal must be held to exactly the same standard as a symbol one, since a
+// reader cannot tell from the finding which kind produced it.
 describe('verifyHint manifest discipline', () => {
   it('every removal carries a concrete, hand-written hint', () => {
-    expect(allRemovals.length).toBeGreaterThan(0);
-    for (const removal of allRemovals) {
-      expect(typeof removal.verifyHint, removal.symbol).toBe('string');
-      expect(removal.verifyHint.trim().length, removal.symbol).toBeGreaterThan(30);
+    expect(everyRemoval.length).toBeGreaterThan(0);
+    for (const removal of everyRemoval) {
+      expect(typeof removal.verifyHint, removalName(removal)).toBe('string');
+      expect(removal.verifyHint.trim().length, removalName(removal)).toBeGreaterThan(30);
     }
   });
 
   it('never ships a hint that only says "verify carefully"', () => {
     // A hint has to name the thing that could differ. An instruction to be
     // careful is not information, and would train readers to skip the line.
-    for (const removal of allRemovals) {
+    for (const removal of everyRemoval) {
       expect(
         /^\s*(please\s+)?(verify|check|review)\s+(this|it|that|carefully|thoroughly)\b/i.test(
           removal.verifyHint,
         ),
-        `${removal.symbol}: hint must name what could differ`,
+        `${removalName(removal)}: hint must name what could differ`,
       ).toBe(false);
     }
   });
 
   it('a wire-identical rename says so, and names what is identical', () => {
-    for (const removal of allRemovals.filter((r) => r.wireIdentical)) {
+    for (const removal of everyRemoval.filter((r) => r.wireIdentical)) {
       expect(
         /no behavior change|identical|same request|same wire/i.test(removal.verifyHint),
-        `${removal.symbol}: wireIdentical hint must state that nothing changes`,
+        `${removalName(removal)}: wireIdentical hint must state that nothing changes`,
       ).toBe(true);
       // "same auth", "same PUT /basins/{basin}" — something concrete, not just
       // the claim that it is safe.
-      expect(/same\s+\S/i.test(removal.verifyHint), removal.symbol).toBe(true);
+      expect(/same\s+\S/i.test(removal.verifyHint), removalName(removal)).toBe(true);
+    }
+  });
+
+  it('every removal carries evidence naming where it was checked', () => {
+    // `evidence` is what separates a verified entry from a changelog reading.
+    // It must name a concrete artifact, not a version number alone.
+    for (const removal of everyRemoval) {
+      expect(removal.evidence.trim().length, removalName(removal)).toBeGreaterThan(40);
+      expect(
+        /npm pack|\.d\.ts|\.js|dist\/|tarball/i.test(removal.evidence),
+        `${removalName(removal)}: evidence must name where it was confirmed`,
+      ).toBe(true);
+    }
+  });
+
+  it('names are unique across every provider, so message lookup cannot collide', () => {
+    // symbolFromMessage() recovers a removal from the leading token of a
+    // rendered message against ONE global map. Two providers sharing a name
+    // would silently hand a reader the other provider's Verify line.
+    const names = everyRemoval.map(removalName);
+    expect(new Set(names).size, `duplicate removal names: ${names.join(', ')}`).toBe(names.length);
+  });
+
+  it('a split names its successors and a plain removal promises none', () => {
+    for (const removal of everyRemoval) {
+      if (removal.kind === 'split') {
+        expect(removal.replacements?.length, removalName(removal)).toBeGreaterThan(1);
+      }
+      if (removal.kind === 'removed') {
+        expect(removal.replacement, removalName(removal)).toBeUndefined();
+        expect(removal.wireIdentical, removalName(removal)).toBe(false);
+      }
     }
   });
 });
@@ -123,6 +160,27 @@ describe('verifyHint end-to-end on the S2 fixtures', () => {
     expect(res.stdout).toMatch(/\n\s+Verify: Same PUT \/(basins|streams)\//);
     // The Verify line is guidance, never an upgrade nudge.
     expect(res.stdout).not.toMatch(/upgrad/i);
+  });
+
+  it('gives every distinct removal its own headline and its own Verify line', () => {
+    // Compatibility rules set dynamicMessage: each finding names a different
+    // symbol, version and successor. Grouped by rule alone they collapse under
+    // whichever came first, and the survivors get a Verify line describing
+    // some other symbol's endpoint. Both removals in this fixture must appear.
+    const res = run([BROKEN, '--no-report']);
+    const headlines = [...res.stdout.matchAll(/× (createOrReconfigure\w+) was removed/g)].map(
+      (m) => m[1],
+    );
+    expect(new Set(headlines)).toEqual(
+      new Set(['createOrReconfigureBasin', 'createOrReconfigureStream']),
+    );
+    // …and each headline is immediately followed by ITS endpoint, not the other's.
+    expect(res.stdout).toMatch(
+      /× createOrReconfigureBasin was removed[^\n]*\n\s+Verify: Same PUT \/basins\/\{basin\}/,
+    );
+    expect(res.stdout).toMatch(
+      /× createOrReconfigureStream was removed[^\n]*\n\s+Verify: Same PUT \/streams\/\{stream\}/,
+    );
   });
 
   it('pairs the Verify line with the headline it sits under', () => {

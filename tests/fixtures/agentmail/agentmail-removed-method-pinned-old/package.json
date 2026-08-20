@@ -1,0 +1,7 @@
+{
+  "name": "agentmail-removed-method-pinned-old",
+  "private": true,
+  "dependencies": {
+    "agentmail": "0.5.11"
+  }
+}

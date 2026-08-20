@@ -1,0 +1,7 @@
+{
+  "name": "agentmail-removed-method-broken",
+  "private": true,
+  "dependencies": {
+    "agentmail": "0.5.20"
+  }
+}

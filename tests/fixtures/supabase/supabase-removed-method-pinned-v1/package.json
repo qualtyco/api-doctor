@@ -1,0 +1,7 @@
+{
+  "name": "supabase-removed-method-pinned-v1",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "1.35.7"
+  }
+}

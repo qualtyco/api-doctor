@@ -51,8 +51,22 @@ export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
   const { packageName, removals, description, rationale, docsUrl } = options;
   const removalsBySymbol = new Map(removals.map((r) => [r.symbol, r]));
 
+  /**
+   * Import sources that are the CURE, not the disease.
+   *
+   * A symbol that moved to a subpath (`@tiptap/react` → `@tiptap/react/menus`)
+   * is still exported under the same name, and `isProviderSource` matches the
+   * package AND its subpaths — so without this the rule would flag the exact
+   * import that fixes the finding, on every correctly-migrated file. Sourced
+   * from the removals themselves so the exclusion cannot drift from the data.
+   */
+  const survivingSources = new Set(
+    removals.map((r) => r.movedTo).filter((m): m is string => typeof m === 'string'),
+  );
+
   const isProviderSource = (source: unknown): boolean =>
     typeof source === 'string' &&
+    !survivingSources.has(source) &&
     (source === packageName || source.startsWith(`${packageName}/`));
 
   return {
@@ -68,6 +82,8 @@ export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
       messages: {
         renamedSymbol:
           '{{symbol}} was removed in {{removedIn}} — you have {{installed}} installed. Renamed to {{replacement}}. Same request, same arguments.',
+        movedSymbol:
+          "{{symbol}} was removed from '{{packageName}}' in {{removedIn}} — you have {{installed}} installed. Import it from '{{movedTo}}' instead.",
         removedSymbol:
           '{{symbol}} was removed in {{removedIn}} — you have {{installed}} installed.',
       },
@@ -178,12 +194,16 @@ export function createRemovedSymbolRule(options: RemovedSymbolRuleOptions) {
               symbol,
               removedIn: removal.removedIn,
               installed,
+              packageName,
               replacement: removal.replacement ?? '',
+              movedTo: removal.movedTo ?? '',
             };
             const messageId =
               removal.kind === 'rename' && removal.wireIdentical && removal.replacement
                 ? 'renamedSymbol'
-                : 'removedSymbol';
+                : removal.kind === 'moved' && removal.movedTo
+                  ? 'movedSymbol'
+                  : 'removedSymbol';
 
             // Prefer call sites; fall back to the import when never called.
             const nodes = calls.get(symbol) ?? importedFrom.get(symbol) ?? [];

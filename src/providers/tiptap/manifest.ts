@@ -1,4 +1,5 @@
 import type { ProviderManifest } from '../../types.js';
+import { tiptapCompatibility } from './compatibility.js';
 
 export const tiptapManifest: ProviderManifest = {
   name: 'tiptap',
@@ -99,5 +100,18 @@ export const tiptapManifest: ProviderManifest = {
       severity: 'warning',
       languages: ['javascript', 'python'],
     },
+    {
+      key: 'tiptap-removed-symbol',
+      resultRule: 'tiptap/removed-symbol',
+      message:
+        'Code imports a React component from @tiptap/react that does not exist in the installed version.',
+      fix: "Import BubbleMenu and FloatingMenu from '@tiptap/react/menus' instead of '@tiptap/react'. Check the per-finding Verify line before assuming the props carry over — the 2.x tippyOptions prop is 3.x options, and the components now forward a ref.",
+      docsUrl: 'https://tiptap.dev/docs/editor/extensions/functionality/bubble-menu',
+      severity: 'error',
+      // The finding must name the installed version ("you have 3.30.2
+      // installed") — that fact only exists at lint time.
+      dynamicMessage: true,
+    },
   ],
+  compatibility: tiptapCompatibility,
 };

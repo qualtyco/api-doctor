@@ -236,6 +236,24 @@ against `@latest` only — it has no notion of the version a user has installed.
 That question belongs to `plugin/installed-version.ts` + `sdk-versions.ts` at
 scan time, and to `compatibility.ts` for hand-verified removals.
 
+Watched clones and the version each provider's data was last read against:
+
+| Provider | Clone | Baseline |
+|---|---|---|
+| s2 | `s2-sdk-typescript` | `@s2-dev/streamstore@0.26.0` |
+| resend | `resend-node` | `resend@6.20.0` |
+| auth0 | `node-auth0` | `auth0@6.3.0` |
+| elevenlabs | `elevenlabs-js` | `@elevenlabs/elevenlabs-js@2.64.0` |
+| agentmail | `agentmail-node` | `agentmail@0.5.20` |
+| browserbase | `sdk-node` | `@browserbasehq/sdk@2.18.0` |
+| supabase | `supabase-js` | `@supabase/supabase-js@2.112.3` |
+| tiptap | `tiptap` | `@tiptap/react@3.30.2` |
+
+The first seven carry that baseline in `surface.verified`. Tiptap has no HTTP
+surface and so no surface manifest — it is watched for its compatibility data
+alone, and its baseline lives in `providers/tiptap/compatibility.ts` plus the
+`WATCHED` entry.
+
 `scripts/sdk-watch.mjs` (`pnpm sdk:watch`, `.claude/skills/sdk-watch`) is the
 weekly version of the `--local` pass across every cloned SDK at once: pull,
 list commits since the baseline scoped to that provider's client source, rank
@@ -259,35 +277,80 @@ finding is a call that will fail at runtime against what is actually in
 `node_modules` — never a suggestion to upgrade. Code on a deliberately pinned
 old version using that version's symbols is correct and stays silent forever.
 
+**Two shapes of break, two detectors.** An SDK breaks a caller in two
+structurally different ways and only one is visible at an import:
+
+```
+import { createOrReconfigureBasin } from '@s2-dev/streamstore'   ← SymbolRemoval
+supabase.auth.signIn({ email, password })                        ← MethodRemoval
+```
+
+In the second case the import is unchanged and still valid; what vanished is a
+property on the client. That is how nearly every HTTP SDK breaks — Fern,
+Stainless and hand-written resource clients all expose their API as
+`client.a.b()` — so a provider modelling only the first kind stays silent
+through its own major bump. Both shapes share `RemovalFacts` in `types.ts`
+(`removedIn`, `replacement`/`replacements`, `kind`, `wireIdentical`,
+`verifiedAt`, `evidence`, `verifyHint`) so a method removal can never be
+written to a laxer standard than a symbol one.
+
 A provider gains compatibility with **data plus prose, never new AST code**:
 
 ```
-providers/<name>/compatibility.ts   removals + `export const <name>Compatibility`
+providers/<name>/compatibility.ts   removals and/or methodRemovals
+                                    + `export const <name>Compatibility`
 providers/<name>/manifest.ts        `compatibility: <name>Compatibility` + a rules[] entry
 providers/<name>/rules/js/removed-symbol.ts
                                     createRemovedSymbolRule({ packageName, removals, … })
+providers/<name>/rules/js/removed-method.ts
+                                    createRemovedMethodRule({ packageName, provider, removals, … })
 plugin/index.ts                     register the rule
 ```
 
-`providers/_shared/removed-symbol.ts` holds the detection for every provider:
-named imports and require-destructuring from the provider's package, calls of
-those bindings, and member calls on a namespace import. A bare call is flagged
-only when the binding traces to the SDK import, so a project's own helper
-sharing the name never matches. It stays silent whenever the installed version
-cannot be resolved — unresolvable must never be read as "latest". Fork this
-file and those precision guarantees start drifting apart per provider.
+`providers/_shared/removed-symbol.ts` holds the symbol detection for every
+provider: named imports and require-destructuring from the provider's package,
+calls of those bindings, and member calls on a namespace import. A bare call is
+flagged only when the binding traces to the SDK import, so a project's own
+helper sharing the name never matches. A removal carrying `movedTo` (same
+symbol, new module — `@tiptap/react` → `@tiptap/react/menus`) excludes that
+exact source: the package match is a prefix match, so without it the rule would
+flag the very import that fixes the finding.
+
+`providers/_shared/removed-method.ts` holds the method-path detection. It
+matches the removal's dotted path against a call's **trailing** segments, so
+one `metrics.query` entry covers `client.metrics.query()`,
+`client.inboxes.metrics.query()` and `client.pods.metrics.query()`; a bare
+`query()` (no receiver) never matches. Receiver identity comes from the gate's
+`context.providerTracker` via **`resolveOwner`, never `belongsTo`** —
+`belongsTo` falls back to file-level evidence when a receiver is
+unattributable, which is right for a rule flagging a risky pattern and wrong
+for a finding claiming a specific call throws. Without the strict check, an
+`emitter.removeSubscription()` in any file that also imports Supabase would be
+reported as a Supabase break.
+
+Both stay silent whenever the installed version cannot be resolved —
+unresolvable must never be read as "latest". Fork either file and those
+precision guarantees start drifting apart per provider.
 
 Declaring `compatibility` on the manifest is the **whole** registration.
-`providers/index.ts` derives `allRemovals`, `removalsBySymbol`,
-`compatProviders`, and the message→symbol lookup from the manifests, so
-telemetry and the reporter's Verify line pick a new provider up with no edit.
-There is deliberately no central registry file — that was `compat-registry.ts`,
-and it was one more list to forget.
+`providers/index.ts` derives `allRemovals`, `allMethodRemovals`,
+`everyRemoval`, `removalsBySymbol`, `compatProviders`, and the message→name
+lookup from the manifests, so telemetry and the reporter's Verify line pick a
+new provider up with no edit. There is deliberately no central registry file —
+that was `compat-registry.ts`, and it was one more list to forget.
 
 Findings render their facts into a message string, so the structured removal is
 recovered from the message by `symbolFromMessage`. That is safe only because it
 matches a **closed vocabulary**: an unrecognised leading token yields null
-rather than a guess.
+rather than a guess. The lookup is one map across all providers, so removal
+names must be globally unique — `tests/reporter/verify-hint.test.ts` asserts
+it, because a collision would hand a reader another provider's Verify line.
+
+Compatibility rules set `dynamicMessage: true`, which means every finding they
+emit has a different message. The terminal reporter therefore groups by **rule
+AND message**, not rule alone: grouped by rule, nine removed Supabase methods
+collapse under whichever came first and the group's single Verify line then
+describes a different removal than the lines beneath it.
 
 `wireIdentical`, `evidence` and `verifyHint` are hand-verified against both
 published tarballs — implementation, not the type diff. Never infer one from a

@@ -1,4 +1,5 @@
 import type { ProviderManifest } from '../../types.js';
+import { agentmailCompatibility } from './compatibility.js';
 
 export const agentmailManifest: ProviderManifest = {
   name: 'agentmail',
@@ -13,7 +14,25 @@ export const agentmailManifest: ProviderManifest = {
     clientConstructors: ['AgentMailClient'],
     clientNamePattern: /^agent[-_]?mail([-_]?client)?$/i,
     docsUrl: 'https://docs.agentmail.to/api-reference',
-    // Verified against agentmail@0.5.18: dist/cjs/Client.d.ts root getters
+    // The version/commit this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm check:surface --local`
+    // reports every SDK source commit landed since `commit`, including logic
+    // changes that leave the method list untouched.
+    verified: {
+      version: '0.5.20',
+      commit: 'b132698cd6e3ddfbff9d007a5caed4e3397c22c8',
+      at: '2026-08-19',
+      sourceDir: 'src',
+    },
+    // Read for 0.5.20: 0.4.20 → 0.5.20 is additive at the package's export
+    // surface (dist/cjs/exports.d.ts is byte-identical across the two) and
+    // almost entirely additive at the method level — a new `auth` resource
+    // with `auth.me`, per-inbox and per-pod `webhooks` sub-resources,
+    // `messages.batchGet`/`batchUpdate`/`search`, `threads.search`, and five
+    // apiKeys public-key methods. The one removal is `metrics.query`, split
+    // into `queryEvents` and `queryUsage` in 0.5.12; it is recorded in
+    // compatibility.ts with the endpoint diff, not here.
+    // Verified against agentmail@0.5.20: dist/cjs/Client.d.ts root getters
     // walked into every per-resource client declaration (the published
     // AgentMailClient in dist/cjs/wrapper/Client.d.ts extends the Fern base
     // client and adds no resources — it only overrides `websockets` with a
@@ -289,5 +308,18 @@ export const agentmailManifest: ProviderManifest = {
       docsUrl: 'https://docs.agentmail.to/knowledge-base/emails-going-to-spam',
       severity: 'info',
     },
+    {
+      key: 'agentmail-removed-method',
+      resultRule: 'agentmail/removed-method',
+      message:
+        'Code calls an agentmail client method that does not exist in the installed SDK version.',
+      fix: 'Replace metrics.query with the endpoint that matches what the call site reads — queryEvents (GET /v0/metrics/events) for event rows, queryUsage (GET /v0/metrics/usage) for usage aggregates.',
+      docsUrl: 'https://docs.agentmail.to/api-reference',
+      severity: 'error',
+      // The finding must name the installed version ("you have 0.5.20
+      // installed") — that fact only exists at lint time.
+      dynamicMessage: true,
+    },
   ],
+  compatibility: agentmailCompatibility,
 };

@@ -30,3 +30,11 @@ Rules for the [`agentmail`](https://docs.agentmail.to/welcome) SDK, derived from
 | `agentmail/attachment-size-guard` | warning | File/network content attached inline with no size check — handlers cap inline base64 `content` at 6 MB; use the `url` field (30 MB) for larger files. Limits provider-confirmed 2026-07-14 (docs update pending); both fields verified in `agentmail@0.4.20` |
 | `agentmail/prefer-webhooks-in-production` | info | Forever-loop polling `messages.list` — webhooks/WebSockets are the recommended production mechanisms |
 | `agentmail/html-requires-text` | info | `html` body with no `text` part — deliverability and text-only-client failure (text-only sends are fine) |
+
+## Compatibility
+
+Code versus the SDK version this project has installed. These rules never suggest upgrading: an old call on a deliberately pinned old version is correct and stays silent forever. They fire only when the code calls a client method that provably does not exist in what `node_modules`/the lockfile/a pinned range resolves to — a runtime `TypeError` that nothing else catches in plain `.js` files, because the import and the constructor are unchanged. The receiver must trace to the SDK (construction, SDK constructor import, alias, or `this.<prop>`), so a project's own object with the same method name never matches. Removals are hand-verified against both published tarballs (implementation, not just the type diff) in [compatibility.ts](compatibility.ts); silence whenever the installed version cannot be resolved.
+
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| removed-method | error | `metrics.query` was split into `queryEvents` (`GET /v0/metrics/events`) and `queryUsage` (`GET /v0/metrics/usage`) in 0.5.12 — two different endpoints, not a rename. Covers the account-level, per-inbox and per-pod `metrics` resources alike. | [API reference](https://docs.agentmail.to/api-reference) | [removed-method.ts](rules/js/removed-method.ts) | [test](../../../tests/rules/agentmail-removed-method.test.ts) |

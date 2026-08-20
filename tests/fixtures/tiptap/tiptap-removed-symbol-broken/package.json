@@ -1,0 +1,8 @@
+{
+  "name": "tiptap-removed-symbol-broken",
+  "private": true,
+  "dependencies": {
+    "@tiptap/react": "3.30.2",
+    "@tiptap/starter-kit": "3.30.2"
+  }
+}

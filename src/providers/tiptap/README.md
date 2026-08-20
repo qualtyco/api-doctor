@@ -80,6 +80,14 @@ Performance issues from quadratic-time document scans on every keystroke, and ma
 
 ---
 
+### Compatibility
+
+Code versus the SDK version this project has installed. These rules never suggest upgrading: an old symbol on a deliberately pinned old version is correct and stays silent forever. They fire only when the code references a symbol that provably does not exist in what `node_modules`/the lockfile/a pinned range resolves to — a runtime failure nothing else catches in plain `.js` files. A symbol that merely MOVED (same name, new module) is matched by import source, and the module it moved to is never flagged — otherwise the rule would report the very import that fixes it. Removals are hand-verified against both published tarballs (implementation, not just the type diff) in [compatibility.ts](compatibility.ts); silence whenever the installed version cannot be resolved.
+
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| removed-symbol | error | `BubbleMenu` and `FloatingMenu` left the `@tiptap/react` root in 3.0.1 for the `@tiptap/react/menus` subpath. The v2 root import resolves to `undefined` on an installed v3 and renders nothing, with no build error in a plain `.jsx` file. The props moved too — 2.x `tippyOptions` is 3.x `options`. | [Bubble menu](https://tiptap.dev/docs/editor/extensions/functionality/bubble-menu) | [removed-symbol.ts](rules/js/removed-symbol.ts) | [test](../../../tests/rules/tiptap-removed-symbol.test.ts) |
+
 ## Test summary
 
 | Category    | Rules  | Test files | Fixture pairs |

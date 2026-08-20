@@ -126,6 +126,10 @@ import { s2UseS2EnvironmentEndpointsRule } from '../providers/s2/rules/js/use-s2
 import { s2MetricsDateArgumentsRule } from '../providers/s2/rules/js/metrics-date-arguments.js';
 import { s2TokenSecretHandlingRule } from '../providers/s2/rules/js/token-secret-handling.js';
 import { s2RemovedSymbolRule } from '../providers/s2/rules/js/removed-symbol.js';
+import { tiptapRemovedSymbolRule } from '../providers/tiptap/rules/js/removed-symbol.js';
+import { agentmailRemovedMethodRule } from '../providers/agentmail/rules/js/removed-method.js';
+import { supabaseRemovedMethodRule } from '../providers/supabase/rules/js/removed-method.js';
+import { browserbaseRemovedMethodRule } from '../providers/browserbase/rules/js/removed-method.js';
 import { agentmailVerifyApprovalReplySenderRule } from '../providers/agentmail/rules/js/verify-approval-reply-sender.js';
 import { agentmailInboxCreateClientIdRule } from '../providers/agentmail/rules/js/inbox-create-client-id.js';
 import { agentmailHandleSendFailureStatusRule } from '../providers/agentmail/rules/js/handle-send-failure-status.js';
@@ -281,6 +285,10 @@ const plugin = {
     's2-metrics-date-arguments': s2MetricsDateArgumentsRule,
     's2-token-secret-handling': s2TokenSecretHandlingRule,
     's2-removed-symbol': s2RemovedSymbolRule,
+    'tiptap-removed-symbol': tiptapRemovedSymbolRule,
+    'agentmail-removed-method': agentmailRemovedMethodRule,
+    'supabase-removed-method': supabaseRemovedMethodRule,
+    'browserbase-removed-method': browserbaseRemovedMethodRule,
 
     'agentmail-verify-approval-reply-sender': agentmailVerifyApprovalReplySenderRule,
     'agentmail-inbox-create-client-id': agentmailInboxCreateClientIdRule,

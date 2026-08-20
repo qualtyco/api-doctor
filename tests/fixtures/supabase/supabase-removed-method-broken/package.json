@@ -1,0 +1,7 @@
+{
+  "name": "supabase-removed-method-broken",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.3"
+  }
+}

@@ -3,7 +3,7 @@
  * the SDK in a project, which oxlint rules to enable when found, and — when
  * someone has hand-verified them — which SDK symbols have been removed.
  */
-import type { ProviderManifest, SymbolRemoval } from '../types.js';
+import type { MethodRemoval, ProviderManifest, SymbolRemoval } from '../types.js';
 import { resendManifest } from './resend/manifest.js';
 import { supabaseManifest } from './supabase/manifest.js';
 import { auth0Manifest } from './auth0/manifest.js';
@@ -33,32 +33,56 @@ export const providers: ProviderManifest[] = [
 ];
 
 /**
- * Every provider's hand-verified symbol removals, derived from the registry
- * above rather than listed again.
+ * Every provider's hand-verified removals, derived from the registry above
+ * rather than listed again.
+ *
+ * Two lists because an SDK breaks a caller in two shapes — a removed export
+ * (`allRemovals`) and a removed method path off a client (`allMethodRemovals`)
+ * — and the detectors for them are necessarily different. Everything
+ * downstream wants them together, which is what `everyRemoval` is for.
  *
  * Compatibility findings render their facts into a message string, so the
  * structured removal (replacement, wireIdentical, verifyHint) is not
  * recoverable from the report alone. Consumers that need it — telemetry, and
- * the reporter's Verify line — recover the symbol from the message and look it
+ * the reporter's Verify line — recover the name from the message and look it
  * up here.
  *
  * This is derivation, not a second registry: a provider's removals live in
- * `providers/<name>/compatibility.ts` and reach this map by being declared on
- * that provider's own manifest. There is nothing here to forget to update.
+ * `providers/<name>/compatibility.ts` and reach these maps by being declared
+ * on that provider's own manifest. There is nothing here to forget to update.
  */
 export const allRemovals: SymbolRemoval[] = providers.flatMap(
   (p) => p.compatibility?.removals ?? [],
 );
 
-export const removalsBySymbol = new Map(allRemovals.map((r) => [r.symbol, r]));
+export const allMethodRemovals: MethodRemoval[] = providers.flatMap(
+  (p) => p.compatibility?.methodRemovals ?? [],
+);
+
+/** Both shapes in one list, for the consumers that do not care which is which. */
+export const everyRemoval: Array<SymbolRemoval | MethodRemoval> = [
+  ...allRemovals,
+  ...allMethodRemovals,
+];
+
+/**
+ * What a removal is called in a rendered message: the exported symbol, or the
+ * dotted method path. Both lead their message, so both are the lookup key.
+ */
+export function removalName(removal: SymbolRemoval | MethodRemoval): string {
+  return 'symbol' in removal ? removal.symbol : removal.path;
+}
+
+export const removalsBySymbol = new Map(everyRemoval.map((r) => [removalName(r), r]));
 
 /** Providers carrying compatibility data, for consumers that need the package. */
 export const compatProviders = providers.filter((p) => p.compatibility);
 
 /**
- * Recovers the removed symbol from a rendered compatibility message, which
- * always leads with it. Returns null for anything outside the known set —
- * including the static fallback message used when a rule yields no text.
+ * Recovers the removed symbol or method path from a rendered compatibility
+ * message, which always leads with it. Returns null for anything outside the
+ * known set — including the static fallback message used when a rule yields
+ * no text.
  *
  * Matching against a closed vocabulary is what makes that safe: an
  * unrecognised leading token yields null rather than a guess, so nothing

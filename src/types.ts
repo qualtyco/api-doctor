@@ -102,32 +102,63 @@ export interface ProviderManifest {
  * the rule resolves the installed version from it, telemetry reports that
  * version — and reading it off the manifest is what keeps those consumers
  * from hardcoding one provider's package.
+ *
+ * Two lists, because an SDK breaks a caller in two structurally different
+ * ways and only one of them is visible at an import. `removals` is the
+ * exported-symbol kind (`import { createOrReconfigureBasin }`); `methodRemovals`
+ * is the call-path kind (`supabase.auth.signIn(...)`), where nothing about the
+ * import statement changed and the break is in a method that is simply no
+ * longer there. Most HTTP SDKs — anything Fern-, Stainless- or
+ * resource-client-shaped — break the second way, so a provider that only
+ * modelled the first would be silent on its own major version bump.
  */
 export interface ProviderCompatibility {
   /** npm package the removals apply to (e.g. '@s2-dev/streamstore'). */
   package: string;
   removals: SymbolRemoval[];
+  /**
+   * Removed method paths off a client instance. Optional — a provider has
+   * these once someone has compared two published tarballs by hand.
+   */
+  methodRemovals?: MethodRemoval[];
 }
 
 /**
- * A symbol that no longer exists in some version of a provider's SDK.
+ * The hand-verified facts every removal carries, whatever its shape.
  *
- * Every field is hand-verified against the published tarballs — implementation,
- * not just the type diff. `wireIdentical` in particular is never inferred from
- * a rename: it asserts that the old and new symbol issue the same HTTP method
- * to the same path with the same arguments, which only reading both builders
- * can establish. See `providers/s2/compatibility.ts` for the worked example
- * and the rules for writing `verifyHint`.
+ * Split out so a `MethodRemoval` cannot be written to a laxer standard than a
+ * `SymbolRemoval`: both answer "when did it go", "what replaced it", "does the
+ * replacement do the same thing on the wire", "where did you check", and "what
+ * must the reader verify". The discipline test in
+ * `tests/reporter/verify-hint.test.ts` iterates both lists through this shape.
  */
-export interface SymbolRemoval {
-  /** Exported symbol name as it appeared in the SDK. */
-  symbol: string;
-  /** First version in which the symbol no longer exists. */
+export interface RemovalFacts {
+  /** First version in which the symbol or method no longer exists. */
   removedIn: string;
-  /** Replacement symbol, when one exists. */
+  /** Replacement, when exactly one exists. */
   replacement?: string;
-  kind: 'rename' | 'signature-change' | 'removed';
-  /** Old and new symbol make the identical wire call — set by hand only. */
+  /**
+   * Replacements when the old entry point was split into several. Set with
+   * `kind: 'split'`; the message lists them and never guesses which one a
+   * given call site meant, because only the arguments decide.
+   */
+  replacements?: string[];
+  /**
+   * `rename`           — same thing, new name.
+   * `signature-change` — same name reachable, different contract.
+   * `moved`            — same name and behaviour, different import module.
+   * `split`            — one entry point became several; the caller chooses.
+   * `removed`          — gone, with no drop-in successor.
+   */
+  kind: 'rename' | 'signature-change' | 'moved' | 'split' | 'removed';
+  /**
+   * Old and new make the identical wire call — set by hand only.
+   *
+   * Asserts same HTTP method, same URL path, same auth, same request shape,
+   * established by reading both builders. Never inferred from a rename, and
+   * meaningless for a library with no wire call at all (a client-side editor,
+   * say) — those entries are always `false`.
+   */
   wireIdentical: boolean;
   /** Date the tarball comparison was performed. */
   verifiedAt: string;
@@ -153,6 +184,49 @@ export interface SymbolRemoval {
    * the entry is not verified enough to ship.
    */
   verifyHint: string;
+}
+
+/**
+ * An exported symbol that no longer exists in some version of a provider's SDK.
+ *
+ * Every field is hand-verified against the published tarballs — implementation,
+ * not just the type diff. See `providers/s2/compatibility.ts` for the worked
+ * example and `RemovalFacts` for the rules on writing `verifyHint`.
+ */
+export interface SymbolRemoval extends RemovalFacts {
+  /** Exported symbol name as it appeared in the SDK. */
+  symbol: string;
+  /**
+   * Module the symbol moved to, when it still exists under the same name at a
+   * different import path (`@tiptap/react` → `@tiptap/react/menus`).
+   *
+   * Load-bearing for precision, not just for the message: the detector matches
+   * a provider's package *and its subpaths*, so without this the rule would
+   * flag the very import that fixes the finding. Set it and that exact source
+   * is never reported.
+   */
+  movedTo?: string;
+}
+
+/**
+ * A method path off a client instance that no longer exists in some version of
+ * a provider's SDK — `supabase.auth.signIn(...)`, `client.metrics.query(...)`.
+ *
+ * The same hand-verification standard as `SymbolRemoval`, against the same
+ * evidence: two published tarballs, read as implementation. The difference is
+ * only where the break shows up in the caller's code, which is why these are
+ * matched against a *verified client receiver* rather than against an import.
+ */
+export interface MethodRemoval extends RemovalFacts {
+  /**
+   * Dotted method path off the client instance, exactly as written at the call
+   * site: 'metrics.query', 'auth.signIn', 'createSession'.
+   *
+   * Matched against the trailing segments of a call whose receiver traces to
+   * this provider's SDK — never against a bare name, which is what keeps a
+   * project's own `auth.signIn()` helper from matching.
+   */
+  path: string;
 }
 
 /**

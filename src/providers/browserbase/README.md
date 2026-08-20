@@ -92,6 +92,14 @@ Session lifecycle management, SDK usage, and error handling strategy.
 
 ---
 
+### Compatibility
+
+Code versus the SDK version this project has installed. These rules never suggest upgrading: an old call on a deliberately pinned old version is correct and stays silent forever. They fire only when the code calls a client method that provably does not exist in what `node_modules`/the lockfile/a pinned range resolves to — a runtime `TypeError` that nothing else catches in plain `.js` files, because the import and the constructor are unchanged. The receiver must trace to the SDK (construction, SDK constructor import, alias, or `this.<prop>`), so a project's own object with the same method name never matches. Removals are hand-verified against both published tarballs (implementation, not just the type diff) in [compatibility.ts](compatibility.ts); silence whenever the installed version cannot be resolved.
+
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| removed-method | error | 2.0.0 replaced the flat 1.x client with a generated resource client: `createSession` → `sessions.create`, `listSessions` → `sessions.list`, `getSession` → `sessions.retrieve`, and six more. Three are verified wire-identical renames; `createSession`/`completeSession`/`createContext` changed arguments, `getSessionDownloads` lost its retry loop, and `getConnectURL` has no successor. | [Node SDK](https://docs.browserbase.com/reference/sdk/nodejs) | [removed-method.ts](rules/js/removed-method.ts) | [test](../../../tests/rules/browserbase-removed-method.test.ts) |
+
 ## Test summary
 
 | Category    | Rules | Test files | Fixture pairs |

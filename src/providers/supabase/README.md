@@ -84,6 +84,14 @@ Idempotency, env validation, Realtime scope, and storage error surfacing.
 
 ---
 
+### Compatibility
+
+Code versus the SDK version this project has installed. These rules never suggest upgrading: an old call on a deliberately pinned old version is correct and stays silent forever. They fire only when the code calls a client method that provably does not exist in what `node_modules`/the lockfile/a pinned range resolves to — a runtime `TypeError` that nothing else catches in plain `.js` files, because the import and the constructor are unchanged. The receiver must trace to the SDK (construction, SDK constructor import, alias, or `this.<prop>`), so a project's own object with the same method name never matches. Removals are hand-verified against both published tarballs (implementation, not just the type diff) in [compatibility.ts](compatibility.ts); silence whenever the installed version cannot be resolved.
+
+| Rule | Severity | Why it matters | Docs | Rule file | Test |
+| ---- | -------- | --- | ---- | --------- | ---- |
+| removed-method | error | The v1 → v2 auth and realtime break, still the most common thing agents get wrong about this SDK: `auth.signIn` (split four ways), `auth.user`/`auth.session` (now async and networked), `auth.update`/`auth.verifyOTP` (wire-identical renames), `auth.setAuth`/`auth.getSessionFromUrl` (no successor), and `removeSubscription`/`getSubscriptions`/`removeAllSubscriptions` → the `*Channel(s)` API. | [Upgrade guide](https://supabase.com/docs/reference/javascript/v1/upgrade-guide) | [removed-method.ts](rules/js/removed-method.ts) | [test](../../../tests/rules/supabase-removed-method.test.ts) |
+
 ## Test summary
 
 | Category | Rules | Test files | Fixture pairs |

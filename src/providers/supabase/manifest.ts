@@ -1,4 +1,5 @@
 import type { ProviderManifest } from '../../types.js';
+import { supabaseCompatibility } from './compatibility.js';
 
 export const supabaseManifest: ProviderManifest = {
   name: 'supabase',
@@ -17,6 +18,32 @@ export const supabaseManifest: ProviderManifest = {
     clientConstructors: ['createClient', 'createBrowserClient', 'createServerClient'],
     clientNamePattern: /^supabase([-_]?(client|admin))?$/i,
     docsUrl: 'https://supabase.com/docs/reference/javascript/introduction',
+    // The version/commit this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm check:surface --local`
+    // reports every SDK source commit landed since `commit`, including logic
+    // changes that leave the method list untouched.
+    //
+    // supabase-js moved to an nx monorepo (packages/core, packages/shared)
+    // that versions every sub-client in lockstep with the root, which is why
+    // one `verified` block covers auth-js/storage-js/functions-js/realtime-js
+    // too: they are published from this commit at this same version.
+    verified: {
+      version: '2.112.3',
+      commit: 'a249594bc5790929ff090baa64f2d5bb3a40c286',
+      at: '2026-08-19',
+      sourceDir: 'packages/core',
+    },
+    // Read for 2.112.3: 2.111.0 → 2.112.3 is behaviour-only and adds no
+    // client-rooted method. Tracing moved to an opt-in /tracing subpath
+    // (#2583, a new entry point rather than a client method); maybeSingle now
+    // honours throwOnError when it finds multiple rows (#2580); realtime
+    // stopped duplicating `on` bindings (#2594), clears a stale join payload
+    // on sign-out (#2597) and keeps token refresh alive across setAuth
+    // (#2592); auth preserves 5xx error messages (#2587) and accepts
+    // uppercase UUIDs (#2467); storage exposes a service error code on
+    // StorageApiError (#2537). None is a removal or a rename, so nothing was
+    // added to compatibility.ts for the 2.x line — the entries there are all
+    // the v1 → v2 boundary.
     // Verified against @supabase/supabase-js@2.111.0 dist/index.d.mts
     // (SupabaseClient) and its lockstep-pinned sub-clients: @supabase/auth-js
     // 2.111.0 (GoTrueClient/GoTrueAdminApi + MFA/OAuth/passkey APIs),
@@ -277,5 +304,18 @@ export const supabaseManifest: ProviderManifest = {
       severity: 'warning',
       languages: ['javascript', 'python'],
     },
+    {
+      key: 'supabase-removed-method',
+      resultRule: 'supabase/removed-method',
+      message:
+        'Code calls a @supabase/supabase-js auth or realtime method that does not exist in the installed SDK version.',
+      fix: 'Move the call to its v2 equivalent — auth.user() → auth.getUser(), auth.session() → auth.getSession() (both now async and wrapped in { data, error }), auth.update() → auth.updateUser(), auth.verifyOTP() → auth.verifyOtp(), removeSubscription/getSubscriptions → removeChannel/getChannels. auth.signIn() has no single successor: read the per-finding Verify line, which names the branch each argument shape maps to.',
+      docsUrl: 'https://supabase.com/docs/reference/javascript/v1/upgrade-guide',
+      severity: 'error',
+      // The finding must name the installed version ("you have 2.112.3
+      // installed") — that fact only exists at lint time.
+      dynamicMessage: true,
+    },
   ],
+  compatibility: supabaseCompatibility,
 };

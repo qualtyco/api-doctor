@@ -1,0 +1,7 @@
+{
+  "name": "browserbase-removed-method-fixed",
+  "private": true,
+  "dependencies": {
+    "@browserbasehq/sdk": "2.18.0"
+  }
+}

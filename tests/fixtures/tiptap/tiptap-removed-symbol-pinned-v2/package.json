@@ -1,0 +1,8 @@
+{
+  "name": "tiptap-removed-symbol-pinned-v2",
+  "private": true,
+  "dependencies": {
+    "@tiptap/react": "2.27.2",
+    "@tiptap/starter-kit": "2.27.2"
+  }
+}

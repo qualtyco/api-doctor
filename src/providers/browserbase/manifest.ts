@@ -1,4 +1,5 @@
 import type { ProviderManifest } from '../../types.js';
+import { browserbaseCompatibility } from './compatibility.js';
 
 export const browserbaseManifest: ProviderManifest = {
   name: 'browserbase',
@@ -13,6 +14,28 @@ export const browserbaseManifest: ProviderManifest = {
     clientConstructors: ['Browserbase'],
     clientNamePattern: /^(bb|browserbase([-_]?client)?)$/i,
     docsUrl: 'https://docs.browserbase.com/reference/api/overview',
+    // The version/commit this surface was last read against by hand. Bump both
+    // together, only after re-reading the diff — `pnpm check:surface --local`
+    // reports every SDK source commit landed since `commit`, including logic
+    // changes that leave the method list untouched.
+    verified: {
+      version: '2.18.0',
+      commit: 'ba34ebf73fd95632cdb1466a27cb69aff4e52cb7',
+      at: '2026-08-19',
+      sourceDir: 'src',
+    },
+    // Read for 2.18.0: 2.0.0 → 2.18.0 is purely additive at the method level
+    // (compared across the published tarballs at 2.0.0/2.5.0/2.10.0/2.14.1/
+    // 2.18.0 — nothing removed), so no within-2.x compatibility entry exists.
+    // Two deprecations landed without removal and are NOT compatibility
+    // findings, because the symbols still work: `contexts.update` is marked
+    // @deprecated (resources/contexts.ts:33), and the `uploadUrl` field on
+    // ContextCreateResponse/ContextUpdateResponse now always returns a
+    // non-functional sentinel URL — Browserbase no longer supports context
+    // uploads via the API (2.17.0, "Deprecate presigned-url context
+    // uploads"). A caller still POSTing to that URL fails silently; that is a
+    // correctness rule if it is anything, not a removed symbol.
+    // The 1.x → 2.x break IS recorded, in compatibility.ts.
     // Verified against @browserbasehq/sdk@2.16.0 type declarations
     // (index.d.ts root class + resources/**/*.d.ts — multi-file Stainless
     // layout, resource classes resolved per file so the two distinct
@@ -163,5 +186,18 @@ export const browserbaseManifest: ProviderManifest = {
       docsUrl: 'https://docs.browserbase.com/reference/api/update-a-session',
       severity: 'warning',
     },
+    {
+      key: 'browserbase-removed-method',
+      resultRule: 'browserbase/removed-method',
+      message:
+        'Code calls a @browserbasehq/sdk client method that does not exist in the installed SDK version.',
+      fix: 'Move the call onto the 2.x resource client — createSession → sessions.create, listSessions → sessions.list, getSession → sessions.retrieve, getSessionLogs → sessions.logs.list, getDebugConnectionURLs → sessions.debug, createContext → contexts.create. Check the per-finding Verify line first: three of these changed arguments or dropped a retry loop, and getConnectURL has no successor at all.',
+      docsUrl: 'https://docs.browserbase.com/reference/sdk/nodejs',
+      severity: 'error',
+      // The finding must name the installed version ("you have 2.18.0
+      // installed") — that fact only exists at lint time.
+      dynamicMessage: true,
+    },
   ],
+  compatibility: browserbaseCompatibility,
 };
