@@ -142,6 +142,14 @@ interface FileFacts {
   nonClientLocals: Set<string>;
   /** Bare-package imports: local -> package, kept for the negative check. */
   packageImports: Array<{ local: string; source: string }>;
+  /**
+   * `export { supabase } from './client'` — a name forwarded from another
+   * project module. Resolved cross-file, because the origin's exports are not
+   * known until that file has been parsed.
+   */
+  reexports: Array<{ exported: string; imported: string; source: string }>;
+  /** `export * from './client'` — the sources a barrel forwards wholesale. */
+  starReexports: string[];
   /** `const { supabase } = <expr>` — names pulled off a client-bearing value. */
   destructures: Array<{ names: string[]; from: any }>;
 }
@@ -232,6 +240,15 @@ function visitExport(node: any, surface: ProviderSurface, facts: FileFacts): voi
             facts.sdkCtorReexports.add(exported);
           }
         }
+        return;
+      }
+      // Forwarded from another project module. `spec.local` is the name in the
+      // origin, `spec.exported` the name this file publishes — they differ
+      // under `export { supabase as db } from './client'`.
+      for (const spec of node.specifiers ?? []) {
+        const imported = spec.local?.name ?? spec.local?.value;
+        const exported = spec.exported?.name ?? spec.exported?.value;
+        if (imported && exported) facts.reexports.push({ exported, imported, source });
       }
       return;
     }
@@ -328,6 +345,8 @@ function collectFileFacts(program: any, surface: ProviderSurface): FileFacts {
     functionNodes: [],
     nonClientLocals: new Set(),
     packageImports: [],
+    reexports: [],
+    starReexports: [],
     destructures: [],
   };
 
@@ -352,6 +371,13 @@ function collectFileFacts(program: any, surface: ProviderSurface): FileFacts {
       case 'ExportNamedDeclaration':
       case 'ExportDefaultDeclaration': {
         visitExport(node, surface, facts);
+        break;
+      }
+      case 'ExportAllDeclaration': {
+        const src = node.source?.value;
+        // `export * as ns from './x'` publishes a namespace object, not the
+        // individual names — only the plain form forwards exports one-to-one.
+        if (typeof src === 'string' && !node.exported) facts.starReexports.push(src);
         break;
       }
       case 'VariableDeclarator': {
@@ -523,7 +549,7 @@ function resolvesToUnparsedProjectFile(
   byPath: Map<string, ParsedFile>,
   projectPaths: Set<string>,
 ): boolean {
-  if (!isProjectSpecifier(source)) return false;
+  if (!pointsIntoProject(source, projectPaths)) return false;
   const src = source.replace(/\.[cm]?[jt]sx?$/, '');
   if (src.startsWith('.')) {
     const dir = normalizePath(fromPath).split('/').slice(0, -1).join('/');
@@ -554,6 +580,38 @@ function isProjectSpecifier(source: string): boolean {
     source.startsWith('#') ||
     /^\$[^/]+\//.test(source)
   );
+}
+
+/**
+ * The one project path a specifier names, or null when it names none or is
+ * ambiguous. Suffix-matched, the same way `resolveImportTarget` resolves an
+ * alias — but against every project file rather than only the parsed ones.
+ */
+function uniqueProjectMatch(source: string, projectPaths: Set<string>): string | null {
+  const src = source.replace(/\.[cm]?[jt]sx?$/, '');
+  const bare = src.replace(/^[@~]\//, '').replace(/^[$#][^/]*\//, '');
+  if (!bare) return null;
+  const hits = [...projectPaths].filter(
+    (p) => p === bare || p.endsWith(`/${bare}`) || p === `${bare}/index` || p.endsWith(`/${bare}/index`),
+  );
+  return hits.length === 1 ? hits[0] : null;
+}
+
+/**
+ * True when `source` points inside the project rather than at a package.
+ * `isProjectSpecifier` covers the shapes that announce themselves; this adds
+ * the sigil-less tsconfig/bundler alias (`utils`, `components`), which is
+ * indistinguishable from an npm package by shape alone — only the project's
+ * own file list separates `utils` from `lodash`.
+ *
+ * Reading such an alias as a package is not a missed nicety: it lands the
+ * binding in `nonClientLocals`, and the gate drops every finding on the client
+ * imported through it. A project whose alias genuinely collides with an
+ * installed package still ends up denied, just via the project-module path
+ * below, which reaches the same verdict for a reason it can defend.
+ */
+function pointsIntoProject(source: string, projectPaths: Set<string>): boolean {
+  return isProjectSpecifier(source) || uniqueProjectMatch(source, projectPaths) !== null;
 }
 
 function resolveImportTarget(
@@ -810,6 +868,42 @@ function buildParsedFiles(
       }
       if (progressed) indexParsed();
 
+      // (1b) barrels: `export * from './client'` and `export { supabase } from
+      // './client'`. A re-exporting index.ts declares nothing itself, so
+      // without this it looks like a module holding no client at all — which
+      // (2a) below then reads as positive evidence that the binding imported
+      // through it is NOT a client, silencing every finding on that client.
+      // Runs before (2a) because nonClientLocals is additive: a deny recorded
+      // in an earlier round is never revisited.
+      for (const file of parsed) {
+        let forwarded = false;
+        const forward = (target: ParsedFile, imported: string, exported: string): void => {
+          if (target.clientExports.has(imported) && !file.clientExports.has(exported)) {
+            file.clientExports.add(exported);
+            forwarded = true;
+          }
+          if (target.ctorExports.has(imported) && !file.ctorExports.has(exported)) {
+            file.ctorExports.add(exported);
+            forwarded = true;
+          }
+        };
+        for (const { exported, imported, source } of file.facts.reexports) {
+          const target = resolveImportTarget(source, file.relPath, byPath);
+          // `target === file` guards the circular barrel (`index` re-exporting
+          // a module that imports `index` back) against a self-feeding loop.
+          if (target && target !== file) forward(target, imported, exported);
+        }
+        for (const source of file.facts.starReexports) {
+          const target = resolveImportTarget(source, file.relPath, byPath);
+          if (!target || target === file) continue;
+          for (const name of [...target.clientExports, ...target.ctorExports]) {
+            forward(target, name, name);
+          }
+        }
+        // A barrel chain resolves one link per round; the loop's own cap bounds it.
+        if (forwarded) progressed = true;
+      }
+
       // (2a) negative evidence: a binding whose origin is positively NOT this
       // provider. Two safe sources — an import from another vendor's package,
       // and an import from a project module that exports no client at all.
@@ -817,13 +911,13 @@ function buildParsedFiles(
       for (const file of parsed) {
         for (const { local, source } of file.facts.packageImports) {
           if (file.facts.clientVars.has(local) || file.facts.ctorLocals.has(local)) continue;
-          if (isProjectSpecifier(source)) continue; // an alias, not a package
+          if (pointsIntoProject(source, projectPaths)) continue; // an alias, not a package
           if (!surface.packages.some((pkg) => source === pkg || source.startsWith(`${pkg}/`))) {
             file.facts.nonClientLocals.add(local);
           }
         }
         for (const { local, imported, source } of file.facts.moduleImports) {
-          if (!isProjectSpecifier(source)) continue;
+          if (!pointsIntoProject(source, projectPaths)) continue;
           if (file.facts.clientVars.has(local) || file.facts.ctorLocals.has(local)) continue;
           const target = resolveImportTarget(source, file.relPath, byPath);
           if (target) {
